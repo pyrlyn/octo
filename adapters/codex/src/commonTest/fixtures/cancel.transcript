@@ -1,0 +1,16 @@
+# Resume, interrupt mid-turn, then a failed turn (synthetic).
+> {"id":1,"method":"initialize"}
+< {"id":1,"result":{}}
+> {"method":"initialized"}
+> {"id":2,"method":"thread/resume","params":{"threadId":"old","cwd":"/repo"}}
+< {"id":2,"result":{"thread":{"id":"old"}}}
+> {"id":3,"method":"turn/start","params":{"threadId":"old"}}
+< {"id":3,"result":{"turn":{"id":"turn-1","status":"inProgress"}}}
+> {"id":4,"method":"turn/interrupt","params":{"threadId":"old","turnId":"turn-1"}}
+< {"id":4,"result":{}}
+< {"method":"turn/completed","params":{"threadId":"old","turn":{"id":"turn-1","status":"interrupted"}}}
+> {"id":5,"method":"turn/start"}
+< {"id":5,"result":{"turn":{"id":"turn-2","status":"inProgress"}}}
+< {"method":"error","params":{"error":{"message":"stream disconnected"},"willRetry":true}}
+< {"method":"turn/completed","params":{"threadId":"old","turn":{"id":"turn-2","status":"failed","error":{"message":"API Error: 529 overloaded"}}}}
+x 1

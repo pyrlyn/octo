@@ -2,6 +2,7 @@ package octo.adapters.base
 
 import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.CoroutineStart
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.sync.Mutex
@@ -34,8 +35,12 @@ class JsonRpcException(
 
 /** What the other side may call on us. */
 interface JsonRpcHandler {
-    /** Answers a request; throw [JsonRpcException] to reply with an error. May suspend for user input. */
+    /**
+     * Answers a request; throw [JsonRpcException] to reply with an error. May suspend for user input.
+     * [id] is the request id as text, so it can be matched against later "request resolved" notices.
+     */
     suspend fun onRequest(
+        id: String,
         method: String,
         params: JsonElement?,
     ): JsonElement
@@ -130,10 +135,25 @@ class JsonRpcPeer(
         val id = message["id"]?.takeUnless { it is JsonNull }
         val method = (message["method"] as? JsonPrimitive)?.contentOrNull
         when {
-            method != null && id != null -> scope.launch { answer(id, method, message["params"]) }
-            method != null -> notification(method, message["params"])
-            id != null -> resolve(id, message)
-            else -> onProtocolIssue(line)
+            // Undispatched, so a handler registers its request before the next line is read: a later
+            // notification that withdraws it (Codex `serverRequest/resolved`) then finds it.
+            method != null && id != null -> {
+                scope.launch(start = CoroutineStart.UNDISPATCHED) {
+                    answer(id, method, message["params"])
+                }
+            }
+
+            method != null -> {
+                notification(method, message["params"])
+            }
+
+            id != null -> {
+                resolve(id, message)
+            }
+
+            else -> {
+                onProtocolIssue(line)
+            }
         }
     }
 
@@ -147,7 +167,7 @@ class JsonRpcPeer(
     ) {
         val reply =
             try {
-                val result = handler.onRequest(method, params)
+                val result = handler.onRequest((id as? JsonPrimitive)?.contentOrNull ?: id.toString(), method, params)
                 message {
                     put("id", id)
                     put("result", result)

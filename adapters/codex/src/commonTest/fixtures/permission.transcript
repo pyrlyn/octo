@@ -1,0 +1,22 @@
+# Approvals, a question, a withdrawn request and a credential request Octo refuses (synthetic).
+> {"id":1,"method":"initialize"}
+< {"id":1,"result":{}}
+> {"method":"initialized"}
+> {"id":2,"method":"thread/start"}
+< {"id":2,"result":{"thread":{"id":"thr-1"}}}
+> {"id":3,"method":"turn/start"}
+< {"id":3,"result":{"turn":{"id":"turn-1","status":"inProgress"}}}
+< {"id":0,"method":"item/commandExecution/requestApproval","params":{"threadId":"thr-1","turnId":"turn-1","itemId":"c1","command":"rm a.txt","reason":"Deletes a file"}}
+> {"id":0,"result":{"decision":"acceptForSession"}}
+< {"id":1,"method":"item/tool/requestUserInput","params":{"threadId":"thr-1","turnId":"turn-1","itemId":"t1","questions":[{"id":"fmt","header":"Format","question":"Which format?","isOther":false,"isSecret":false,"options":[{"label":"Summary","description":""},{"label":"Detailed","description":""}]}]}}
+> {"id":1,"result":{"answers":{"fmt":{"answers":["Summary"]}}}}
+< {"id":2,"method":"item/fileChange/requestApproval","params":{"threadId":"thr-1","turnId":"turn-1","itemId":"f1"}}
+> {"id":2,"result":{"decision":"decline"}}
+< {"id":3,"method":"item/fileChange/requestApproval","params":{"threadId":"thr-1","turnId":"turn-1","itemId":"f2"}}
+< {"method":"serverRequest/resolved","params":{"threadId":"thr-1","requestId":3}}
+# A withdrawn request still gets its reply, as cancelled.
+> {"id":3,"result":{"decision":"cancel"}}
+< {"id":4,"method":"account/chatgptAuthTokens/refresh","params":{}}
+> {"id":4,"error":{"code":-32601}}
+< {"method":"turn/completed","params":{"threadId":"thr-1","turn":{"id":"turn-1","status":"completed"}}}
+x 0
