@@ -43,6 +43,12 @@ there, so your keys, agent and `~/.ssh/config` apply. It never asks for a passwo
 `port` and `worktrees` are optional. Worktrees go under `$HOME/.octo/worktrees` on the machine
 by default. Publish works only for tasks on this computer for now.
 
+On macOS and Linux, all of Octo's calls to one machine share a single SSH connection, so only
+the first one pays for the handshake. Octo starts that connection itself and closes it when it
+quits. Its socket lives in a folder only you can read: `$TMPDIR/octo` on macOS,
+`$XDG_RUNTIME_DIR/octo` on Linux. A machine `id` that would make the socket path too long gets
+a separate connection per call, with a warning. Windows always uses a connection per call.
+
 `"agent-messaging": true` lets agents talk to each other. Octo runs an MCP server on
 `127.0.0.1` and gives each Claude, Cursor, Grok and Antigravity session three tools:
 `list_tasks`, `send_message` and `wait_for_idle`. A message waits until its target is idle and
