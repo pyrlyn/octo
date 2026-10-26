@@ -1,0 +1,16 @@
+# A tool approval and a clarifying question over the control protocol (synthetic).
+> {"type":"control_request","request_id":"req_1","request":{"subtype":"initialize"}}
+< {"type":"control_response","response":{"subtype":"success","request_id":"req_1","response":{}}}
+> {"type":"user"}
+< {"type":"control_request","request_id":"perm-1","request":{"subtype":"can_use_tool","tool_name":"Bash","input":{"command":"rm a.txt"},"permission_suggestions":[{"type":"addRules","rules":[{"toolName":"Bash","ruleContent":"rm:*"}],"behavior":"allow","destination":"localSettings"}],"tool_use_id":"tu1"}}
+> {"type":"control_response","response":{"subtype":"success","request_id":"perm-1","response":{"behavior":"allow","updatedInput":{"command":"rm a.txt"},"updatedPermissions":[{"destination":"localSettings"}]}}}
+< {"type":"control_request","request_id":"ask-1","request":{"subtype":"can_use_tool","tool_name":"AskUserQuestion","input":{"questions":[{"question":"Which format?","header":"Format","options":[{"label":"Summary","description":"Brief"},{"label":"Detailed","description":"Full"}],"multiSelect":false}]}}}
+> {"type":"control_response","response":{"subtype":"success","request_id":"ask-1","response":{"behavior":"allow","updatedInput":{"questions":[{"question":"Which format?"}],"answers":{"Which format?":"Summary"}}}}}
+< {"type":"control_request","request_id":"perm-2","request":{"subtype":"can_use_tool","tool_name":"Write","input":{"file_path":"b.txt"}}}
+> {"type":"control_response","response":{"subtype":"success","request_id":"perm-2","response":{"behavior":"deny"}}}
+< {"type":"control_request","request_id":"perm-3","request":{"subtype":"can_use_tool","tool_name":"Edit","input":{"file_path":"c.txt"}}}
+< {"type":"control_cancel_request","request_id":"perm-3"}
+< {"type":"control_request","request_id":"hook-1","request":{"subtype":"hook_callback","callback_id":"x"}}
+> {"type":"control_response","response":{"subtype":"error","request_id":"hook-1"}}
+< {"type":"result","subtype":"success","is_error":false,"duration_ms":1,"duration_api_ms":1,"num_turns":1,"session_id":"sess-1"}
+x 0

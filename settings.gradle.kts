@@ -19,6 +19,7 @@ include(
     ":core",
     ":testing",
     ":adapters:base",
+    ":adapters:claude",
     ":ui",
     ":app",
 )

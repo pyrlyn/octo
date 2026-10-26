@@ -6,7 +6,7 @@ plugins {
 
 dependencies {
     implementation(project(":ui"))
-    implementation(project(":adapters:base"))
+    implementation(project(":adapters:claude"))
     implementation(compose.desktop.currentOs)
     implementation(libs.kotlinx.coroutines.swing)
 }
