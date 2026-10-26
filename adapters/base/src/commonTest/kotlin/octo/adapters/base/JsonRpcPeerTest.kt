@@ -22,6 +22,7 @@ class JsonRpcPeerTest {
         val notifications = mutableListOf<String>()
 
         override suspend fun onRequest(
+            id: String,
             method: String,
             params: JsonElement?,
         ): JsonElement =

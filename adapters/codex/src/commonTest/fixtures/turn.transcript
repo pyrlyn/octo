@@ -1,0 +1,22 @@
+# One turn with reasoning, a command, a plan and usage (synthetic, codex-cli 0.162.1 app-server v2 schema).
+> {"id":1,"method":"initialize","params":{"clientInfo":{"name":"octo"},"capabilities":null}}
+< {"id":1,"result":{"userAgent":"codex/0.162.1","codexHome":"/home/u/.codex","platformFamily":"unix","platformOs":"macos"}}
+> {"method":"initialized"}
+> {"id":2,"method":"thread/start","params":{"cwd":"/repo","model":"gpt-5","approvalPolicy":"on-request","sandbox":"workspace-write"}}
+< {"id":2,"result":{"thread":{"id":"thr-1"},"model":"gpt-5"}}
+> {"id":3,"method":"turn/start","params":{"threadId":"thr-1","input":[{"type":"text","text":"List the files"}]}}
+< {"id":3,"result":{"turn":{"id":"turn-1","status":"inProgress","error":null,"items":[]}}}
+< {"method":"turn/started","params":{"threadId":"thr-1","turn":{"id":"turn-1","status":"inProgress"}}}
+< {"method":"item/completed","params":{"threadId":"thr-1","turnId":"turn-1","item":{"type":"reasoning","id":"r1","summary":["Use ls."],"content":[]}}}
+< {"method":"item/started","params":{"threadId":"thr-1","turnId":"turn-1","item":{"type":"commandExecution","id":"c1","command":"ls","cwd":"/repo","status":"inProgress"}}}
+< {"method":"item/completed","params":{"threadId":"thr-1","turnId":"turn-1","item":{"type":"commandExecution","id":"c1","command":"ls","cwd":"/repo","status":"completed","aggregatedOutput":"a.txt\nb.txt","exitCode":0}}}
+< {"method":"item/completed","params":{"threadId":"thr-1","turnId":"turn-1","item":{"type":"fileChange","id":"f1","status":"failed","changes":[{"path":"a.txt","kind":"update","diff":"-a\n+b"}]}}}
+< {"method":"turn/plan/updated","params":{"threadId":"thr-1","turnId":"turn-1","plan":[{"step":"List","status":"completed"},{"step":"Report","status":"pending"}]}}
+< {"method":"item/started","params":{"threadId":"thr-1","turnId":"turn-1","item":{"type":"agentMessage","id":"m1","text":""}}}
+< {"method":"item/agentMessage/delta","params":{"threadId":"thr-1","turnId":"turn-1","itemId":"m1","delta":"Look"}}
+< {"method":"item/agentMessage/delta","params":{"threadId":"thr-1","turnId":"turn-1","itemId":"m1","delta":"ing."}}
+< {"method":"item/completed","params":{"threadId":"thr-1","turnId":"turn-1","item":{"type":"agentMessage","id":"m1","text":"Looking."}}}
+< not json at all
+< {"method":"thread/tokenUsage/updated","params":{"threadId":"thr-1","turnId":"turn-1","tokenUsage":{"total":{"inputTokens":500,"outputTokens":90},"last":{"inputTokens":120,"outputTokens":30}}}}
+< {"method":"turn/completed","params":{"threadId":"thr-1","turn":{"id":"turn-1","status":"completed","error":null}}}
+x 0
