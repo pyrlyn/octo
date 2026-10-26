@@ -238,13 +238,20 @@ interface OctoCore {
     suspend fun createTask(request: NewTask): TaskId // repo, base ref, agent, title, first prompt
     suspend fun sendPrompt(taskId: TaskId, text: String)
     suspend fun respond(taskId: TaskId, requestId: String, response: RequestResponse)
+    suspend fun cancel(taskId: TaskId)              // cancel the current turn
     suspend fun stop(taskId: TaskId)
     suspend fun restart(taskId: TaskId)             // resume when the adapter can, else fresh
-    suspend fun removeTask(taskId: TaskId, deleteWorktree: Boolean)
+    suspend fun removeTask(taskId: TaskId, deleteWorktree: Boolean, force: Boolean = false)
     suspend fun diff(taskId: TaskId): TaskDiff
     suspend fun updateLayout(layout: Layout)
+    suspend fun markSeen(taskId: TaskId)            // clears the "done" mark
 }
 ```
+
+`Orchestrator` implements it. `Orchestrator.open(...)` loads `state.json`; `close()` stops every
+agent and writes the state. `close()` belongs to `app`, so it is not on the interface the UI sees.
+- **Terms.** Before every start, `TermsGate.requireAcknowledged` runs; `createTask` throws
+  `TermsNotAcknowledgedException` before it touches the repository.
 
 - **Tasks and worktrees.** Each task gets a worktree at `<octo home>/worktrees/<repo>/<task-slug>`
   on a new branch `octo/<task-slug>` cut from the chosen base ref. Removing a task never deletes
