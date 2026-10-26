@@ -11,6 +11,7 @@ import androidx.compose.foundation.lazy.items
 import androidx.compose.material3.Button
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -25,6 +26,8 @@ internal fun Sidebar(
     state: MainUiState,
     vm: MainViewModel,
     modifier: Modifier = Modifier,
+    /** Null hides the action, while remote access is off. */
+    onDevices: (() -> Unit)? = null,
 ) {
     Column(modifier.background(MaterialTheme.colorScheme.surfaceContainer)) {
         Button(onClick = vm::openNewTask, modifier = Modifier.fillMaxWidth().padding(Gap)) { Text("New task") }
@@ -49,6 +52,7 @@ internal fun Sidebar(
                 }
             }
         }
+        onDevices?.let { TextButton(onClick = it, modifier = Modifier.fillMaxWidth().padding(Gap)) { Text("Devices") } }
     }
 }
 

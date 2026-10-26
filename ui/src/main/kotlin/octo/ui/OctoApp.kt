@@ -44,6 +44,7 @@ import java.awt.Cursor
 fun OctoApp(models: ViewModels) {
     val main = models.main
     val state by main.state.collectAsState()
+    var devicesOpen by remember { mutableStateOf(false) }
     MaterialTheme(colorScheme = if (isSystemInDarkTheme()) darkColorScheme() else lightColorScheme()) {
         Surface(Modifier.fillMaxSize()) {
             Column(Modifier.fillMaxSize()) {
@@ -52,7 +53,12 @@ fun OctoApp(models: ViewModels) {
                 Row(Modifier.fillMaxSize()) {
                     var dragging by remember { mutableStateOf<Float?>(null) }
                     val width = dragging ?: state.sidebarWidth
-                    Sidebar(state, main, Modifier.width(width.dp).fillMaxHeight())
+                    Sidebar(
+                        state,
+                        main,
+                        Modifier.width(width.dp).fillMaxHeight(),
+                        onDevices = if (models.canPair) ({ devicesOpen = true }) else null,
+                    )
                     // Only the final width is persisted, not every frame of the drag.
                     SidebarHandle(
                         onDrag = { delta -> dragging = clampWidth((dragging ?: state.sidebarWidth) + delta) },
@@ -69,6 +75,7 @@ fun OctoApp(models: ViewModels) {
                 DisposableEffect(vm) { onDispose { vm.close() } }
                 NewTaskDialog(vm, onCreated = main::created, onDismiss = main::closeNewTask, presets = models::presets)
             }
+            if (devicesOpen) DevicesPane(models, onDismiss = { devicesOpen = false })
         }
     }
 }
@@ -136,6 +143,16 @@ private fun TaskPane(
         DisposableEffect(publish) { onDispose { publish.close() } }
         PublishDialog(publish, onDismiss = { publishing = false })
     }
+}
+
+@Composable
+private fun DevicesPane(
+    models: ViewModels,
+    onDismiss: () -> Unit,
+) {
+    val vm = remember { models.devices() } ?: return
+    DisposableEffect(vm) { onDispose { vm.close() } }
+    DevicesDialog(vm, onDismiss)
 }
 
 @Composable

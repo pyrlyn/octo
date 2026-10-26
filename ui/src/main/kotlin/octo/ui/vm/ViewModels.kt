@@ -1,6 +1,7 @@
 package octo.ui.vm
 
 import kotlinx.coroutines.CoroutineScope
+import octo.core.access.Devices
 import octo.core.orchestrator.AgentCatalog
 import octo.core.orchestrator.OctoCore
 import octo.core.preset.PresetLibrary
@@ -17,10 +18,15 @@ class ViewModels(
     private val publisher: TaskPublisher? = null,
     /** Null while the `presets` flag is off, which hides teams. */
     private val presets: PresetLibrary? = null,
+    /** Null while the `remote-access` flag is off or its server is down, which hides devices. */
+    private val devices: Devices? = null,
+    private val remoteUrl: String? = null,
 ) {
     val main = MainViewModel(core, scope, startupWarnings)
 
     val canPublish: Boolean get() = publisher != null
+
+    val canPair: Boolean get() = devices != null && remoteUrl != null
 
     fun task(id: TaskId) = TaskViewModel(core, id, scope)
 
@@ -29,6 +35,9 @@ class ViewModels(
     fun newTask() = NewTaskViewModel(core, catalog, scope, presets)
 
     fun presets(): PresetsViewModel? = presets?.let { PresetsViewModel(it, catalog, scope) }
+
+    fun devices(): DevicesViewModel? =
+        if (devices != null && remoteUrl != null) DevicesViewModel(devices, remoteUrl, scope) else null
 
     fun publish(
         id: TaskId,

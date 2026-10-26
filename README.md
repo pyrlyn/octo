@@ -54,5 +54,22 @@ preset → Edit presets…, and start every member on one repository at once. In
 agents, each one is told its role and who its teammates are. Presets are kept in `presets.json`
 in the Octo home. If that file cannot be read, Octo shows a warning and never overwrites it.
 
+`"remote-access": true` serves a JSON API for a phone or another computer at
+`http://127.0.0.1:47470/api/v1`; `"remoteAccess": { "port": 47470 }` changes the port. It listens
+on this computer only. Reach it through your own tunnel, such as
+`ssh -L 47470:127.0.0.1:47470 <this computer>` or `tailscale serve 47470`, which also encrypts
+the traffic. Pair a device from Devices in the sidebar: Octo shows a one-time code that works for
+five minutes and five tries. `POST /api/v1/pair` with `{"code", "name"}` returns the device's
+token; every other call sends it as `Authorization: Bearer <token>`. The calls:
+
+- `GET /tasks`, `POST /tasks` with `{repo, baseRef, agent, title, prompt?, options?, machine?}`;
+- `GET /tasks/{id}/transcript`;
+- `POST /tasks/{id}/prompt` with `{text}`, and `POST /tasks/{id}/respond` with `{requestId}` plus
+  one of `optionId`, `answers` or `cancelled: true`;
+- `POST /tasks/{id}/cancel`, `/stop` and `/restart`.
+
+Vendor terms are accepted only in the Octo window; until then creating a task answers 409.
+`devices.json` keeps only a SHA-256 of each token, and Revoke locks a device out at once.
+
 `./gradlew ktlintFormat` fixes formatting. CI also builds every Kotlin/Native target with
 `-Pocto.allNativeTargets=true`; locally only the host's native target is built.

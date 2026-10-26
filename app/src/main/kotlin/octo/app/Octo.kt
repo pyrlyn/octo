@@ -2,6 +2,10 @@ package octo.app
 
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.io.IOException
+import octo.core.access.Devices
+import octo.core.access.JvmSecrets
+import octo.core.access.RemoteApi
+import octo.core.access.RemoteHttpServer
 import octo.core.config.OctoConfig
 import octo.core.flags.CoreFlags
 import octo.core.git.Git
@@ -35,11 +39,19 @@ class Octo private constructor(
     internal val mcpServer: HttpMcpServer?,
     /** Null unless the `presets` flag is on. */
     val presets: PresetLibrary?,
+    /** Null unless the `remote-access` flag is on and its server could start. */
+    internal val remoteServer: RemoteHttpServer?,
+    /** Paired devices; null exactly when [remoteServer] is. */
+    val devices: Devices?,
 ) {
     val core: OctoCore get() = orchestrator
 
+    /** Where the remote API listens, e.g. `http://127.0.0.1:47470`. */
+    val remoteUrl: String? get() = remoteServer?.url
+
     /** Stops every agent and writes the last state. */
     suspend fun close() {
+        remoteServer?.close()
         orchestrator.close()
         mcpServer?.close()
     }
@@ -93,8 +105,38 @@ class Octo private constructor(
                 } else {
                     null
                 }
-            val warnings = listOfNotNull(warning, mcpWarning, presets?.warning) + remote.warnings
-            return Octo(orchestrator, catalog, warnings, publisher, mcpServer, presets)
+            val access =
+                if (flags.isEnabled(CoreFlags.REMOTE_ACCESS)) {
+                    startRemoteAccess(config, paths, orchestrator)
+                } else {
+                    RemoteAccess()
+                }
+            val warnings =
+                listOfNotNull(warning, mcpWarning, presets?.warning, access.warning) + remote.warnings
+            return Octo(orchestrator, catalog, warnings, publisher, mcpServer, presets, access.server, access.devices)
+        }
+
+        private data class RemoteAccess(
+            val server: RemoteHttpServer? = null,
+            val devices: Devices? = null,
+            val warning: String? = null,
+        )
+
+        // A taken port or a broken devices.json turns remote access off; the window works as before.
+        private suspend fun startRemoteAccess(
+            config: OctoConfig,
+            paths: OctoPaths,
+            core: OctoCore,
+        ): RemoteAccess {
+            val port = config.remoteAccess.port
+            val devices = Devices.open(AtomicFile(paths.devices), JvmSecrets)
+            val problem = config.remoteAccess.problem() ?: devices.warning
+            if (problem != null) return RemoteAccess(warning = "Remote access is off: $problem")
+            return try {
+                RemoteAccess(RemoteHttpServer(RemoteApi(core, devices), port).start(), devices)
+            } catch (e: java.io.IOException) {
+                RemoteAccess(warning = "Remote access is off: port $port: ${e.message}")
+            }
         }
 
         private data class Messaging(

@@ -11,6 +11,7 @@ import kotlinx.coroutines.launch
 import kotlinx.coroutines.withTimeoutOrNull
 import octo.core.agent.McpServer
 import octo.core.agent.Role
+import octo.core.http.bearerToken
 import octo.core.orchestrator.OctoCore
 import octo.core.status.AgentStatus
 import octo.core.task.OctoState
@@ -72,7 +73,7 @@ class AgentMessaging(
 
     /** The task whose agent sent [authorization], or null for a missing or unknown token. */
     fun caller(authorization: String?): TaskId? {
-        val token = authorization?.removePrefix("Bearer ")?.takeIf { it != authorization } ?: return null
+        val token = bearerToken(authorization) ?: return null
         return tokens.value.entries
             .firstOrNull { it.value == token }
             ?.key

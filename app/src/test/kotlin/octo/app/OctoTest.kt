@@ -11,12 +11,15 @@ import octo.core.paths.OctoPaths
 import octo.core.process.JvmProcessLauncher
 import java.io.File
 import java.net.ConnectException
+import java.net.InetAddress
+import java.net.ServerSocket
 import java.net.URI
 import java.nio.file.Files
 import kotlin.test.AfterTest
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertFailsWith
+import kotlin.test.assertFalse
 import kotlin.test.assertNotNull
 import kotlin.test.assertNull
 import kotlin.test.assertTrue
@@ -75,6 +78,38 @@ class OctoTest {
         val on = open("""{"flags": {"${CoreFlags.PRESETS.id}": true}}""")
         assertNotNull(on.presets)
         assertTrue(on.warnings.single().contains("presets.json"), on.warnings.toString())
+    }
+
+    @Test
+    fun remoteAccessNeedsItsFlagListensOnLoopbackAndStopsWithOcto() {
+        val port = ServerSocket(0).use { it.localPort }
+        val config = """{"flags": {"${CoreFlags.REMOTE_ACCESS.id}": true}, "remoteAccess": {"port": $port}}"""
+        val off = open("""{"remoteAccess": {"port": $port}}""")
+        assertNull(off.remoteUrl)
+        assertNull(off.devices)
+        assertFalse(File(home, "devices.json").exists(), "nothing is read or written while the feature is off")
+
+        val on = open(config)
+        assertEquals("http://127.0.0.1:$port", on.remoteUrl)
+        assertNotNull(on.devices)
+        assertFailsWith<ConnectException>("closing Octo stops the server") {
+            URI(on.remoteUrl!!).toURL().openConnection().connect()
+        }
+    }
+
+    @Test
+    fun aTakenPortOrABadOneTurnsRemoteAccessOffWithAWarning() {
+        ServerSocket(0, 0, InetAddress.getByName("127.0.0.1")).use { taken ->
+            val flag = """"flags": {"${CoreFlags.REMOTE_ACCESS.id}": true}"""
+            val busy = open("""{$flag, "remoteAccess": {"port": ${taken.localPort}}}""")
+            assertNull(busy.remoteUrl)
+            assertNull(busy.devices)
+            assertTrue(busy.warnings.single().contains("Remote access is off"), busy.warnings.toString())
+
+            val bad = open("""{$flag, "remoteAccess": {"port": 70000}}""")
+            assertNull(bad.remoteUrl)
+            assertTrue(bad.warnings.single().contains("70000"), bad.warnings.toString())
+        }
     }
 
     @Test
