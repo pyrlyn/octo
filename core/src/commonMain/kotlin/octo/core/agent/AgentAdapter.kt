@@ -41,6 +41,13 @@ data class AgentProbe(
     val versionDrift: Boolean get() = version != null && version != verifiedVersion
 }
 
+/** A change of [version] shows the notice again. */
+data class VendorTerms(
+    val version: String,
+    val summary: String,
+    val url: String,
+)
+
 data class SessionSpec(
     val workingDir: String,
     val resume: AgentSessionRef? = null,
@@ -59,6 +66,9 @@ interface AgentAdapter {
 
     /** When set, the adapter is registered only while this flag is enabled. */
     val featureFlag: FeatureFlag? get() = null
+
+    /** Vendor terms the user must acknowledge before the first session (see `TermsGate`). */
+    val terms: VendorTerms? get() = null
 
     suspend fun probe(): AgentProbe
 

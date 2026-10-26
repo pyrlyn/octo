@@ -1,0 +1,10 @@
+# A new session and one turn (synthetic: the Antigravity ACP server has no published protocol
+# documentation, so this only follows ACP v1).
+> {"jsonrpc":"2.0","id":1,"method":"initialize","params":{"protocolVersion":1}}
+< {"jsonrpc":"2.0","id":1,"result":{"protocolVersion":1,"agentCapabilities":{"loadSession":true},"authMethods":[]}}
+> {"jsonrpc":"2.0","id":2,"method":"session/new","params":{"cwd":"/repo","mcpServers":[]}}
+< {"jsonrpc":"2.0","id":2,"result":{"sessionId":"agy-1"}}
+> {"jsonrpc":"2.0","id":3,"method":"session/prompt","params":{"sessionId":"agy-1","prompt":[{"type":"text","text":"Hi"}]}}
+< {"jsonrpc":"2.0","method":"session/update","params":{"sessionId":"agy-1","update":{"sessionUpdate":"agent_message_chunk","content":{"type":"text","text":"Hello."}}}}
+< {"jsonrpc":"2.0","id":3,"result":{"stopReason":"end_turn"}}
+x 0

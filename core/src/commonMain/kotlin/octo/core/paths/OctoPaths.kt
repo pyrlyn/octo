@@ -11,6 +11,7 @@ data class OctoPaths(
     val state: Path get() = Path(home, "state.json")
     val config: Path get() = Path(home, "config.json")
     val worktrees: Path get() = Path(home, "worktrees")
+    val acknowledgements: Path get() = Path(home, "acknowledgements.json")
 
     companion object {
         fun resolve(
