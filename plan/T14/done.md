@@ -52,3 +52,5 @@
 
 - The dialogs by eye: no visual check of the window this time.
 - CI on GitHub: blocked by the account's billing, as for the previous tasks.
+
+PR: https://github.com/pyrlyn/octo/pull/18
