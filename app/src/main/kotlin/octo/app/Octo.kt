@@ -3,7 +3,9 @@ package octo.app
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.io.IOException
 import octo.core.config.OctoConfig
+import octo.core.flags.CoreFlags
 import octo.core.git.Git
+import octo.core.git.GitHubCli
 import octo.core.git.GitWorkspace
 import octo.core.io.AtomicFile
 import octo.core.orchestrator.AgentCatalog
@@ -13,6 +15,8 @@ import octo.core.orchestrator.RegistryAgentCatalog
 import octo.core.paths.OctoPaths
 import octo.core.persist.StateStore
 import octo.core.process.ProcessLauncher
+import octo.core.publish.GitTaskPublisher
+import octo.core.publish.TaskPublisher
 import octo.core.terms.TermsGate
 
 /** Everything the window needs, built from one Octo home. */
@@ -21,6 +25,8 @@ class Octo private constructor(
     val catalog: AgentCatalog,
     /** Start-up problems the core does not know about, such as a broken config file. */
     val warnings: List<String>,
+    /** Null unless the `git-publish` flag is on. */
+    val publisher: TaskPublisher?,
 ) {
     val core: OctoCore get() = orchestrator
 
@@ -34,7 +40,8 @@ class Octo private constructor(
             scope: CoroutineScope,
         ): Octo {
             val (config, warning) = readConfig(AtomicFile(paths.config))
-            val registry = adapterRegistry(launcher, config.featureFlags())
+            val flags = config.featureFlags()
+            val registry = adapterRegistry(launcher, flags)
             val terms = TermsGate(AtomicFile(paths.acknowledgements))
             val orchestrator =
                 Orchestrator.open(
@@ -45,7 +52,16 @@ class Octo private constructor(
                     paths.worktrees,
                     scope,
                 )
-            return Octo(orchestrator, RegistryAgentCatalog(registry, terms), listOfNotNull(warning))
+            val publisher =
+                if (flags.isEnabled(
+                        CoreFlags.GIT_PUBLISH,
+                    )
+                ) {
+                    GitTaskPublisher(orchestrator.state, Git(launcher), GitHubCli(launcher))
+                } else {
+                    null
+                }
+            return Octo(orchestrator, RegistryAgentCatalog(registry, terms), listOfNotNull(warning), publisher)
         }
 
         // An unreadable config must not keep Octo from starting; it runs with defaults and says so.

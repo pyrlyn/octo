@@ -69,7 +69,7 @@ class EndToEndTest {
             File(octoHome, "config.json").writeText("""{"flags": {"${DemoAdapter.FLAG.id}": true}}""")
 
             val octo = Octo.open(OctoPaths(Path(octoHome.path)), launcher, scope)
-            val models = ViewModels(octo.core, octo.catalog, scope, octo.warnings)
+            val models = ViewModels(octo.core, octo.catalog, scope, octo.warnings, octo.publisher)
 
             val form = models.newTask()
             form.state.until { !it.loadingAgents }

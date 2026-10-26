@@ -121,7 +121,21 @@ private fun TaskPane(
 ) {
     val vm = remember(id) { models.task(id) }
     DisposableEffect(vm) { onDispose { vm.close() } }
-    TaskScreen(vm, onDiff = { models.main.showDiff(true) })
+    var publishing by remember(id) { mutableStateOf(false) }
+    TaskScreen(
+        vm,
+        onDiff = { models.main.showDiff(true) },
+        onPublish = if (models.canPublish) ({ publishing = true }) else null,
+    )
+    if (publishing) {
+        val title =
+            vm.state.value.task
+                ?.title
+                .orEmpty()
+        val publish = remember(id) { models.publish(id, title) } ?: return
+        DisposableEffect(publish) { onDispose { publish.close() } }
+        PublishDialog(publish, onDismiss = { publishing = false })
+    }
 }
 
 @Composable

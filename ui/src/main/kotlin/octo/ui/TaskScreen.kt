@@ -45,11 +45,12 @@ import octo.ui.vm.TaskViewModel
 internal fun TaskScreen(
     vm: TaskViewModel,
     onDiff: () -> Unit,
+    onPublish: (() -> Unit)? = null,
 ) {
     val state by vm.state.collectAsState()
     val task = state.task ?: return
     Column(Modifier.fillMaxSize().padding(LargeGap), verticalArrangement = Arrangement.spacedBy(Gap)) {
-        Header(state, vm, onDiff)
+        Header(state, vm, onDiff, onPublish)
         Text(
             task.branch,
             style = MaterialTheme.typography.bodySmall,
@@ -70,6 +71,7 @@ private fun Header(
     state: TaskUiState,
     vm: TaskViewModel,
     onDiff: () -> Unit,
+    onPublish: (() -> Unit)?,
 ) {
     val task = state.task ?: return
     val status = state.sidebarStatus
@@ -83,6 +85,8 @@ private fun Header(
         if (state.canStop) OutlinedButton(onClick = vm::stop) { Text("Stop") }
         if (state.canRestart) OutlinedButton(onClick = vm::restart) { Text("Restart") }
         OutlinedButton(onClick = onDiff) { Text("Diff") }
+        // Publishing while the agent writes would push half a change.
+        onPublish?.let { OutlinedButton(onClick = it, enabled = !state.canCancel) { Text("Publish") } }
         TextButton(onClick = vm::requestRemove) { Text("Remove") }
     }
 }
