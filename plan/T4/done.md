@@ -16,9 +16,11 @@
   is the base for NDJSON CLIs, so no separate `StreamJsonSession` was needed.
 - `app`: `builtInAdapters` registers Claude.
 
-Sources checked: `claude-agent-sdk-python` v0.2.174 (commit 0e89b29), 
+Sources checked: `claude-agent-sdk-python` v0.2.174 (commit 0e89b29),
 https://code.claude.com/docs/en/agent-sdk/user-input.md (2026-10-26), `claude --help` 2.1.304.
 Fixtures are synthetic, shaped after those sources; no real account was used.
 
 Checked: `./gradlew check` green locally (6 Claude tests). GitHub Actions is still blocked by
 account billing.
+
+PR: https://github.com/pyrlyn/octo/pull/6
