@@ -39,3 +39,5 @@ Not verified: the exact text `status` prints when logged out (the adapter reads
 
 Checked: `./gradlew check -Pocto.allNativeTargets=true` green locally (5 Cursor tests).
 GitHub Actions is still blocked by account billing.
+
+PR: https://github.com/pyrlyn/octo/pull/8
