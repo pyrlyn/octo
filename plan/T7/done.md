@@ -25,3 +25,5 @@ Not verified: no auth-status command was found in `grok --help`, so the probe re
 
 Checked: `./gradlew check -Pocto.allNativeTargets=true` green locally (3 Grok tests).
 GitHub Actions is still blocked by account billing.
+
+PR: https://github.com/pyrlyn/octo/pull/10
