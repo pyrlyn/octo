@@ -50,9 +50,10 @@ internal fun TaskScreen(
     val state by vm.state.collectAsState()
     val task = state.task ?: return
     Column(Modifier.fillMaxSize().padding(LargeGap), verticalArrangement = Arrangement.spacedBy(Gap)) {
-        Header(state, vm, onDiff, onPublish)
+        // Publishing runs this computer's git and gh, which cannot reach a remote worktree.
+        Header(state, vm, onDiff, onPublish.takeIf { task.machine == null })
         Text(
-            task.branch,
+            task.machine?.let { "${task.branch} · on $it" } ?: task.branch,
             style = MaterialTheme.typography.bodySmall,
             color = MaterialTheme.colorScheme.onSurfaceVariant,
         )

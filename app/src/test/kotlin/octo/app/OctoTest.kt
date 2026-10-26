@@ -41,6 +41,18 @@ class OctoTest {
     }
 
     @Test
+    fun remoteMachinesNeedTheirFlagAndBadEntriesAreSkipped() {
+        val machines = """"machines": [{"id": "box", "host": "me@box"}, {"id": "bad", "host": "-oProxyCommand=id"}]"""
+        val off = open("{$machines}")
+        assertEquals(emptyList(), off.catalog.machines)
+        assertEquals(emptyList(), off.warnings, "nothing is checked while the feature is off")
+
+        val on = open("""{"flags": {"${CoreFlags.REMOTE_SSH.id}": true}, $machines}""")
+        assertEquals(listOf("box"), on.catalog.machines)
+        assertTrue(on.warnings.single().contains("'bad'"), on.warnings.toString())
+    }
+
+    @Test
     fun aBrokenConfigStartsWithDefaultsAndAWarning() {
         val octo = open("{not json")
         assertNull(octo.publisher)

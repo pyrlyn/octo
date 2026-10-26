@@ -200,6 +200,31 @@ class ViewModelTest {
         }
 
     @Test
+    fun aRemoteMachineReloadsItsAgentsAndGoesIntoTheTask() =
+        runTest {
+            val vm = NewTaskViewModel(core, FakeCatalog(core), backgroundScope)
+            settle()
+            assertEquals(listOf("box"), vm.state.value.machines)
+            assertNull(vm.state.value.machine)
+
+            vm.selectMachine("box")
+            assertTrue(vm.state.value.loadingAgents)
+            settle()
+            assertEquals(
+                listOf(AgentId("claude")),
+                vm.state.value.agents
+                    .map { it.id },
+            )
+            assertEquals(AgentId("claude"), vm.state.value.agent)
+
+            vm.editRepo("/home/me/octo")
+            vm.editPrompt("Go")
+            vm.create()
+            settle()
+            assertTrue("create Go Go on box" in core.calls, core.calls.toString())
+        }
+
+    @Test
     fun diffLoadsAndKeepsTheSelectionOnRefresh() =
         runTest {
             val a = FileDiff("a.kt", null, FileChange.Modified, binary = false, hunks = emptyList())

@@ -25,6 +25,10 @@ data class NewTaskUiState(
     val baseRef: String = DEFAULT_BASE_REF,
     val title: String = "",
     val prompt: String = "",
+    /** Remote machines; the choice is shown only when there are some. */
+    val machines: List<String> = emptyList(),
+    /** Null runs the task on this computer. */
+    val machine: String? = null,
     val agents: List<AgentInfo> = emptyList(),
     val agent: AgentId? = null,
     val loadingAgents: Boolean = true,
@@ -65,19 +69,34 @@ class NewTaskViewModel(
     parent: CoroutineScope,
 ) {
     private val scope = parent.childScope()
-    private val mutable = MutableStateFlow(NewTaskUiState())
+    private val mutable = MutableStateFlow(NewTaskUiState(machines = catalog.machines))
     val state: StateFlow<NewTaskUiState> = mutable.asStateFlow()
 
     init {
+        loadAgents(null)
+    }
+
+    /** Agents are probed on the chosen machine, so the list is reloaded whenever it changes. */
+    fun selectMachine(id: String?) {
+        if (id == state.value.machine) return
+        mutable.update { it.copy(machine = id, agents = emptyList(), agent = null, loadingAgents = true, error = null) }
+        loadAgents(id)
+    }
+
+    private fun loadAgents(machine: String?) {
         scope.action(::fail) {
-            val agents = catalog.agents()
+            val agents = catalog.agents(machine)
             mutable.update { s ->
-                s.copy(
-                    loadingAgents = false,
-                    agents = agents,
-                    agent =
-                        s.agent ?: agents.firstOrNull { it.probe.installed }?.id,
-                )
+                // A slow probe of a machine the user already switched away from must not win.
+                if (s.machine != machine) {
+                    s
+                } else {
+                    s.copy(
+                        loadingAgents = false,
+                        agents = agents,
+                        agent = s.agent ?: agents.firstOrNull { it.probe.installed }?.id,
+                    )
+                }
             }
         }
     }
@@ -106,6 +125,7 @@ class NewTaskViewModel(
                             agent = agent.id,
                             title = s.effectiveTitle,
                             prompt = s.prompt.trim().ifEmpty { null },
+                            machine = s.machine,
                         ),
                     )
                 mutable.update { it.copy(creating = false, created = id) }

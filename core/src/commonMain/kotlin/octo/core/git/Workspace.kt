@@ -1,11 +1,6 @@
 package octo.core.git
 
-import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.IO
-import kotlinx.coroutines.withContext
-import kotlinx.io.files.FileSystem
 import kotlinx.io.files.Path
-import kotlinx.io.files.SystemFileSystem
 
 /** The repository operations the orchestrator needs; an interface so it can be tested without git. */
 interface Workspace {
@@ -38,7 +33,7 @@ interface Workspace {
 
 class GitWorkspace(
     private val git: Git,
-    private val fs: FileSystem = SystemFileSystem,
+    private val dirs: Directories = LocalDirectories(),
 ) : Workspace {
     override suspend fun repoRoot(dir: String): String = git.run(dir, listOf("rev-parse", "--show-toplevel")).trim()
 
@@ -48,7 +43,7 @@ class GitWorkspace(
         branch: String,
         baseRef: String,
     ) {
-        Path(path).parent?.let { parent -> withContext(Dispatchers.IO) { fs.createDirectories(parent) } }
+        Path(path).parent?.let { dirs.create(it.toString()) }
         git.run(repo, listOf("worktree", "add", "-b", branch, path, baseRef))
     }
 
@@ -56,7 +51,7 @@ class GitWorkspace(
     override suspend fun isDirty(worktree: String): Boolean =
         exists(worktree) && git.run(worktree, listOf("status", "--porcelain")).isNotBlank()
 
-    private suspend fun exists(dir: String) = withContext(Dispatchers.IO) { fs.exists(Path(dir)) }
+    private suspend fun exists(dir: String) = dirs.exists(dir)
 
     override suspend fun removeWorktree(
         repo: String,

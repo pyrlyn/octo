@@ -44,6 +44,8 @@ class GitTaskPublisher(
     ): PublishResult {
         val task = state.value[taskId]?.task ?: throw UnknownTaskException(taskId)
         require(request.title.isNotBlank()) { "A pull request needs a title" }
+        // The worktree is on another machine, where this computer's git and gh cannot reach it.
+        check(task.machine == null) { "Publishing a task on a remote machine is not supported yet" }
         val dir = task.worktree
         val commit = commitAll(dir, request.commitMessage)
         git.run(dir, listOf("push", "-u", "origin", task.branch))

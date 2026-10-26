@@ -63,15 +63,19 @@ private fun Form(
     vm: NewTaskViewModel,
 ) {
     Column(Modifier.verticalScroll(rememberScrollState()), verticalArrangement = Arrangement.spacedBy(Gap)) {
+        if (state.machines.isNotEmpty()) MachineChoice(state, vm)
         Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(Gap)) {
             OutlinedTextField(
                 state.repo,
                 vm::editRepo,
                 Modifier.weight(1f),
-                label = { Text("Repository") },
+                label = { Text(state.machine?.let { "Repository path on $it" } ?: "Repository") },
                 singleLine = true,
             )
-            OutlinedButton(onClick = { pickDirectory(state.repo)?.let(vm::editRepo) }) { Text("Browse…") }
+            // The folder picker only sees this computer's disk.
+            if (state.machine == null) {
+                OutlinedButton(onClick = { pickDirectory(state.repo)?.let(vm::editRepo) }) { Text("Browse…") }
+            }
         }
         OutlinedTextField(state.baseRef, vm::editBaseRef, Modifier.fillMaxWidth(), label = {
             Text("Base branch")
@@ -95,6 +99,20 @@ private fun Form(
         if (state.loadingAgents) Text("Looking for installed agents…")
         state.agents.forEach { AgentChoice(it, selected = it.id == state.agent, onSelect = { vm.selectAgent(it.id) }) }
         state.error?.let { Text(it, color = MaterialTheme.colorScheme.error) }
+    }
+}
+
+@Composable
+private fun MachineChoice(
+    state: NewTaskUiState,
+    vm: NewTaskViewModel,
+) {
+    Text("Machine", style = MaterialTheme.typography.titleSmall)
+    (listOf<String?>(null) + state.machines).forEach { id ->
+        Row(verticalAlignment = Alignment.CenterVertically) {
+            RadioButton(selected = state.machine == id, onClick = { vm.selectMachine(id) })
+            Text(id ?: "This computer")
+        }
     }
 }
 

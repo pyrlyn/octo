@@ -29,6 +29,9 @@ import octo.core.git.TaskDiff
 import octo.core.git.Workspace
 import octo.core.io.AtomicFile
 import octo.core.persist.StateStore
+import octo.core.process.ProcessLauncher
+import octo.core.process.ProcessSpec
+import octo.core.process.RunningProcess
 import octo.core.status.AgentStatus
 import octo.core.task.NewTask
 import octo.core.task.PendingRequest
@@ -142,6 +145,7 @@ class OrchestratorTest {
         adapter: FakeAdapter = FakeAdapter(),
         workspace: FakeWorkspace = FakeWorkspace(),
         home: Path = tempDir("octo-core"),
+        machines: Map<String, Machine> = emptyMap(),
     ): Setup {
         val core =
             Orchestrator.open(
@@ -152,6 +156,7 @@ class OrchestratorTest {
                 worktrees = Path(home, "worktrees"),
                 scope = backgroundScope,
                 newId = { "id1" },
+                machines = machines,
             )
         return Setup(core, adapter, workspace, home)
     }
@@ -164,6 +169,43 @@ class OrchestratorTest {
             title = "Fix the Login bug!",
             prompt = "Go",
         )
+
+    @Test
+    fun aTaskOnARemoteMachineUsesThatMachinesAgentsAndWorkspace() =
+        runTest {
+            val remoteAdapter = FakeAdapter()
+            val remoteWorkspace = FakeWorkspace()
+            val noProcesses =
+                object : ProcessLauncher {
+                    override suspend fun which(command: String): String? = null
+
+                    override suspend fun launch(spec: ProcessSpec): RunningProcess = error("not used")
+                }
+            val box =
+                RemoteMachine(
+                    AdapterRegistry(listOf(remoteAdapter), FeatureFlags()),
+                    remoteWorkspace,
+                    noProcesses,
+                    "/srv/octo",
+                )
+            val s = setup(machines = mapOf("box" to box))
+
+            val id = s.core.createTask(newTask.copy(machine = "box"))
+            testScheduler.runCurrent()
+            val task =
+                s.core.state.value[id]!!
+                    .task
+            assertEquals("box", task.machine)
+            assertEquals("/srv/octo/app/fix-the-login-bug-id1", task.worktree)
+            assertEquals(task.branch, remoteWorkspace.worktrees[task.worktree])
+            assertTrue(s.workspace.worktrees.isEmpty())
+            assertEquals(listOf(task.worktree), remoteAdapter.specs.map { it.workingDir })
+            assertTrue(s.adapter.specs.isEmpty())
+
+            s.core.removeTask(id, deleteWorktree = true, force = false)
+            assertEquals(listOf(task.worktree), remoteWorkspace.removed)
+            assertFailsWith<UnknownMachineException> { s.core.createTask(newTask.copy(machine = "gone")) }
+        }
 
     @Test
     fun createsATaskAndTracksItsAgent() =

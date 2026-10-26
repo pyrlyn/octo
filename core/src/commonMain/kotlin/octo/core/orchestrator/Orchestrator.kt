@@ -54,11 +54,9 @@ import kotlin.random.Random
  * tasks never wait on each other.
  */
 class Orchestrator private constructor(
-    private val registry: AdapterRegistry,
-    private val workspace: Workspace,
+    private val machines: Machines,
     private val store: StateStore,
     private val terms: TermsGate,
-    private val worktrees: Path,
     private val scope: CoroutineScope,
     private val newId: () -> String,
 ) : OctoCore {
@@ -88,15 +86,27 @@ class Orchestrator private constructor(
             }.distinctUntilChanged()
 
     override suspend fun createTask(request: NewTask): TaskId {
-        val adapter = registry[request.agent] ?: throw UnknownAgentException(request.agent)
+        val machine = machines[request.machine]
+        val adapter = machine.registry[request.agent] ?: throw UnknownAgentException(request.agent)
         terms.requireAcknowledged(adapter)
-        val repo = workspace.repoRoot(request.repo)
+        val repo = machine.workspace.repoRoot(request.repo)
         val id = uniqueId()
         val slug = slug(request.title, id)
-        val worktree = Path(worktrees, Path(repo).name, slug).toString()
+        val worktree = machine.worktree(repo, slug)
         val branch = "$BRANCH_PREFIX$slug"
-        workspace.createWorktree(repo, worktree, branch, request.baseRef)
-        val task = Task(id, request.title, repo, worktree, branch, request.baseRef, request.agent, request.options)
+        machine.workspace.createWorktree(repo, worktree, branch, request.baseRef)
+        val task =
+            Task(
+                id,
+                request.title,
+                repo,
+                worktree,
+                branch,
+                request.baseRef,
+                request.agent,
+                request.options,
+                machine = request.machine,
+            )
         mutableState.update { it.copy(tasks = it.tasks + TaskView(task, AgentStatus.Starting)) }
         withTask(id) {
             startAgent(id, resume = false)
@@ -159,11 +169,13 @@ class Orchestrator private constructor(
     ) {
         withTask(taskId) {
             val task = view(taskId).task
-            if (deleteWorktree && !force && workspace.isDirty(task.worktree)) {
+            // Looked up only when needed, so a task whose machine was removed can still be dropped.
+            val workspace = if (deleteWorktree) machines[task.machine].workspace else null
+            if (workspace != null && !force && workspace.isDirty(task.worktree)) {
                 throw WorktreeDirtyException(taskId, task.worktree)
             }
             stopLocked(taskId)
-            if (deleteWorktree) workspace.removeWorktree(task.repo, task.worktree, force)
+            workspace?.removeWorktree(task.repo, task.worktree, force)
             mutableState.update { state ->
                 val layout =
                     state.layout.takeUnless { it.selectedTask == taskId } ?: state.layout.copy(selectedTask = null)
@@ -176,7 +188,7 @@ class Orchestrator private constructor(
 
     override suspend fun diff(taskId: TaskId): TaskDiff {
         val task = view(taskId).task
-        return workspace.diff(task.worktree, task.baseRef)
+        return machines[task.machine].workspace.diff(task.worktree, task.baseRef)
     }
 
     override suspend fun updateLayout(layout: Layout) {
@@ -201,7 +213,7 @@ class Orchestrator private constructor(
         resume: Boolean,
     ) {
         val task = view(id).task
-        val adapter = registry[task.agent] ?: throw UnknownAgentException(task.agent)
+        val adapter = machines[task.machine].registry[task.agent] ?: throw UnknownAgentException(task.agent)
         terms.requireAcknowledged(adapter)
         val ref = task.sessionRef.takeIf { resume && Capability.Resume in adapter.capabilities }
         if (resume && task.sessionRef != null && ref == null) {
@@ -357,8 +369,15 @@ class Orchestrator private constructor(
             worktrees: Path,
             scope: CoroutineScope,
             newId: () -> String = ::randomId,
+            machines: Map<String, Machine> = emptyMap(),
         ): Orchestrator =
-            Orchestrator(registry, workspace, store, terms, worktrees, scope, newId).also {
+            Orchestrator(
+                Machines(LocalMachine(registry, workspace, worktrees), machines),
+                store,
+                terms,
+                scope,
+                newId,
+            ).also {
                 it.begin()
             }
 

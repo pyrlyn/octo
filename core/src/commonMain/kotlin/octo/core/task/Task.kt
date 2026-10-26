@@ -24,6 +24,8 @@ data class NewTask(
     val prompt: String? = null,
     /** Adapter options such as the model or permission mode. */
     val options: Map<String, String> = emptyMap(),
+    /** A machine id from the config; null runs the task on this computer. */
+    val machine: String? = null,
 )
 
 /** One agent working in its own worktree; this part is persisted. */
@@ -40,6 +42,8 @@ data class Task(
     /** The agent's own session, so a restart can resume the conversation. */
     val sessionRef: AgentSessionRef? = null,
     val lastStatus: AgentStatus = AgentStatus.Stopped,
+    /** Null for this computer; optional so state files from before remote machines still load. */
+    val machine: String? = null,
 )
 
 /** A request the agent is waiting on. */
