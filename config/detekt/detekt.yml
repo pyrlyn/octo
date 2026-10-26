@@ -1,0 +1,7 @@
+# Overrides on top of detekt's default config (buildUponDefaultConfig = true).
+naming:
+  FunctionNaming:
+    ignoreAnnotated: ['Composable']
+style:
+  MagicNumber:
+    excludes: ['**/test/**', '**/commonTest/**', '**/jvmTest/**']
