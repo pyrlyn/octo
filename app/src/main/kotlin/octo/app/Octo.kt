@@ -8,6 +8,8 @@ import octo.core.git.Git
 import octo.core.git.GitHubCli
 import octo.core.git.GitWorkspace
 import octo.core.io.AtomicFile
+import octo.core.messaging.AgentMessaging
+import octo.core.messaging.HttpMcpServer
 import octo.core.orchestrator.AgentCatalog
 import octo.core.orchestrator.OctoCore
 import octo.core.orchestrator.Orchestrator
@@ -27,11 +29,16 @@ class Octo private constructor(
     val warnings: List<String>,
     /** Null unless the `git-publish` flag is on. */
     val publisher: TaskPublisher?,
+    /** Null unless the `agent-messaging` flag is on and the server could start. */
+    internal val mcpServer: HttpMcpServer?,
 ) {
     val core: OctoCore get() = orchestrator
 
     /** Stops every agent and writes the last state. */
-    suspend fun close() = orchestrator.close()
+    suspend fun close() {
+        orchestrator.close()
+        mcpServer?.close()
+    }
 
     companion object {
         suspend fun open(
@@ -49,6 +56,8 @@ class Octo private constructor(
                 } else {
                     RemoteMachines(emptyMap(), emptyList())
                 }
+            val (messaging, mcpServer, mcpWarning) =
+                if (flags.isEnabled(CoreFlags.AGENT_MESSAGING)) startMessaging(scope) else Messaging()
             val orchestrator =
                 Orchestrator.open(
                     registry,
@@ -58,7 +67,9 @@ class Octo private constructor(
                     paths.worktrees,
                     scope,
                     machines = remote.machines,
+                    mcp = messaging,
                 )
+            messaging?.attach(orchestrator)
             val publisher =
                 if (flags.isEnabled(
                         CoreFlags.GIT_PUBLISH,
@@ -69,7 +80,27 @@ class Octo private constructor(
                     null
                 }
             val catalog = RegistryAgentCatalog(registry, terms, remote.machines.mapValues { it.value.registry })
-            return Octo(orchestrator, catalog, listOfNotNull(warning) + remote.warnings, publisher)
+            val warnings = listOfNotNull(warning, mcpWarning) + remote.warnings
+            return Octo(orchestrator, catalog, warnings, publisher, mcpServer)
+        }
+
+        private data class Messaging(
+            val messaging: AgentMessaging? = null,
+            val server: HttpMcpServer? = null,
+            val warning: String? = null,
+        )
+
+        // Without its server agents simply get no messaging tools; the rest of Octo works as before.
+        private fun startMessaging(scope: CoroutineScope): Messaging {
+            val messaging = AgentMessaging(scope)
+            val server =
+                try {
+                    HttpMcpServer(messaging).start()
+                } catch (e: java.io.IOException) {
+                    return Messaging(warning = "Agent messaging is off: ${e.message}")
+                }
+            messaging.bind(server.url)
+            return Messaging(messaging, server)
         }
 
         // An unreadable config must not keep Octo from starting; it runs with defaults and says so.

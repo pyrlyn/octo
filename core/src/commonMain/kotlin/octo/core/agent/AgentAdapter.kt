@@ -25,6 +25,9 @@ enum class Capability {
     Questions,
     Plan,
     ModelSelection,
+
+    /** Takes the MCP servers Octo offers in [SessionSpec.mcpServers], such as agent messaging. */
+    Mcp,
 }
 
 enum class AuthState { LoggedIn, LoggedOut, Unknown }
@@ -53,6 +56,15 @@ data class SessionSpec(
     val resume: AgentSessionRef? = null,
     val env: Map<String, String> = emptyMap(),
     val options: Map<String, String> = emptyMap(),
+    /** Octo's own servers; only adapters with [Capability.Mcp] get any. */
+    val mcpServers: List<McpServer> = emptyList(),
+)
+
+/** An MCP server Octo runs for the agent over streamable HTTP; [headers] carry its per-task token. */
+data class McpServer(
+    val name: String,
+    val url: String,
+    val headers: Map<String, String> = emptyMap(),
 )
 
 /**

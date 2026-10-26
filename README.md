@@ -41,5 +41,12 @@ there, so your keys, agent and `~/.ssh/config` apply. It never asks for a passwo
 `port` and `worktrees` are optional. Worktrees go under `$HOME/.octo/worktrees` on the machine
 by default. Publish works only for tasks on this computer for now.
 
+`"agent-messaging": true` lets agents talk to each other. Octo runs an MCP server on
+`127.0.0.1` and gives each Claude, Cursor, Grok and Antigravity session three tools:
+`list_tasks`, `send_message` and `wait_for_idle`. A message waits until its target is idle and
+then arrives as a prompt, so a busy agent is never interrupted. Each session gets its own token,
+passed through the environment, never on the command line. Tasks on remote machines and Codex
+get no tools yet.
+
 `./gradlew ktlintFormat` fixes formatting. CI also builds every Kotlin/Native target with
 `-Pocto.allNativeTargets=true`; locally only the host's native target is built.

@@ -23,6 +23,8 @@ compose.desktop {
             targetFormats(TargetFormat.Dmg, TargetFormat.Msi, TargetFormat.Deb)
             packageName = "Octo"
             packageVersion = "1.0.0"
+            // The agent-messaging MCP server runs on the JDK's built-in HTTP server.
+            modules("jdk.httpserver")
         }
     }
 }

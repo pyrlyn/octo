@@ -7,6 +7,7 @@ import octo.core.agent.AgentEvent
 import octo.core.agent.AgentSessionRef
 import octo.core.agent.AuthState
 import octo.core.agent.LogStream
+import octo.core.agent.McpServer
 import octo.core.agent.PermissionKind
 import octo.core.agent.PlanEntry
 import octo.core.agent.RequestResponse
@@ -21,6 +22,7 @@ import octo.testing.readFixture
 import octo.testing.replay
 import kotlin.test.Test
 import kotlin.test.assertEquals
+import kotlin.test.assertFalse
 import kotlin.test.assertTrue
 
 class ClaudeAdapterTest {
@@ -45,6 +47,24 @@ class ClaudeAdapterTest {
                 spec.args.containsAll(listOf("-p", "--permission-prompt-tool", "stdio", "--include-partial-messages")),
             )
             assertEquals(listOf("--model=opus", "--session-id=new-id"), spec.args.takeLast(2))
+        }
+
+    @Test
+    fun mcpServersGoInAsConfigWithTheTokenInTheEnvironment() =
+        runTest {
+            val (adapter, launcher) = fixture("turn.transcript")
+            val octo = McpServer("octo", "http://127.0.0.1:1/mcp", mapOf("Authorization" to "Bearer secret"))
+            adapter.start(SessionSpec("/repo", mcpServers = listOf(octo)))
+            val spec = launcher.launched.single()
+            val config = spec.args.single { it.startsWith("--mcp-config=") }
+            assertEquals(
+                """--mcp-config={"mcpServers":{"octo":{"type":"http","url":"http://127.0.0.1:1/mcp",""" +
+                    """"headers":{"Authorization":"${'$'}{OCTO_MCP_0_0}"}}}}""",
+                config,
+            )
+            assertTrue(spec.args.none { "secret" in it })
+            assertEquals("Bearer secret", spec.env["OCTO_MCP_0_0"])
+            assertFalse("--strict-mcp-config" in spec.args)
         }
 
     @Test

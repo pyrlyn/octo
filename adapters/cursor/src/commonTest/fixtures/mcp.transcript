@@ -1,0 +1,5 @@
+# Octo's MCP server goes into session/new when the agent accepts HTTP servers (synthetic).
+> {"jsonrpc":"2.0","id":1,"method":"initialize"}
+< {"jsonrpc":"2.0","id":1,"result":{"protocolVersion":1,"agentCapabilities":{"mcpCapabilities":{"http":true,"sse":true}}}}
+> {"id":2,"method":"session/new","params":{"cwd":"/repo","mcpServers":[{"type":"http","name":"octo","url":"http://127.0.0.1:1/mcp","headers":[{"name":"Authorization","value":"Bearer t"}]}]}}
+< {"jsonrpc":"2.0","id":2,"result":{"sessionId":"s-1"}}
