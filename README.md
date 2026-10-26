@@ -4,4 +4,4 @@ An open, extensible desktop orchestrator for CLI coding agents. One window to ru
 coordinate several agents in parallel, each in its own git worktree, using your own agent
 subscriptions.
 
-Status: research. See `docs/research.md` and `plan/`.
+Status: early development. See `docs/research.md`, `docs/architecture.md` and `plan/`.

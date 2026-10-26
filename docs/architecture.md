@@ -1,0 +1,304 @@
+# Octo — architecture
+
+Phase 2 of the brief. It builds on [`research.md`](research.md) and on the creator's decisions in
+[`plan/README.md`](../plan/README.md): Compose Desktop (JVM) UI over a Kotlin Multiplatform core;
+the agent CLI the user installed, run under the user's own login; ACP plus native protocols.
+
+## 1. Goals and non-goals
+
+**Goals.**
+- Run several CLI coding agents in parallel, each in its own git worktree and branch.
+- Show live output and status (working, blocked, idle, failed).
+- Send prompts, answer questions and permission requests, stop and restart.
+- Persist sessions and layout, and restore them on restart.
+- Review the diff of each task.
+- Add an agent by adding one module, with no change to the core or the UI.
+
+**Non-goals for the MVP.**
+- A native headless daemon. The core stays native-ready (§3), but only the JVM build ships.
+- PTY terminals. None of the five target agents needs one, because all of them have a
+  structured protocol (research §6). The `pty-terminal` flag is reserved for later.
+- Credentials. Octo never reads, stores or forwards an agent's login or API key.
+
+## 2. Toolchain
+
+| Item | Version | Why this one |
+| --- | --- | --- |
+| Kotlin | 2.4.21 | Latest stable |
+| Gradle | 9.7.1 (wrapper) | Newest Gradle inside KGP 2.4.21's documented range (≤ 9.7.x) |
+| JDK | 21 (Temurin) | Compose packaging needs ≥ 17; the machine default |
+| Compose Multiplatform | 1.12.2 | Latest stable (1.13 is beta) |
+| ktlint | 1.8.0 via `org.jlleitschuh.gradle.ktlint` 14.2.0 | Required by the brief |
+| detekt | 2.0.0-alpha.6 (`dev.detekt`) | The only line built against Kotlin 2.4 (1.23.8 predates it); falls back to 1.23.8 if the alpha breaks |
+
+**Runtime libraries.** All are first-party JetBrains libraries, so the brief's approval rule for
+new third-party dependencies does not apply:
+
+| Library | Version | Use |
+| --- | --- | --- |
+| kotlinx-coroutines | 1.11.0 | Concurrency, flows |
+| kotlinx-serialization-json | 1.12.0 | Agent protocols, persisted state |
+| kotlinx-io | 0.9.1 | Files, atomic moves |
+| Compose Multiplatform | 1.12.2 | UI only |
+
+Tests use `kotlin-test` and `kotlinx-coroutines-test`.
+
+**Choices that avoid a dependency.**
+- **No ACP SDK.** The official Kotlin SDK is JVM-only, and the core must compile to Kotlin/Native.
+  We implement the small subset of JSON-RPC 2.0 and ACP we use in `adapters:base`. The same peer
+  also serves Codex `app-server`, which omits the `jsonrpc` field.
+- **No git library.** JGit lacks worktree support, and libgit2 has no KMP wrapper. We run the
+  `git` CLI through the core's process API.
+- **No database.** State is one JSON document written atomically (§8), so the workspace "no raw
+  SQL" rule does not come into play.
+- **No DI framework.** Constructor injection, wired by hand in `app`.
+
+## 3. Modules
+
+```
+octo/
+├── core/                 KMP: jvm, macosArm64, linuxX64, mingwX64
+├── adapters/
+│   ├── base/             KMP: same targets; depends on core
+│   ├── claude/           KMP; depends on adapters:base
+│   ├── codex/            "
+│   ├── cursor/           "
+│   ├── grok/             "
+│   └── antigravity/      "
+├── ui/                   JVM + Compose; depends on core
+└── app/                  JVM + Compose Desktop application; depends on everything, wires it
+```
+
+Dependencies point down only: `app → ui → core` and `app → adapters:* → adapters:base → core`.
+Neither `ui` nor `core` depends on any adapter.
+
+**`core`** owns the domain and the agent service-provider interface (SPI):
+- the model (`Task`, `AgentSessionRef`, `AgentStatus`) and the status reducer;
+- the adapter SPI (`AgentAdapter`, `AgentSession`, `AgentEvent`, `Capability`) and the
+  `AdapterRegistry`;
+- feature flags;
+- the `ProcessLauncher` interface and the git and worktree services built on it;
+- persistence;
+- the orchestrator and the internal API (`OctoCore`).
+
+`commonMain` holds everything except platform implementations. `jvmMain` holds
+`JvmProcessLauncher` (`ProcessBuilder`) and the platform paths. Native targets compile
+`commonMain` only. A native `ProcessLauncher` comes with the headless daemon; it is an interface,
+not an `expect`, so nothing is missing at link time.
+
+**`adapters:base`** holds the shared logic for building adapters:
+- `BaseAgentAdapter` — binary lookup on `PATH`, version probe with a verified-version drift
+  warning, environment building, an auth-check hook, capability declaration, and session start;
+- `LineChannel` — newline-framed stdin/stdout over a spawned process, with stderr captured as log
+  events;
+- `JsonRpcPeer` — requests, responses, notifications and server-to-client requests, with an option
+  to omit the `jsonrpc` field;
+- `AcpAgentAdapter` — a generic ACP client (`initialize`, `session/new`, `session/load`,
+  `session/prompt`, `session/update`, `session/request_permission`, `session/cancel`) with hooks
+  for agent-specific launch arguments and extension methods;
+- `StreamJsonSession` — the base for NDJSON event-stream CLIs.
+
+**`adapters:<agent>`** holds only what is specific to that agent: the binary name, arguments,
+event mapping, extensions and fixtures.
+
+| Module | Transport | Binary |
+| --- | --- | --- |
+| `claude` | `claude -p --input-format stream-json --output-format stream-json --verbose --permission-prompt-tool stdio` (control protocol) | `claude` |
+| `codex` | `codex app-server` (JSON-RPC over stdio, no `jsonrpc` field) | `codex` |
+| `cursor` | ACP `cursor-agent acp` plus `cursor/*` extensions | `cursor-agent` (`agent` collides with Grok's binary) |
+| `grok` | ACP `grok agent stdio` | `grok` (the official xAI build; refuses the community CLI) |
+| `antigravity` | ACP `agy_acp_server` | Behind the `antigravity` flag, with a terms notice |
+
+**`ui`** holds the Compose screens and state holders. It talks only to `OctoCore`.
+
+**`app`** holds `main()`, the adapter list, platform paths and the Compose Desktop packaging.
+
+## 4. The adapter SPI (core)
+
+```kotlin
+interface AgentAdapter {
+    val id: AgentId                      // "claude", "codex", …
+    val displayName: String
+    val capabilities: Set<Capability>    // Resume, Cancel, Permissions, Questions, Plan, Models, …
+    suspend fun probe(): AgentProbe       // installed? version? verified version? auth state?
+    fun start(spec: SessionSpec): AgentSession
+}
+
+data class SessionSpec(
+    val workingDir: String,
+    val resume: AgentSessionRef?,         // the agent's own session id, when resuming
+    val env: Map<String, String>,         // extra variables, e.g. a config-dir override in tests
+    val options: Map<String, String>,     // model, permission mode, …
+)
+
+interface AgentSession {
+    val events: Flow<AgentEvent>          // hot; completes when the process exits
+    suspend fun prompt(text: String)
+    suspend fun respond(requestId: String, response: RequestResponse)
+    suspend fun cancel()                  // cancel the current turn
+    suspend fun close()                   // end the process
+}
+```
+
+`AgentEvent` is the normalized vocabulary every adapter maps into:
+
+| Event | Fields | Purpose |
+| --- | --- | --- |
+| `SessionReady` | `ref` | The agent's own session id, used for resume |
+| `TurnStarted` | — | A turn began |
+| `MessageDelta` / `Message` | role, text | Assistant or user text |
+| `Thought` | text | Reasoning text |
+| `ToolCall` | id, title, kind, status, detail | Tool activity |
+| `PermissionRequested` | id, title, options | Needs an answer |
+| `QuestionAsked` | id, questions | Needs an answer |
+| `RequestResolved` | id | A pending request is closed |
+| `PlanUpdated` | entries | The agent's plan |
+| `TurnEnded` | `stopReason`, usage | `EndTurn`, `Cancelled`, `MaxTurns`, `Refusal`, `Error` |
+| `Log` | stream, line | stderr and other diagnostics |
+| `Failed` | message | The adapter or the protocol failed |
+| `Exited` | code | The process ended |
+
+**Rules.**
+- The core never branches on `AgentId`. When a capability is missing, there is a declared
+  fallback: without `Resume`, a restart starts a fresh session and the UI says so.
+- An adapter must settle every open request on cancel and on exit, by emitting `RequestResolved`
+  or `TurnEnded(Cancelled)`.
+- Adapters never read or write agent credentials. Auth state comes from the CLI's own status
+  command or its error output.
+
+**Registry.** `AdapterRegistry` is built in `app` from a list:
+
+```kotlin
+listOf(ClaudeAdapter(...), CodexAdapter(...), CursorAdapter(...), GrokAdapter(...), AntigravityAdapter(...))
+```
+
+Adding an agent means a new module and one line in that list. The registry drops adapters whose
+feature flag is off.
+
+## 5. Status model
+
+The status is the pure function `AgentStatusReducer.reduce(state, event)`, shared by every
+adapter:
+
+```
+Starting ──SessionReady──▶ Idle ──TurnStarted──▶ Working ──TurnEnded(EndTurn|MaxTurns)──▶ Idle
+                                                    │  ▲
+                        PermissionRequested/QuestionAsked  RequestResolved (count back to 0)
+                                                    ▼  │
+                                                 Blocked
+Any ──Failed / TurnEnded(Error|Refusal) / Exited(≠0 while not closing)──▶ Failed
+Any ──Exited while closing──▶ Stopped
+```
+
+- Pending requests are counted in a set, so `Blocked` lasts until all of them resolve. This is
+  AionUi's ref-counted "requires action".
+- "Done" means idle but not yet seen by the user. It is a UI flag, not an agent state (herdr).
+- Task status rollup for the sidebar uses this priority: `Blocked > Failed > Working > Starting >
+  Done > Idle > Stopped`. This is T3 Code's ladder, with failures raised.
+
+## 6. Feature flags
+
+```kotlin
+data class FeatureFlag(val id: String, val default: Boolean, val requires: Set<Capability> = emptySet())
+
+class FeatureFlags(config: Map<String, Boolean>) {
+    fun isEnabled(flag: FeatureFlag): Boolean
+    fun isAvailable(flag: FeatureFlag, adapter: AgentAdapter): Boolean  // enabled AND capabilities present
+}
+```
+
+- Flags are declared next to the feature that owns them. Core flags live in `core`'s
+  `CoreFlags`.
+- Values come from `config.json` in the Octo home; a missing key means the flag's default.
+- Every optional feature defaults to **off**. The core works with every flag off.
+
+| Flag | Task |
+| --- | --- |
+| `antigravity` | T8 |
+| `git-publish` (commit, push, PR) | T11 |
+| `remote-ssh` | T12 |
+| `agent-messaging` | T13 |
+| `presets` | T14 |
+| `remote-access` | T15 |
+| `plugins` | T16 |
+| `pty-terminal` | Reserved |
+
+## 7. Core API and orchestration
+
+`OctoCore` is the only surface the UI uses. It is coroutine- and flow-based, so a socket
+transport can serve it later for a headless daemon or remote clients (T15).
+
+```kotlin
+interface OctoCore {
+    val state: StateFlow<OctoState>                 // tasks, statuses, pending requests, layout
+    fun transcript(taskId: TaskId): Flow<List<TranscriptEntry>>
+    suspend fun createTask(request: NewTask): TaskId // repo, base ref, agent, title, first prompt
+    suspend fun sendPrompt(taskId: TaskId, text: String)
+    suspend fun respond(taskId: TaskId, requestId: String, response: RequestResponse)
+    suspend fun stop(taskId: TaskId)
+    suspend fun restart(taskId: TaskId)             // resume when the adapter can, else fresh
+    suspend fun removeTask(taskId: TaskId, deleteWorktree: Boolean)
+    suspend fun diff(taskId: TaskId): TaskDiff
+    suspend fun updateLayout(layout: Layout)
+}
+```
+
+- **Tasks and worktrees.** Each task gets a worktree at `<octo home>/worktrees/<repo>/<task-slug>`
+  on a new branch `octo/<task-slug>` cut from the chosen base ref. Removing a task never deletes
+  the branch, and a dirty worktree needs explicit confirmation (herdr).
+- **Concurrency.** One `SupervisorJob` scope per task, so a crash in one agent never takes down
+  another.
+- **Diff.** `git diff <merge-base(base, HEAD)>` in the worktree plus untracked files, parsed into
+  files and hunks in common code.
+- **Restart.** The persisted `AgentSessionRef` goes into `SessionSpec.resume`.
+
+## 8. Persistence
+
+- **Octo home.** `OCTO_HOME` when set. Otherwise the platform default: macOS
+  `~/Library/Application Support/Octo`, Linux `$XDG_STATE_HOME/octo` (falling back to
+  `~/.local/state/octo`), Windows `%APPDATA%\Octo`. Paths are resolved once in `app` and passed
+  down as `OctoPaths`; the core never reads the environment itself.
+- **`state.json`.** Tasks (id, title, repo, worktree, branch, base ref, agent id, the agent's
+  session ref, and the last status), the transcript tail for each task (bounded), and the layout.
+  Writes go to a temp file followed by an atomic move. The last 3 good files are kept as
+  `state.json.1..3`, and a corrupt file is moved aside and logged. A load failure never blocks
+  start-up (fail open).
+- **Cold start.** Every task is restored as `Stopped`. Restart resumes the agent session through
+  its ref (AionUi's "cold start = idle + resume anchor").
+- **`config.json`.** Flags and user preferences, read at start-up.
+
+## 9. Security and trust
+
+- Everything an agent, a repository or a plugin writes is untrusted input. Protocol parsers
+  tolerate unknown fields and unknown event types: they log them and skip them.
+- Octo passes the user's environment to agents unchanged, apart from documented additions. It
+  never injects or reads tokens.
+- Permission requests are never auto-approved by default. Agent-side modes (for example Claude's
+  `--permission-mode`) are explicit task options.
+- Process handling: Octo kills only the processes it spawned, by handle and never by pattern, and
+  kills the whole process tree on stop.
+
+## 10. Testing
+
+- **Core.** The reducer, flags, persistence round-trip (temp dir), the diff parser, and worktree
+  lifecycle against a temp git repo with a temp `HOME` and `GIT_CONFIG_GLOBAL`.
+- **Adapters.** A `FakeProcessLauncher` replays fixture NDJSON or JSON-RPC lines and records what
+  the adapter wrote to stdin. No test spawns a real agent or touches a real account. Fixtures live
+  in `src/commonTest/resources`, are tagged with the CLI version they mirror, and start from the
+  documented schemas (research §6).
+- **Isolation.** Tests get their Octo home from a temp dir. Any test that runs `git` sets `HOME`,
+  `XDG_CONFIG_HOME` and `GIT_CONFIG_GLOBAL` to temp paths.
+- **UI.** State holders are plain classes, tested without a window.
+- **Gates.** `./gradlew check` runs the tests on JVM and on the native host targets, plus ktlint
+  and detekt. CI runs it on Linux (JVM, `linuxX64`, `mingwX64` compile).
+
+## 11. Mapping the brief
+
+| Brief item | Where |
+| --- | --- |
+| Base adapter: spawn, I/O, parsing hooks, status, prompt, resume, cancel, auth check, capabilities | `adapters:base` (§3, §4); PTY deferred (§1) |
+| One adapter per agent | `adapters:<agent>` |
+| Registry, no core or UI change | `AdapterRegistry` + `app` list (§4) |
+| Feature flags with capability check | §6 |
+| Headless-ready core | `OctoCore` (§7), KMP native targets (§3) |
+| Third-party libraries wrapped | No runtime third-party libraries; process, git and files sit behind core interfaces |
