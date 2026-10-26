@@ -4,6 +4,7 @@ import kotlinx.coroutines.CoroutineScope
 import octo.core.access.Devices
 import octo.core.orchestrator.AgentCatalog
 import octo.core.orchestrator.OctoCore
+import octo.core.plugins.Plugin
 import octo.core.preset.PresetLibrary
 import octo.core.publish.TaskPublisher
 import octo.core.task.TaskId
@@ -21,6 +22,8 @@ class ViewModels(
     /** Null while the `remote-access` flag is off or its server is down, which hides devices. */
     private val devices: Devices? = null,
     private val remoteUrl: String? = null,
+    /** Empty while the `plugins` flag is off, which hides plugin actions. */
+    private val plugins: List<Plugin> = emptyList(),
 ) {
     val main = MainViewModel(core, scope, startupWarnings)
 
@@ -29,6 +32,12 @@ class ViewModels(
     val canPair: Boolean get() = devices != null && remoteUrl != null
 
     fun task(id: TaskId) = TaskViewModel(core, id, scope)
+
+    fun pluginActions(id: TaskId): PluginActionsViewModel? =
+        plugins
+            .takeIf { all ->
+                all.any { it.manifest.actions.isNotEmpty() }
+            }?.let { PluginActionsViewModel(it, core, id, scope) }
 
     fun diff(id: TaskId) = DiffViewModel(core, id, scope)
 

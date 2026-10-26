@@ -19,6 +19,10 @@ plugins {
 
 rootProject.name = "octo"
 
+// The WebAssembly interface and its Chasm adapter, shared with rtok: a checkout of kotlin-wasm
+// (github.com/pyrlyn/kotlin-wasm). KOTLIN_WASM_DIR points elsewhere, as CI_DIFFUSER_DIR does above.
+includeBuild(System.getenv("KOTLIN_WASM_DIR") ?: "../../packages/kotlin-wasm")
+
 include(
     ":core",
     ":testing",
@@ -29,6 +33,7 @@ include(
     ":adapters:cursor",
     ":adapters:demo",
     ":adapters:grok",
+    ":adapters:plugin",
     ":ui",
     ":app",
 )

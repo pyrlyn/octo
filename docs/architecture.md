@@ -64,7 +64,8 @@ octo/
 │   ├── codex/            "
 │   ├── cursor/           "
 │   ├── grok/             "
-│   └── antigravity/      "
+│   ├── antigravity/      "
+│   └── plugin/           " (the generic ACP adapter for agents plugins declare)
 ├── ui/                   JVM + Compose; depends on core
 └── app/                  JVM + Compose Desktop application; depends on everything, wires it
 ```
@@ -79,7 +80,9 @@ Neither `ui` nor `core` depends on any adapter.
 - feature flags;
 - the `ProcessLauncher` interface and the git and worktree services built on it;
 - persistence;
-- the orchestrator and the internal API (`OctoCore`).
+- the orchestrator and the internal API (`OctoCore`);
+- the plugin loader (`octo.core.plugins`), over the engine-neutral `wasm` interface from
+  kotlin-wasm; the app hands it the Chasm runtime.
 
 `commonMain` holds everything except platform implementations. `jvmMain` holds
 `JvmProcessLauncher` (`ProcessBuilder`) and the platform paths. Native targets compile
@@ -109,6 +112,7 @@ event mapping, extensions and fixtures.
 | `grok` | ACP `grok agent stdio` | `grok` (the official xAI build; refuses the community CLI) |
 | `antigravity` | ACP `agy_acp_server` | Behind the `antigravity` flag, with a terms notice |
 | `demo` | In-process, no binary | Behind the `demo-agent` flag; asks for permission and writes `octo-demo.md` |
+| `plugin` | ACP, with the arguments a plugin's manifest gives | The bare command the manifest names, on `PATH` |
 
 **`ui`** follows MVVM, the creator's choice. Each screen has a view model that reads `OctoCore`
 flows and exposes one immutable UI state as a `StateFlow`, plus methods for user actions that
@@ -224,7 +228,7 @@ class FeatureFlags(config: Map<String, Boolean>) {
 | `agent-messaging` (an MCP server on loopback: `list_tasks`, `send_message`, `wait_for_idle`) | T13 |
 | `presets` (teams of agents with roles and prompts, kept in `presets.json`) | T14 |
 | `remote-access` (a token-paired JSON API on `127.0.0.1`, reached through the user's tunnel) | T15 |
-| `plugins` | T16 |
+| `plugins` (WebAssembly plugins that add ACP agents and task actions; see `docs/plugins.md`) | T16 |
 | `pty-terminal` | Reserved |
 
 ## 7. Core API and orchestration
@@ -288,6 +292,10 @@ agent and writes the state. `close()` belongs to `app`, so it is not on the inte
   `--permission-mode`) are explicit task options.
 - Process handling: Octo kills only the processes it spawned, by handle and never by pattern, and
   kills the whole process tree on stop.
+- Plugins run in a WebAssembly interpreter with no imports: they can reach nothing but the JSON
+  they are given. Each call is fuel-metered and its output is size- and bounds-checked. An agent a
+  plugin declares is a bare command on `PATH` with fixed arguments, and it cannot take a built-in
+  agent's id.
 
 ## 10. Testing
 

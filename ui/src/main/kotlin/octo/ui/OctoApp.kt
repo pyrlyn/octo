@@ -128,11 +128,14 @@ private fun TaskPane(
 ) {
     val vm = remember(id) { models.task(id) }
     DisposableEffect(vm) { onDispose { vm.close() } }
+    val plugins = remember(id) { models.pluginActions(id) }
+    DisposableEffect(plugins) { onDispose { plugins?.close() } }
     var publishing by remember(id) { mutableStateOf(false) }
     TaskScreen(
         vm,
         onDiff = { models.main.showDiff(true) },
         onPublish = if (models.canPublish) ({ publishing = true }) else null,
+        plugins = plugins,
     )
     if (publishing) {
         val title =

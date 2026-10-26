@@ -11,6 +11,9 @@ kotlinx-coroutines-swing = { module = "org.jetbrains.kotlinx:kotlinx-coroutines-
 kotlinx-coroutines-test = { module = "org.jetbrains.kotlinx:kotlinx-coroutines-test", version.ref = "coroutines" }
 kotlinx-serialization-json = { module = "org.jetbrains.kotlinx:kotlinx-serialization-json", version.ref = "serialization" }
 kotlinx-io-core = { module = "org.jetbrains.kotlinx:kotlinx-io-core", version.ref = "kotlinx-io" }
+# From the included kotlin-wasm build, so they carry no version.
+wasm = { module = "pyrlyn.wasm:wasm" }
+wasm-chasm = { module = "pyrlyn.wasm:wasm-chasm" }
 
 # Gradle plugins, put on the build classpath by buildSrc.
 kotlin-gradle-plugin = { module = "org.jetbrains.kotlin:kotlin-gradle-plugin", version.ref = "kotlin" }

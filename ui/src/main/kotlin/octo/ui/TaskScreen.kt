@@ -37,6 +37,7 @@ import androidx.compose.ui.text.font.FontWeight
 import octo.core.agent.Role
 import octo.core.status.AgentStatus
 import octo.core.task.TranscriptEntry
+import octo.ui.vm.PluginActionsViewModel
 import octo.ui.vm.RemoveStep
 import octo.ui.vm.TaskUiState
 import octo.ui.vm.TaskViewModel
@@ -46,12 +47,14 @@ internal fun TaskScreen(
     vm: TaskViewModel,
     onDiff: () -> Unit,
     onPublish: (() -> Unit)? = null,
+    /** Null without plugin actions, which hides the menu. */
+    plugins: PluginActionsViewModel? = null,
 ) {
     val state by vm.state.collectAsState()
     val task = state.task ?: return
     Column(Modifier.fillMaxSize().padding(LargeGap), verticalArrangement = Arrangement.spacedBy(Gap)) {
         // Publishing runs this computer's git and gh, which cannot reach a remote worktree.
-        Header(state, vm, onDiff, onPublish.takeIf { task.machine == null })
+        Header(state, vm, onDiff, onPublish.takeIf { task.machine == null }, plugins)
         Text(
             task.machine?.let { "${task.branch} · on $it" } ?: task.branch,
             style = MaterialTheme.typography.bodySmall,
@@ -73,6 +76,7 @@ private fun Header(
     vm: TaskViewModel,
     onDiff: () -> Unit,
     onPublish: (() -> Unit)?,
+    plugins: PluginActionsViewModel?,
 ) {
     val task = state.task ?: return
     val status = state.sidebarStatus
@@ -88,6 +92,7 @@ private fun Header(
         OutlinedButton(onClick = onDiff) { Text("Diff") }
         // Publishing while the agent writes would push half a change.
         onPublish?.let { OutlinedButton(onClick = it, enabled = !state.canCancel) { Text("Publish") } }
+        plugins?.let { PluginMenu(it) }
         TextButton(onClick = vm::requestRemove) { Text("Remove") }
     }
 }
