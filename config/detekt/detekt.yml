@@ -5,3 +5,10 @@ naming:
 style:
   MagicNumber:
     excludes: ['**/test/**', '**/commonTest/**', '**/jvmTest/**']
+
+complexity:
+  # A protocol mapper has one small function per message type; splitting it across classes
+  # would scatter one protocol over several files.
+  TooManyFunctions:
+    allowedFunctionsPerClass: 25
+    allowedFunctionsPerFile: 25
