@@ -21,6 +21,7 @@ include(
     ":adapters:base",
     ":adapters:claude",
     ":adapters:codex",
+    ":adapters:cursor",
     ":ui",
     ":app",
 )

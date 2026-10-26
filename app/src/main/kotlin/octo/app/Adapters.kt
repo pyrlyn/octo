@@ -2,6 +2,7 @@ package octo.app
 
 import octo.adapters.claude.ClaudeAdapter
 import octo.adapters.codex.CodexAdapter
+import octo.adapters.cursor.CursorAdapter
 import octo.core.agent.AdapterRegistry
 import octo.core.agent.AgentAdapter
 import octo.core.flags.FeatureFlags
@@ -12,6 +13,7 @@ fun builtInAdapters(launcher: ProcessLauncher): List<AgentAdapter> =
     listOf(
         ClaudeAdapter(launcher),
         CodexAdapter(launcher),
+        CursorAdapter(launcher),
     )
 
 fun adapterRegistry(

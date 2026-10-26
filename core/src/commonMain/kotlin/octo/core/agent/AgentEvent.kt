@@ -118,10 +118,14 @@ sealed interface RequestResponse {
         val optionId: String,
     ) : RequestResponse
 
-    /** Answers keyed by [Question.id]. */
+    /** Answers keyed by [Question.id]; a multi-select answer joins the labels with [SEPARATOR]. */
     data class Answers(
         val answers: Map<String, String>,
-    ) : RequestResponse
+    ) : RequestResponse {
+        companion object {
+            const val SEPARATOR = ", "
+        }
+    }
 
     data object Cancelled : RequestResponse
 }

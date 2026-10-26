@@ -1,12 +1,9 @@
 package octo.adapters.claude
 
-import kotlinx.coroutines.channels.Channel
-import kotlinx.coroutines.launch
 import kotlinx.coroutines.test.StandardTestDispatcher
 import kotlinx.coroutines.test.TestScope
 import kotlinx.coroutines.test.runTest
 import octo.core.agent.AgentEvent
-import octo.core.agent.AgentSession
 import octo.core.agent.AgentSessionRef
 import octo.core.agent.AuthState
 import octo.core.agent.LogStream
@@ -17,6 +14,7 @@ import octo.core.agent.Role
 import octo.core.agent.SessionSpec
 import octo.core.agent.StopReason
 import octo.core.agent.ToolStatus
+import octo.testing.Events
 import octo.testing.FakeProcess
 import octo.testing.FakeProcessLauncher
 import octo.testing.readFixture
@@ -34,35 +32,6 @@ class ClaudeAdapterTest {
     }
 
     private fun TestScope.fixture(name: String) = adapter { replay(readFixture("src/commonTest/fixtures/$name")) }
-
-    /** Collects every event so a test can wait for one and still check the whole stream. */
-    private class Events(
-        scope: TestScope,
-        session: AgentSession,
-    ) {
-        private val channel = Channel<AgentEvent>(Channel.UNLIMITED)
-        val seen = mutableListOf<AgentEvent>()
-
-        init {
-            scope.backgroundScope.launch {
-                session.events.collect { channel.send(it) }
-                channel.close()
-            }
-        }
-
-        suspend inline fun <reified T : AgentEvent> next(): T {
-            while (true) {
-                val event = channel.receive()
-                seen += event
-                if (event is T) return event
-            }
-        }
-
-        suspend fun drain(): List<AgentEvent> {
-            for (event in channel) seen += event
-            return seen
-        }
-    }
 
     @Test
     fun newSessionArgs() =
@@ -92,7 +61,7 @@ class ClaudeAdapterTest {
             )
             assertEquals(
                 AgentEvent.SessionReady(AgentSessionRef("old")),
-                Events(this, session).next<AgentEvent.SessionReady>(),
+                Events(backgroundScope, session).next<AgentEvent.SessionReady>(),
             )
         }
 
@@ -102,7 +71,7 @@ class ClaudeAdapterTest {
             val (adapter, _) = fixture("turn.transcript")
             val session = adapter.start(SessionSpec("/repo"))
             session.prompt("List the files")
-            val events = Events(this, session).drain()
+            val events = Events(backgroundScope, session).drain()
 
             assertEquals(AgentEvent.SessionReady(AgentSessionRef("new-id")), events[0])
             assertEquals(AgentEvent.TurnStarted, events[1])
@@ -137,7 +106,7 @@ class ClaudeAdapterTest {
         runTest {
             val (adapter, launcher) = fixture("permission.transcript")
             val session = adapter.start(SessionSpec("/repo"))
-            val events = Events(this, session)
+            val events = Events(backgroundScope, session)
             session.prompt("Clean up")
 
             val bash = events.next<AgentEvent.PermissionRequested>()
@@ -177,7 +146,7 @@ class ClaudeAdapterTest {
         runTest {
             val (adapter, _) = fixture("cancel.transcript")
             val session = adapter.start(SessionSpec("/repo"))
-            val events = Events(this, session)
+            val events = Events(backgroundScope, session)
             session.prompt("Work")
             session.cancel()
             assertEquals(StopReason.Cancelled, events.next<AgentEvent.TurnEnded>().stopReason)
