@@ -51,6 +51,7 @@ class Octo private constructor(
     val devices: Devices?,
     /** Empty unless the `plugins` flag is on. */
     val plugins: List<Plugin>,
+    private val remote: RemoteMachines,
 ) {
     val core: OctoCore get() = orchestrator
 
@@ -61,6 +62,7 @@ class Octo private constructor(
     suspend fun close() {
         remoteServer?.close()
         orchestrator.close()
+        remote.close()
         mcpServer?.close()
     }
 
@@ -77,7 +79,7 @@ class Octo private constructor(
             val terms = TermsGate(AtomicFile(paths.acknowledgements))
             val remote =
                 if (flags.isEnabled(CoreFlags.REMOTE_SSH)) {
-                    remoteMachines(config.machines, launcher, flags)
+                    remoteMachines(config.machines, launcher, flags, paths.sockets, scope)
                 } else {
                     RemoteMachines(emptyMap(), emptyList())
                 }
@@ -120,6 +122,7 @@ class Octo private constructor(
                 access.server,
                 access.devices,
                 plugins.loaded.plugins,
+                remote,
             )
         }
 
