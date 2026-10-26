@@ -1,0 +1,7 @@
+# Echo agent: greets after the handshake, answers one prompt, exits.
+> 
+< ready
+! warming up
+> 
+< you said hi
+x 0
