@@ -30,3 +30,5 @@ schema; no real account was used.
 
 Checked: `./gradlew check -Pocto.allNativeTargets=true` green locally (5 Codex tests).
 GitHub Actions is still blocked by account billing.
+
+PR: https://github.com/pyrlyn/octo/pull/7
