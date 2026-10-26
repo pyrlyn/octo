@@ -3,6 +3,7 @@ package octo.app
 import octo.adapters.claude.ClaudeAdapter
 import octo.adapters.codex.CodexAdapter
 import octo.adapters.cursor.CursorAdapter
+import octo.adapters.grok.GrokAdapter
 import octo.core.flags.FeatureFlags
 import octo.core.process.JvmProcessLauncher
 import kotlin.test.Test
@@ -15,5 +16,6 @@ class AdaptersTest {
         assertNotNull(registry[ClaudeAdapter.ID])
         assertNotNull(registry[CodexAdapter.ID])
         assertNotNull(registry[CursorAdapter.ID])
+        assertNotNull(registry[GrokAdapter.ID])
     }
 }

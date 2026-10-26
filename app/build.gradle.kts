@@ -9,6 +9,7 @@ dependencies {
     implementation(project(":adapters:claude"))
     implementation(project(":adapters:codex"))
     implementation(project(":adapters:cursor"))
+    implementation(project(":adapters:grok"))
     implementation(compose.desktop.currentOs)
     implementation(libs.kotlinx.coroutines.swing)
 }

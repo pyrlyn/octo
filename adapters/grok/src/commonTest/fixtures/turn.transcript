@@ -1,0 +1,12 @@
+# Resume through session/resume and one turn with Grok's own extension notifications (synthetic;
+# initialize reply trimmed from grok 1.0.67).
+> {"jsonrpc":"2.0","id":1,"method":"initialize","params":{"protocolVersion":1}}
+< {"jsonrpc":"2.0","id":1,"result":{"protocolVersion":1,"agentCapabilities":{"loadSession":true,"promptCapabilities":{"image":true,"audio":false,"embeddedContext":true},"mcpCapabilities":{"http":true,"sse":true},"sessionCapabilities":{"list":{},"resume":{},"close":{}},"auth":{}},"authMethods":[{"id":"cached_token","name":"cached_token","description":"Cached token from ~/.grok/auth.json"},{"id":"grok.com","name":"Grok","description":"Sign in with Grok"}]}}
+< {"jsonrpc":"2.0","method":"_x.ai/settings/update","params":{"sharing_enabled":false}}
+> {"jsonrpc":"2.0","id":2,"method":"session/resume","params":{"sessionId":"old","cwd":"/repo","mcpServers":[]}}
+< {"jsonrpc":"2.0","method":"_x.ai/session/setup","params":{"method":"session/resume","phase":"auth","sessionId":"old"}}
+< {"jsonrpc":"2.0","id":2,"result":{}}
+> {"jsonrpc":"2.0","id":3,"method":"session/prompt","params":{"sessionId":"old","prompt":[{"type":"text","text":"Hi"}]}}
+< {"jsonrpc":"2.0","method":"session/update","params":{"sessionId":"old","update":{"sessionUpdate":"agent_message_chunk","content":{"type":"text","text":"Hello."}}}}
+< {"jsonrpc":"2.0","id":3,"result":{"stopReason":"end_turn"}}
+x 0

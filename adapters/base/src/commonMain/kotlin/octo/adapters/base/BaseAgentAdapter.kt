@@ -41,6 +41,9 @@ abstract class BaseAgentAdapter(
 
     protected open fun buildEnv(spec: SessionSpec): Map<String, String> = spec.env
 
+    /** Runs before launch; throw [octo.core.agent.WrongAgentBinaryException] for a look-alike CLI. */
+    protected open suspend fun checkBinary(binaryPath: String) {}
+
     protected abstract fun createSession(
         process: RunningProcess,
         spec: SessionSpec,
@@ -64,6 +67,7 @@ abstract class BaseAgentAdapter(
 
     override suspend fun start(spec: SessionSpec): AgentSession {
         val path = launcher.which(binary) ?: throw AgentNotInstalledException(id)
+        checkBinary(path)
         val process = launcher.launch(ProcessSpec(path, buildArgs(spec), spec.workingDir, buildEnv(spec)))
         val session = createSession(process, spec)
         session.start()
