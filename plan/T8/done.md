@@ -46,3 +46,5 @@
 - `./gradlew check -Pocto.allNativeTargets=true`: JVM and native tests, ktlint, detekt, all green.
   New tests: `TermsGateTest` (3), `AntigravityAdapterTest` (3), `AdaptersTest` (2).
 - CI on `pyrlyn/octo` is blocked by GitHub billing, so the PR has no CI run.
+
+PR: https://github.com/pyrlyn/octo/pull/11
