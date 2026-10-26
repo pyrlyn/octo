@@ -36,3 +36,5 @@ Checked:
   - `OctoPathsTest` covers the socket folder on each OS.
   - `RemoteMachinesTest` covers the private folder and mode, an untrusted folder, a socket path
     that is too long, and sharing off without a folder.
+
+PR: https://github.com/pyrlyn/octo/pull/21
