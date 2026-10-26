@@ -42,3 +42,5 @@
   alone has no `../ci-diffuser`, so CI cannot configure the build until ci-diffuser gets a
   remote. CI is also still blocked by the account's billing.
 - The remote build cache, since no keys were set.
+
+PR: https://github.com/pyrlyn/octo/pull/16
