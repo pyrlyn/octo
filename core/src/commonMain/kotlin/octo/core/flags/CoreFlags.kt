@@ -5,5 +5,6 @@ object CoreFlags {
     val GIT_PUBLISH = FeatureFlag("git-publish", "Commit, push and open a pull request from a task")
     val AGENT_MESSAGING =
         FeatureFlag("agent-messaging", "Let agents message and wait on each other through Octo's MCP server")
+    val PRESETS = FeatureFlag("presets", "Save teams of agents with roles and prompts and start them together")
     val REMOTE_SSH = FeatureFlag("remote-ssh", "Run tasks on the machines listed in config.json over SSH")
 }

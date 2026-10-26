@@ -222,7 +222,7 @@ class FeatureFlags(config: Map<String, Boolean>) {
 | `git-publish` (commit, push, PR) | T11 |
 | `remote-ssh` (tasks on machines from `config.json`, through the user's `ssh`) | T12 |
 | `agent-messaging` (an MCP server on loopback: `list_tasks`, `send_message`, `wait_for_idle`) | T13 |
-| `presets` | T14 |
+| `presets` (teams of agents with roles and prompts, kept in `presets.json`) | T14 |
 | `remote-access` | T15 |
 | `plugins` | T16 |
 | `pty-terminal` | Reserved |

@@ -6,11 +6,15 @@ import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.update
+import kotlinx.coroutines.launch
 import octo.core.agent.AgentId
 import octo.core.agent.VendorTerms
 import octo.core.orchestrator.AgentCatalog
 import octo.core.orchestrator.AgentInfo
 import octo.core.orchestrator.OctoCore
+import octo.core.preset.Preset
+import octo.core.preset.PresetLibrary
+import octo.core.preset.startPreset
 import octo.core.task.NewTask
 import octo.core.task.TaskId
 import octo.core.terms.TermsNotAcknowledgedException
@@ -37,8 +41,26 @@ data class NewTaskUiState(
     val terms: TermsNotice? = null,
     val created: TaskId? = null,
     val error: String? = null,
+    /** Whether presets can be used at all; false while the `presets` flag is off. */
+    val presetsEnabled: Boolean = false,
+    /** Start a saved team instead of one agent. */
+    val team: Boolean = false,
+    val presets: List<Preset> = emptyList(),
+    val preset: String? = null,
 ) {
     val selectedAgent: AgentInfo? get() = agents.firstOrNull { it.id == agent }
+
+    val selectedPreset: Preset? get() = presets.firstOrNull { it.name == preset }
+
+    /** Members whose agent is not installed on the chosen machine; the team cannot start until there are none. */
+    val missingAgents: List<AgentId>
+        get() =
+            selectedPreset
+                ?.members
+                ?.map { it.agent }
+                ?.distinct()
+                ?.filter { id -> agents.none { it.id == id && it.probe.installed } }
+                .orEmpty()
 
     /** The title, or the prompt's first line when the title is left empty. */
     val effectiveTitle: String get() =
@@ -53,8 +75,12 @@ data class NewTaskUiState(
 
     val canCreate: Boolean
         get() =
-            !creating && repo.isNotBlank() && baseRef.isNotBlank() && effectiveTitle.isNotEmpty() &&
-                selectedAgent?.probe?.installed == true
+            !creating && repo.isNotBlank() && baseRef.isNotBlank() &&
+                if (team) {
+                    selectedPreset != null && !loadingAgents && missingAgents.isEmpty()
+                } else {
+                    effectiveTitle.isNotEmpty() && selectedAgent?.probe?.installed == true
+                }
 
     companion object {
         const val DEFAULT_BASE_REF = "main"
@@ -67,14 +93,30 @@ class NewTaskViewModel(
     private val core: OctoCore,
     private val catalog: AgentCatalog,
     parent: CoroutineScope,
+    /** Null while the `presets` flag is off. */
+    library: PresetLibrary? = null,
 ) {
     private val scope = parent.childScope()
-    private val mutable = MutableStateFlow(NewTaskUiState(machines = catalog.machines))
+    private val mutable =
+        MutableStateFlow(NewTaskUiState(machines = catalog.machines, presetsEnabled = library != null))
     val state: StateFlow<NewTaskUiState> = mutable.asStateFlow()
 
     init {
         loadAgents(null)
+        library?.let {
+            scope.launch {
+                it.presets.collect { all ->
+                    mutable.update { s ->
+                        s.copy(presets = all, preset = s.preset?.takeIf { name -> all.any { it.name == name } })
+                    }
+                }
+            }
+        }
     }
+
+    fun useTeam(on: Boolean) = mutable.update { it.copy(team = on && it.presetsEnabled, error = null) }
+
+    fun selectPreset(name: String) = mutable.update { it.copy(preset = name) }
 
     /** Agents are probed on the chosen machine, so the list is reloaded whenever it changes. */
     fun selectMachine(id: String?) {
@@ -113,6 +155,27 @@ class NewTaskViewModel(
 
     fun create() {
         val s = state.value.takeIf { it.canCreate } ?: return
+        if (s.team) createTeam(s) else createOne(s)
+    }
+
+    // Every member's vendor terms are settled before the first task starts, so a team never
+    // ends up half started because one agent still needs a decision.
+    private fun createTeam(s: NewTaskUiState) {
+        val preset = s.selectedPreset ?: return
+        mutable.update { it.copy(creating = true, error = null) }
+        scope.action(::fail) {
+            for (id in preset.members.map { it.agent }.distinct()) {
+                val terms = catalog.pendingTerms(id) ?: continue
+                val agent = s.agents.first { it.id == id }
+                mutable.update { it.copy(creating = false, terms = TermsNotice(agent, terms)) }
+                return@action
+            }
+            val ids = core.startPreset(preset, s.repo.trim(), s.baseRef.trim(), s.machine)
+            mutable.update { it.copy(creating = false, created = ids.firstOrNull()) }
+        }
+    }
+
+    private fun createOne(s: NewTaskUiState) {
         val agent = s.selectedAgent ?: return
         mutable.update { it.copy(creating = true, error = null) }
         scope.action(::fail) {

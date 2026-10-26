@@ -3,6 +3,7 @@ package octo.ui.vm
 import kotlinx.coroutines.CoroutineScope
 import octo.core.orchestrator.AgentCatalog
 import octo.core.orchestrator.OctoCore
+import octo.core.preset.PresetLibrary
 import octo.core.publish.TaskPublisher
 import octo.core.task.TaskId
 
@@ -14,6 +15,8 @@ class ViewModels(
     startupWarnings: List<String> = emptyList(),
     /** Null while the `git-publish` flag is off, which hides the action. */
     private val publisher: TaskPublisher? = null,
+    /** Null while the `presets` flag is off, which hides teams. */
+    private val presets: PresetLibrary? = null,
 ) {
     val main = MainViewModel(core, scope, startupWarnings)
 
@@ -23,7 +26,9 @@ class ViewModels(
 
     fun diff(id: TaskId) = DiffViewModel(core, id, scope)
 
-    fun newTask() = NewTaskViewModel(core, catalog, scope)
+    fun newTask() = NewTaskViewModel(core, catalog, scope, presets)
+
+    fun presets(): PresetsViewModel? = presets?.let { PresetsViewModel(it, catalog, scope) }
 
     fun publish(
         id: TaskId,
