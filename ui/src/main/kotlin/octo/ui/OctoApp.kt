@@ -1,21 +1,168 @@
 package octo.ui
 
+import androidx.compose.foundation.gestures.Orientation
+import androidx.compose.foundation.gestures.draggable
+import androidx.compose.foundation.gestures.rememberDraggableState
+import androidx.compose.foundation.isSystemInDarkTheme
+import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.width
+import androidx.compose.material3.Button
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
+import androidx.compose.material3.VerticalDivider
+import androidx.compose.material3.darkColorScheme
+import androidx.compose.material3.lightColorScheme
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.DisposableEffect
+import androidx.compose.runtime.collectAsState
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.key
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.input.pointer.PointerIcon
+import androidx.compose.ui.input.pointer.pointerHoverIcon
+import androidx.compose.ui.platform.LocalDensity
+import androidx.compose.ui.unit.dp
+import octo.core.task.TaskId
+import octo.ui.vm.MainUiState
+import octo.ui.vm.ViewModels
+import java.awt.Cursor
 
 @Composable
-fun OctoApp() {
-    MaterialTheme {
+fun OctoApp(models: ViewModels) {
+    val main = models.main
+    val state by main.state.collectAsState()
+    MaterialTheme(colorScheme = if (isSystemInDarkTheme()) darkColorScheme() else lightColorScheme()) {
         Surface(Modifier.fillMaxSize()) {
-            Box(contentAlignment = Alignment.Center) {
-                Text("No tasks yet")
+            Column(Modifier.fillMaxSize()) {
+                state.warnings.forEach { Banner(it, error = false, onDismiss = main::dismissWarnings) }
+                state.error?.let { Banner(it, error = true, onDismiss = main::dismissError) }
+                Row(Modifier.fillMaxSize()) {
+                    var dragging by remember { mutableStateOf<Float?>(null) }
+                    val width = dragging ?: state.sidebarWidth
+                    Sidebar(state, main, Modifier.width(width.dp).fillMaxHeight())
+                    // Only the final width is persisted, not every frame of the drag.
+                    SidebarHandle(
+                        onDrag = { delta -> dragging = clampWidth((dragging ?: state.sidebarWidth) + delta) },
+                        onDone = {
+                            dragging?.let(main::resizeSidebar)
+                            dragging = null
+                        },
+                    )
+                    Box(Modifier.weight(1f).fillMaxHeight()) { Content(state, models) }
+                }
             }
+            if (state.newTaskOpen) {
+                val vm = remember { models.newTask() }
+                DisposableEffect(vm) { onDispose { vm.close() } }
+                NewTaskDialog(vm, onCreated = main::created, onDismiss = main::closeNewTask)
+            }
+        }
+    }
+}
+
+private fun clampWidth(width: Float) = width.coerceIn(MainUiState.MIN_SIDEBAR_WIDTH, MainUiState.MAX_SIDEBAR_WIDTH)
+
+@Composable
+private fun SidebarHandle(
+    onDrag: (Float) -> Unit,
+    onDone: () -> Unit,
+) {
+    val density = LocalDensity.current.density
+    Box(
+        Modifier
+            .width(DividerWidth)
+            .fillMaxHeight()
+            .pointerHoverIcon(PointerIcon(Cursor(Cursor.E_RESIZE_CURSOR)))
+            .draggable(
+                rememberDraggableState { px -> onDrag(px / density) },
+                Orientation.Horizontal,
+                onDragStopped = { onDone() },
+            ),
+        contentAlignment = Alignment.Center,
+    ) { VerticalDivider() }
+}
+
+@Composable
+private fun Content(
+    state: MainUiState,
+    models: ViewModels,
+) {
+    val id = state.selected
+    if (id == null) {
+        Empty(models.main::openNewTask)
+        return
+    }
+    key(id, state.diffOpen) {
+        if (state.diffOpen) {
+            DiffPane(id, models)
+        } else {
+            TaskPane(id, models)
+        }
+    }
+}
+
+@Composable
+private fun TaskPane(
+    id: TaskId,
+    models: ViewModels,
+) {
+    val vm = remember(id) { models.task(id) }
+    DisposableEffect(vm) { onDispose { vm.close() } }
+    TaskScreen(vm, onDiff = { models.main.showDiff(true) })
+}
+
+@Composable
+private fun DiffPane(
+    id: TaskId,
+    models: ViewModels,
+) {
+    val vm = remember(id) { models.diff(id) }
+    DisposableEffect(vm) { onDispose { vm.close() } }
+    DiffScreen(vm, onClose = { models.main.showDiff(false) })
+}
+
+@Composable
+private fun Empty(onNew: () -> Unit) {
+    Column(
+        Modifier.fillMaxSize(),
+        verticalArrangement = Arrangement.Center,
+        horizontalAlignment = Alignment.CenterHorizontally,
+    ) {
+        Text("No task selected", style = MaterialTheme.typography.titleMedium)
+        Button(onClick = onNew, modifier = Modifier.padding(top = Gap)) { Text("New task") }
+    }
+}
+
+@Composable
+internal fun Banner(
+    text: String,
+    error: Boolean,
+    onDismiss: () -> Unit,
+) {
+    val colors = MaterialTheme.colorScheme
+    Surface(
+        color = if (error) colors.errorContainer else colors.secondaryContainer,
+        modifier = Modifier.fillMaxWidth(),
+    ) {
+        Row(
+            Modifier.padding(horizontal = LargeGap, vertical = SmallGap),
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+            Text(text, Modifier.weight(1f), color = if (error) colors.onErrorContainer else colors.onSecondaryContainer)
+            TextButton(onClick = onDismiss) { Text("Dismiss") }
         }
     }
 }

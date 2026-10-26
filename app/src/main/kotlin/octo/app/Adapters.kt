@@ -4,6 +4,7 @@ import octo.adapters.antigravity.AntigravityAdapter
 import octo.adapters.claude.ClaudeAdapter
 import octo.adapters.codex.CodexAdapter
 import octo.adapters.cursor.CursorAdapter
+import octo.adapters.demo.DemoAdapter
 import octo.adapters.grok.GrokAdapter
 import octo.core.agent.AdapterRegistry
 import octo.core.agent.AgentAdapter
@@ -19,6 +20,7 @@ fun builtInAdapters(launcher: ProcessLauncher): List<AgentAdapter> =
         CursorAdapter(launcher),
         GrokAdapter(launcher),
         AntigravityAdapter(launcher, currentHostOs()),
+        DemoAdapter(),
     )
 
 fun adapterRegistry(

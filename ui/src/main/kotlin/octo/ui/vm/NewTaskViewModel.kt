@@ -1,0 +1,138 @@
+package octo.ui.vm
+
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.cancel
+import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.update
+import octo.core.agent.AgentId
+import octo.core.agent.VendorTerms
+import octo.core.orchestrator.AgentCatalog
+import octo.core.orchestrator.AgentInfo
+import octo.core.orchestrator.OctoCore
+import octo.core.task.NewTask
+import octo.core.task.TaskId
+import octo.core.terms.TermsNotAcknowledgedException
+
+data class TermsNotice(
+    val agent: AgentInfo,
+    val terms: VendorTerms,
+)
+
+data class NewTaskUiState(
+    val repo: String = "",
+    val baseRef: String = DEFAULT_BASE_REF,
+    val title: String = "",
+    val prompt: String = "",
+    val agents: List<AgentInfo> = emptyList(),
+    val agent: AgentId? = null,
+    val loadingAgents: Boolean = true,
+    val creating: Boolean = false,
+    /** Shown before the first task with an agent whose vendor's terms need a decision. */
+    val terms: TermsNotice? = null,
+    val created: TaskId? = null,
+    val error: String? = null,
+) {
+    val selectedAgent: AgentInfo? get() = agents.firstOrNull { it.id == agent }
+
+    /** The title, or the prompt's first line when the title is left empty. */
+    val effectiveTitle: String get() =
+        title.trim().ifEmpty {
+            prompt
+                .trim()
+                .lineSequence()
+                .firstOrNull()
+                .orEmpty()
+                .take(TITLE_LENGTH)
+        }
+
+    val canCreate: Boolean
+        get() =
+            !creating && repo.isNotBlank() && baseRef.isNotBlank() && effectiveTitle.isNotEmpty() &&
+                selectedAgent?.probe?.installed == true
+
+    companion object {
+        const val DEFAULT_BASE_REF = "main"
+        const val TITLE_LENGTH = 60
+    }
+}
+
+/** The new-task form: repository, base branch, agent and the first prompt. */
+class NewTaskViewModel(
+    private val core: OctoCore,
+    private val catalog: AgentCatalog,
+    parent: CoroutineScope,
+) {
+    private val scope = parent.childScope()
+    private val mutable = MutableStateFlow(NewTaskUiState())
+    val state: StateFlow<NewTaskUiState> = mutable.asStateFlow()
+
+    init {
+        scope.action(::fail) {
+            val agents = catalog.agents()
+            mutable.update { s ->
+                s.copy(
+                    loadingAgents = false,
+                    agents = agents,
+                    agent =
+                        s.agent ?: agents.firstOrNull { it.probe.installed }?.id,
+                )
+            }
+        }
+    }
+
+    fun editRepo(value: String) = mutable.update { it.copy(repo = value) }
+
+    fun editBaseRef(value: String) = mutable.update { it.copy(baseRef = value) }
+
+    fun editTitle(value: String) = mutable.update { it.copy(title = value) }
+
+    fun editPrompt(value: String) = mutable.update { it.copy(prompt = value) }
+
+    fun selectAgent(id: AgentId) = mutable.update { it.copy(agent = id) }
+
+    fun create() {
+        val s = state.value.takeIf { it.canCreate } ?: return
+        val agent = s.selectedAgent ?: return
+        mutable.update { it.copy(creating = true, error = null) }
+        scope.action(::fail) {
+            try {
+                val id =
+                    core.createTask(
+                        NewTask(
+                            repo = s.repo.trim(),
+                            baseRef = s.baseRef.trim(),
+                            agent = agent.id,
+                            title = s.effectiveTitle,
+                            prompt = s.prompt.trim().ifEmpty { null },
+                        ),
+                    )
+                mutable.update { it.copy(creating = false, created = id) }
+            } catch (e: TermsNotAcknowledgedException) {
+                mutable.update { it.copy(creating = false, terms = TermsNotice(agent, e.terms)) }
+            }
+        }
+    }
+
+    /** The user read the vendor's terms and goes ahead; the acknowledgement is stored by core. */
+    fun acceptTerms() {
+        val notice = state.value.terms ?: return
+        mutable.update { it.copy(terms = null) }
+        scope.action(::fail) {
+            catalog.acknowledgeTerms(notice.agent.id)
+            create()
+        }
+    }
+
+    fun declineTerms() = mutable.update { it.copy(terms = null) }
+
+    fun dismissError() = mutable.update { it.copy(error = null) }
+
+    fun close() = scope.cancel()
+
+    private fun fail(e: Exception) =
+        mutable.update {
+            it.copy(loadingAgents = false, creating = false, error = e.userMessage)
+        }
+}
