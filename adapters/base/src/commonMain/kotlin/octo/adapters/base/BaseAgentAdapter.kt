@@ -30,6 +30,9 @@ abstract class BaseAgentAdapter(
     /** The version this adapter's protocol mapping was checked against. */
     protected abstract val verifiedVersion: String
 
+    /** Finds the binary; override when the CLI ships under more than one name. */
+    protected open suspend fun locate(): String? = launcher.which(binary)
+
     protected open val versionArgs: List<String> = listOf("--version")
 
     protected open fun parseVersion(output: String): String? = VERSION.find(output)?.value
@@ -52,7 +55,7 @@ abstract class BaseAgentAdapter(
     // A broken or hanging CLI must show up as "unknown version", not break the agent list.
     @Suppress("TooGenericExceptionCaught")
     override suspend fun probe(): AgentProbe {
-        val path = launcher.which(binary) ?: return AgentProbe(null, null, verifiedVersion, AuthState.Unknown)
+        val path = locate() ?: return AgentProbe(null, null, verifiedVersion, AuthState.Unknown)
         val version =
             try {
                 withTimeoutOrNull(PROBE_TIMEOUT_MS) { launcher.run(ProcessSpec(path, versionArgs)) }
@@ -66,7 +69,7 @@ abstract class BaseAgentAdapter(
     }
 
     override suspend fun start(spec: SessionSpec): AgentSession {
-        val path = launcher.which(binary) ?: throw AgentNotInstalledException(id)
+        val path = locate() ?: throw AgentNotInstalledException(id)
         checkBinary(path)
         val process = launcher.launch(ProcessSpec(path, buildArgs(spec), spec.workingDir, buildEnv(spec)))
         val session = createSession(process, spec)

@@ -18,6 +18,7 @@ rootProject.name = "octo"
 include(
     ":core",
     ":testing",
+    ":adapters:antigravity",
     ":adapters:base",
     ":adapters:claude",
     ":adapters:codex",

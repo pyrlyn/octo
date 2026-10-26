@@ -6,6 +6,7 @@ plugins {
 
 dependencies {
     implementation(project(":ui"))
+    implementation(project(":adapters:antigravity"))
     implementation(project(":adapters:claude"))
     implementation(project(":adapters:codex"))
     implementation(project(":adapters:cursor"))
