@@ -7,6 +7,7 @@
 | Kotlin 2.4.21 | Gradle plugin | Language, Kotlin Multiplatform | https://github.com/JetBrains/kotlin |
 | git | system | Version control, worktrees per task | https://git-scm.com |
 | gh | brew | Repository and PRs | https://github.com/cli/cli |
+| ci-diffuser | sibling checkout at `../ci-diffuser` (or `CI_DIFFUSER_DIR`), local included build | Shared ktlint, detekt and settings conventions | `apps/ci-diffuser` (no remote) |
 
 ## Gradle
 
@@ -19,5 +20,6 @@
 | org.jetbrains.kotlinx:kotlinx-io-core 0.9.1 | local | https://github.com/Kotlin/kotlinx-io | Files and paths in common code |
 | org.jetbrains.kotlin:kotlin-test | local | https://github.com/JetBrains/kotlin | Tests |
 | Compose Multiplatform 1.12.2 (`org.jetbrains.compose`) | local | https://github.com/JetBrains/compose-multiplatform | Desktop UI |
-| org.jlleitschuh.gradle.ktlint 14.2.0 (ktlint 1.8.0) | local | https://github.com/JLLeitschuh/ktlint-gradle | Formatting lint |
-| dev.detekt 2.0.0-alpha.6 | local | https://github.com/detekt/detekt | Static analysis |
+| org.jlleitschuh.gradle.ktlint 14.2.0 (ktlint 1.8.0) | via ci-diffuser | https://github.com/JLLeitschuh/ktlint-gradle | Formatting lint (`ci.diffuser.ktlint`) |
+| dev.detekt 2.0.0-alpha.6 | via ci-diffuser | https://github.com/detekt/detekt | Static analysis (`ci.diffuser.detekt`) |
+| com.github.burrunan.s3-build-cache 1.9.10 | local (settings) | https://github.com/burrunan/gradle-s3-build-cache | Optional S3/R2 remote build cache (`ci.diffuser.settings`); off without its keys |

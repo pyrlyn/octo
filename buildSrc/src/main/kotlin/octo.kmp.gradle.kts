@@ -2,7 +2,6 @@ import org.jetbrains.kotlin.gradle.targets.native.tasks.KotlinNativeTest
 
 plugins {
     id("org.jetbrains.kotlin.multiplatform")
-    id("octo.lint")
 }
 
 val catalog = versionCatalogs.named("libs")

@@ -6,6 +6,4 @@ dependencies {
     implementation(libs.kotlin.serialization.plugin)
     implementation(libs.compose.compiler.plugin)
     implementation(libs.compose.gradle.plugin)
-    implementation(libs.ktlint.gradle.plugin)
-    implementation(libs.detekt.gradle.plugin)
 }
