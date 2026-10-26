@@ -8,6 +8,8 @@ import octo.core.access.RemoteApi
 import octo.core.access.RemoteHttpServer
 import octo.core.config.OctoConfig
 import octo.core.flags.CoreFlags
+import octo.core.flags.FeatureFlag
+import octo.core.flags.FeatureFlags
 import octo.core.git.Git
 import octo.core.git.GitHubCli
 import octo.core.git.GitWorkspace
@@ -20,12 +22,16 @@ import octo.core.orchestrator.Orchestrator
 import octo.core.orchestrator.RegistryAgentCatalog
 import octo.core.paths.OctoPaths
 import octo.core.persist.StateStore
+import octo.core.plugins.LoadedPlugins
+import octo.core.plugins.Plugin
+import octo.core.plugins.PluginLoader
 import octo.core.preset.FilePresetLibrary
 import octo.core.preset.PresetLibrary
 import octo.core.process.ProcessLauncher
 import octo.core.publish.GitTaskPublisher
 import octo.core.publish.TaskPublisher
 import octo.core.terms.TermsGate
+import wasm.chasm.ChasmRuntime
 
 /** Everything the window needs, built from one Octo home. */
 class Octo private constructor(
@@ -43,6 +49,8 @@ class Octo private constructor(
     internal val remoteServer: RemoteHttpServer?,
     /** Paired devices; null exactly when [remoteServer] is. */
     val devices: Devices?,
+    /** Empty unless the `plugins` flag is on. */
+    val plugins: List<Plugin>,
 ) {
     val core: OctoCore get() = orchestrator
 
@@ -64,7 +72,8 @@ class Octo private constructor(
         ): Octo {
             val (config, warning) = readConfig(AtomicFile(paths.config))
             val flags = config.featureFlags()
-            val registry = adapterRegistry(launcher, flags)
+            val plugins = loadPlugins(flags, paths, launcher)
+            val registry = adapterRegistry(launcher, flags, plugins.agents.adapters)
             val terms = TermsGate(AtomicFile(paths.acknowledgements))
             val remote =
                 if (flags.isEnabled(CoreFlags.REMOTE_SSH)) {
@@ -87,24 +96,11 @@ class Octo private constructor(
                 )
             messaging?.attach(orchestrator)
             val publisher =
-                if (flags.isEnabled(
-                        CoreFlags.GIT_PUBLISH,
-                    )
-                ) {
-                    GitTaskPublisher(orchestrator.state, Git(launcher), GitHubCli(launcher))
-                } else {
-                    null
-                }
+                flags.ifOn(
+                    CoreFlags.GIT_PUBLISH,
+                ) { GitTaskPublisher(orchestrator.state, Git(launcher), GitHubCli(launcher)) }
             val catalog = RegistryAgentCatalog(registry, terms, remote.machines.mapValues { it.value.registry })
-            val presets =
-                if (flags.isEnabled(
-                        CoreFlags.PRESETS,
-                    )
-                ) {
-                    FilePresetLibrary.open(AtomicFile(paths.presets))
-                } else {
-                    null
-                }
+            val presets = flags.ifOn(CoreFlags.PRESETS) { FilePresetLibrary.open(AtomicFile(paths.presets)) }
             val access =
                 if (flags.isEnabled(CoreFlags.REMOTE_ACCESS)) {
                     startRemoteAccess(config, paths, orchestrator)
@@ -112,8 +108,40 @@ class Octo private constructor(
                     RemoteAccess()
                 }
             val warnings =
-                listOfNotNull(warning, mcpWarning, presets?.warning, access.warning) + remote.warnings
-            return Octo(orchestrator, catalog, warnings, publisher, mcpServer, presets, access.server, access.devices)
+                listOfNotNull(warning, mcpWarning, presets?.warning, access.warning) + remote.warnings +
+                    plugins.loaded.warnings + plugins.agents.warnings
+            return Octo(
+                orchestrator,
+                catalog,
+                warnings,
+                publisher,
+                mcpServer,
+                presets,
+                access.server,
+                access.devices,
+                plugins.loaded.plugins,
+            )
+        }
+
+        private inline fun <T> FeatureFlags.ifOn(
+            flag: FeatureFlag,
+            make: () -> T,
+        ): T? = if (isEnabled(flag)) make() else null
+
+        private data class Plugins(
+            val loaded: LoadedPlugins,
+            val agents: PluginAdapters,
+        )
+
+        // Plugin agents run on this computer only: a remote machine may not have their command.
+        private suspend fun loadPlugins(
+            flags: FeatureFlags,
+            paths: OctoPaths,
+            launcher: ProcessLauncher,
+        ): Plugins {
+            val loaded = PluginLoader.load(flags, paths.plugins, ChasmRuntime)
+            val taken = builtInAdapters(launcher).map { it.id }.toSet()
+            return Plugins(loaded, pluginAdapters(loaded.plugins.map { it.manifest }, launcher, taken))
         }
 
         private data class RemoteAccess(

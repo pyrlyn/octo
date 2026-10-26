@@ -26,6 +26,7 @@ fun main() {
             octo.presets,
             octo.devices,
             octo.remoteUrl,
+            octo.plugins,
         )
     application {
         Window(

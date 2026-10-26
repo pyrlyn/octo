@@ -12,6 +12,8 @@ dependencies {
     implementation(project(":adapters:cursor"))
     implementation(project(":adapters:demo"))
     implementation(project(":adapters:grok"))
+    implementation(project(":adapters:plugin"))
+    implementation(libs.wasm.chasm)
     implementation(compose.desktop.currentOs)
     implementation(libs.kotlinx.coroutines.swing)
 }

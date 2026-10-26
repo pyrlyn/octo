@@ -1,0 +1,21 @@
+# The plugin the core's tests load; build.sh turns it into the .wasm fixtures next to this folder.
+[package]
+name = "octo-demo-plugin"
+version = "1.0.0"
+edition = "2021"
+publish = false
+
+[lib]
+crate-type = ["cdylib"]
+path = "src/lib.rs"
+
+[features]
+# A manifest for an ABI this Octo does not know.
+future-abi = []
+# An action that never returns, to prove the fuel limit.
+spin = []
+
+[profile.release]
+opt-level = "s"
+lto = true
+panic = "abort"

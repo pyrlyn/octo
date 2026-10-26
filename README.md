@@ -11,6 +11,8 @@ Status: early development. See `docs/research.md`, `docs/architecture.md` and `p
 Needs JDK 21 and a checkout of the shared `ci-diffuser` build next to this one
 (`../ci-diffuser`). It supplies ktlint, detekt, repositories and the optional remote build
 cache. Set `CI_DIFFUSER_DIR` when it lives elsewhere, for example from a worktree outside `apps/`.
+The plugin host also needs a checkout of [kotlin-wasm](https://github.com/pyrlyn/kotlin-wasm) at
+`../../packages/kotlin-wasm`, or `KOTLIN_WASM_DIR`.
 
 ```bash
 ./gradlew check      # build, tests, ktlint, detekt
@@ -70,6 +72,10 @@ token; every other call sends it as `Authorization: Bearer <token>`. The calls:
 
 Vendor terms are accepted only in the Octo window; until then creating a task answers 409.
 `devices.json` keeps only a SHA-256 of each token, and Revoke locks a device out at once.
+
+`"plugins": true` loads WebAssembly plugins from the `plugins` folder in the Octo home. A plugin
+can add ACP agents and actions in a task's Plugins menu. A plugin cannot reach files, processes or
+the network. A broken one is skipped with a warning. See `docs/plugins.md` for the ABI.
 
 `./gradlew ktlintFormat` fixes formatting. CI also builds every Kotlin/Native target with
 `-Pocto.allNativeTargets=true`; locally only the host's native target is built.

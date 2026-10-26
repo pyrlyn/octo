@@ -9,4 +9,5 @@ object CoreFlags {
     val REMOTE_SSH = FeatureFlag("remote-ssh", "Run tasks on the machines listed in config.json over SSH")
     val REMOTE_ACCESS =
         FeatureFlag("remote-access", "Let paired devices use Octo through a tunnel to its loopback API")
+    val PLUGINS = FeatureFlag("plugins", "Load WebAssembly plugins that add agents and task actions")
 }

@@ -9,6 +9,10 @@ kotlin {
             api(libs.kotlinx.coroutines.core)
             api(libs.kotlinx.io.core)
             implementation(libs.kotlinx.serialization.json)
+            api(libs.wasm)
+        }
+        commonTest.dependencies {
+            implementation(libs.wasm.chasm)
         }
     }
 }

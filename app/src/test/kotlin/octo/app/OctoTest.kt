@@ -6,6 +6,7 @@ import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.cancel
 import kotlinx.coroutines.runBlocking
 import kotlinx.io.files.Path
+import octo.core.agent.AgentId
 import octo.core.flags.CoreFlags
 import octo.core.paths.OctoPaths
 import octo.core.process.JvmProcessLauncher
@@ -113,10 +114,32 @@ class OctoTest {
     }
 
     @Test
+    fun pluginsNeedTheirFlagAndAddTheirAgents() {
+        val plugins = File(home, "plugins").apply { mkdirs() }
+        File(DEMO_PLUGIN).copyTo(File(plugins, "demo.wasm"))
+        File(plugins, "broken.wasm").writeText("not wasm")
+        val off = open(null)
+        assertEquals(emptyList(), off.plugins)
+        assertEquals(emptyList(), off.warnings, "the plugins folder is not read while the feature is off")
+        assertFalse(runBlocking { off.catalog.agents() }.any { it.id == DEMO_AGENT })
+
+        val on = open("""{"flags": {"${CoreFlags.PLUGINS.id}": true}}""")
+        assertEquals(listOf("demo"), on.plugins.map { it.manifest.id })
+        assertTrue(on.warnings.single().contains("broken.wasm"), on.warnings.toString())
+        assertTrue(runBlocking { on.catalog.agents() }.any { it.id == DEMO_AGENT })
+    }
+
+    @Test
     fun aBrokenConfigStartsWithDefaultsAndAWarning() {
         val octo = open("{not json")
         assertNull(octo.publisher)
         assertEquals(1, octo.warnings.size)
         assertTrue(octo.warnings.single().contains("config.json"))
+    }
+
+    private companion object {
+        // Built by core/src/commonTest/fixtures/plugins/build.sh.
+        const val DEMO_PLUGIN = "../core/src/commonTest/fixtures/plugins/demo.wasm"
+        val DEMO_AGENT = AgentId("demo-acp")
     }
 }
