@@ -42,3 +42,5 @@ detekt clean. The new tests:
   403 for a foreign Origin, 413, a taken port, and the SHA-256 test vector;
 - `DevicesViewModelTest`;
 - `OctoTest`: the flag gate, the server stopping with Octo, and taken or bad ports.
+
+PR: https://github.com/pyrlyn/octo/pull/19
