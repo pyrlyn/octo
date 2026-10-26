@@ -12,6 +12,8 @@ data class OctoConfig(
     val flags: Map<String, Boolean> = emptyMap(),
     /** Remote machines; used only with the `remote-ssh` flag on. */
     val machines: List<MachineConfig> = emptyList(),
+    /** Used only with the `remote-access` flag on. */
+    val remoteAccess: RemoteAccessConfig = RemoteAccessConfig(),
 ) {
     fun featureFlags(): FeatureFlags = FeatureFlags(flags)
 
@@ -55,6 +57,19 @@ data class MachineConfig(
 
     private companion object {
         val ID = Regex("[a-z0-9][a-z0-9-]*")
+    }
+}
+
+@Serializable
+data class RemoteAccessConfig(
+    /** The loopback port; a fixed one, so the user's tunnel keeps pointing at it. */
+    val port: Int = DEFAULT_PORT,
+) {
+    fun problem(): String? = if (port in 1..MAX_PORT) null else "remoteAccess.port $port is not a TCP port"
+
+    companion object {
+        const val DEFAULT_PORT = 47470
+        private const val MAX_PORT = 65535
     }
 }
 

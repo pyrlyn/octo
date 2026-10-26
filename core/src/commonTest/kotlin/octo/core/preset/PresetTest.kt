@@ -5,6 +5,7 @@ import kotlinx.coroutines.test.runTest
 import kotlinx.io.files.Path
 import octo.core.agent.AgentId
 import octo.core.io.AtomicFile
+import octo.core.io.ReadOnlyFileException
 import octo.core.orchestrator.setup
 import octo.core.tempDir
 import kotlin.test.Test
@@ -61,7 +62,7 @@ class PresetTest {
             val library = FilePresetLibrary.open(file)
             assertNotNull(library.warning)
             assertEquals(emptyList(), library.presets.value)
-            assertFailsWith<PresetException> { library.put(pair) }
+            assertFailsWith<ReadOnlyFileException> { library.put(pair) }
             assertEquals("{not json", file.read())
         }
 
