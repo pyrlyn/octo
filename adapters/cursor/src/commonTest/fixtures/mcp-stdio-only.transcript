@@ -1,0 +1,5 @@
+# An agent that only takes stdio MCP servers gets none from Octo (synthetic).
+> {"jsonrpc":"2.0","id":1,"method":"initialize"}
+< {"jsonrpc":"2.0","id":1,"result":{"protocolVersion":1,"agentCapabilities":{}}}
+> {"id":2,"method":"session/new","params":{"cwd":"/repo","mcpServers":[]}}
+< {"jsonrpc":"2.0","id":2,"result":{"sessionId":"s-1"}}

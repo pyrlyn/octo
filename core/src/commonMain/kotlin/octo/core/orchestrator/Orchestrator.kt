@@ -32,6 +32,7 @@ import octo.core.agent.Role
 import octo.core.agent.SessionSpec
 import octo.core.git.TaskDiff
 import octo.core.git.Workspace
+import octo.core.messaging.McpProvider
 import octo.core.persist.PersistedState
 import octo.core.persist.StateStore
 import octo.core.status.AgentState
@@ -59,6 +60,7 @@ class Orchestrator private constructor(
     private val terms: TermsGate,
     private val scope: CoroutineScope,
     private val newId: () -> String,
+    private val mcp: McpProvider?,
 ) : OctoCore {
     private val mutableState = MutableStateFlow(OctoState())
     private val transcripts = MutableStateFlow<Map<TaskId, List<TranscriptEntry>>>(emptyMap())
@@ -223,7 +225,12 @@ class Orchestrator private constructor(
         updateView(id) { it.copy(status = AgentStatus.Starting, pending = emptyList(), failure = null) }
         val session =
             try {
-                adapter.start(SessionSpec(task.worktree, resume = ref, options = task.options))
+                // Octo's MCP server listens on this machine's loopback, so a remote agent cannot reach it.
+                val servers =
+                    mcp?.takeIf { task.machine == null && Capability.Mcp in adapter.capabilities }?.servers(id)
+                adapter.start(
+                    SessionSpec(task.worktree, resume = ref, options = task.options, mcpServers = servers.orEmpty()),
+                )
             } catch (e: CancellationException) {
                 throw e
             } catch (e: Exception) {
@@ -370,6 +377,7 @@ class Orchestrator private constructor(
             scope: CoroutineScope,
             newId: () -> String = ::randomId,
             machines: Map<String, Machine> = emptyMap(),
+            mcp: McpProvider? = null,
         ): Orchestrator =
             Orchestrator(
                 Machines(LocalMachine(registry, workspace, worktrees), machines),
@@ -377,6 +385,7 @@ class Orchestrator private constructor(
                 terms,
                 scope,
                 newId,
+                mcp,
             ).also {
                 it.begin()
             }

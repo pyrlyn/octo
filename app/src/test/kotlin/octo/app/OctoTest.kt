@@ -10,10 +10,13 @@ import octo.core.flags.CoreFlags
 import octo.core.paths.OctoPaths
 import octo.core.process.JvmProcessLauncher
 import java.io.File
+import java.net.ConnectException
+import java.net.URI
 import java.nio.file.Files
 import kotlin.test.AfterTest
 import kotlin.test.Test
 import kotlin.test.assertEquals
+import kotlin.test.assertFailsWith
 import kotlin.test.assertNotNull
 import kotlin.test.assertNull
 import kotlin.test.assertTrue
@@ -50,6 +53,16 @@ class OctoTest {
         val on = open("""{"flags": {"${CoreFlags.REMOTE_SSH.id}": true}, $machines}""")
         assertEquals(listOf("box"), on.catalog.machines)
         assertTrue(on.warnings.single().contains("'bad'"), on.warnings.toString())
+    }
+
+    @Test
+    fun agentMessagingNeedsItsFlagAndStopsWithOcto() {
+        assertNull(open(null).mcpServer)
+        val url = assertNotNull(open("""{"flags": {"${CoreFlags.AGENT_MESSAGING.id}": true}}""").mcpServer).url
+        assertTrue(url.startsWith("http://127.0.0.1:"))
+        assertFailsWith<ConnectException>(
+            "closing Octo stops the server",
+        ) { URI(url).toURL().openConnection().connect() }
     }
 
     @Test

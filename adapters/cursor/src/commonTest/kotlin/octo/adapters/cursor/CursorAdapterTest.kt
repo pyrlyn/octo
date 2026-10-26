@@ -7,6 +7,7 @@ import octo.core.agent.AgentEvent
 import octo.core.agent.AgentSessionRef
 import octo.core.agent.AuthState
 import octo.core.agent.LogStream
+import octo.core.agent.McpServer
 import octo.core.agent.PermissionKind
 import octo.core.agent.PlanEntry
 import octo.core.agent.RequestResponse
@@ -186,5 +187,17 @@ class CursorAdapterTest {
                     }
                 }
             assertEquals(AuthState.LoggedOut, adapter.probe().auth)
+        }
+
+    @Test
+    fun passesOctosMcpServerOnlyToAgentsThatTakeHttp() =
+        runTest {
+            val octo = McpServer("octo", "http://127.0.0.1:1/mcp", mapOf("Authorization" to "Bearer t"))
+            for (name in listOf("mcp.transcript", "mcp-stdio-only.transcript")) {
+                val (adapter, _) = fixture(name)
+                val session = adapter.start(SessionSpec("/repo", mcpServers = listOf(octo)))
+                val events = Events(backgroundScope, session)
+                assertEquals(AgentSessionRef("s-1"), events.next<AgentEvent.SessionReady>().ref)
+            }
         }
 }

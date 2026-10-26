@@ -23,7 +23,14 @@ class CursorAdapter(
     override val id = ID
     override val displayName = "Cursor"
     override val capabilities =
-        setOf(Capability.Resume, Capability.Cancel, Capability.Permissions, Capability.Questions, Capability.Plan)
+        setOf(
+            Capability.Resume,
+            Capability.Cancel,
+            Capability.Permissions,
+            Capability.Questions,
+            Capability.Plan,
+            Capability.Mcp,
+        )
 
     // Not `agent`: Grok Build installs a binary with that name too.
     override val binary = "cursor-agent"

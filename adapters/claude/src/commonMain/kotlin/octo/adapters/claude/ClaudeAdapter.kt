@@ -2,6 +2,9 @@ package octo.adapters.claude
 
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withTimeoutOrNull
+import kotlinx.serialization.json.buildJsonObject
+import kotlinx.serialization.json.put
+import kotlinx.serialization.json.putJsonObject
 import octo.adapters.base.BaseAgentAdapter
 import octo.adapters.base.ProcessAgentSession
 import octo.adapters.base.bool
@@ -11,6 +14,7 @@ import octo.core.agent.AgentSession
 import octo.core.agent.AgentSessionRef
 import octo.core.agent.AuthState
 import octo.core.agent.Capability
+import octo.core.agent.McpServer
 import octo.core.agent.SessionSpec
 import octo.core.process.ProcessLauncher
 import octo.core.process.ProcessSpec
@@ -39,6 +43,7 @@ class ClaudeAdapter(
             Capability.Questions,
             Capability.Plan,
             Capability.ModelSelection,
+            Capability.Mcp,
         )
     override val binary = "claude"
     override val verifiedVersion = "2.1.310"
@@ -63,7 +68,32 @@ class ClaudeAdapter(
             spec.options[OPTION_MODEL]?.let { add("--model=$it") }
             spec.options[OPTION_PERMISSION_MODE]?.let { add("--permission-mode=$it") }
             add(spec.resume?.let { "--resume=${it.value}" } ?: "--session-id=${spec.options.getValue(SESSION_ID)}")
+            // Added next to the user's own servers, never instead of them (no --strict-mcp-config).
+            if (spec.mcpServers.isNotEmpty()) add("--mcp-config=${mcpConfig(spec.mcpServers)}")
         }
+
+    // Header values (tokens) go through the environment, which only the user can read, instead of
+    // the command line, which every local user can see.
+    override fun buildEnv(spec: SessionSpec): Map<String, String> =
+        spec.env +
+            spec.mcpServers.flatMapIndexed { i, server ->
+                server.headers.values.mapIndexed { j, value -> headerVar(i, j) to value }
+            }
+
+    private fun mcpConfig(servers: List<McpServer>): String =
+        buildJsonObject {
+            putJsonObject("mcpServers") {
+                servers.forEachIndexed { i, server ->
+                    putJsonObject(server.name) {
+                        put("type", "http")
+                        put("url", server.url)
+                        putJsonObject("headers") {
+                            server.headers.keys.forEachIndexed { j, name -> put(name, "\${${headerVar(i, j)}}") }
+                        }
+                    }
+                }
+            }
+        }.toString()
 
     // A new session gets its id from Octo, so the ref is known before Claude prints anything.
     override suspend fun start(spec: SessionSpec): AgentSession =
@@ -88,6 +118,11 @@ class ClaudeAdapter(
         const val OPTION_MODEL = "model"
         const val OPTION_PERMISSION_MODE = "permissionMode"
         private const val SESSION_ID = "octo.sessionId"
+
+        private fun headerVar(
+            server: Int,
+            header: Int,
+        ) = "OCTO_MCP_${server}_$header"
 
         private const val AUTH_TIMEOUT_MS = 10_000L
         private val BASE_ARGS =

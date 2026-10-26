@@ -8,12 +8,14 @@ import kotlinx.coroutines.sync.withLock
 import kotlinx.coroutines.withTimeout
 import kotlinx.serialization.json.JsonElement
 import kotlinx.serialization.json.JsonObject
+import kotlinx.serialization.json.addJsonObject
 import kotlinx.serialization.json.buildJsonObject
 import kotlinx.serialization.json.put
 import kotlinx.serialization.json.putJsonArray
 import kotlinx.serialization.json.putJsonObject
 import octo.core.agent.AgentEvent
 import octo.core.agent.AgentSessionRef
+import octo.core.agent.McpServer
 import octo.core.agent.PermissionKind
 import octo.core.agent.PermissionOption
 import octo.core.agent.PlanEntry
@@ -96,13 +98,15 @@ open class AcpSession(
         init: JsonObject,
     ): String {
         val resume = spec.resume?.value
+        val caps = init.obj("agentCapabilities")
+        // ACP agents must accept stdio servers, but HTTP ones only when they say so.
+        val servers = spec.mcpServers.takeIf { caps?.obj("mcpCapabilities")?.bool("http") == true }.orEmpty()
         val params =
             buildJsonObject {
                 if (resume != null) put("sessionId", resume)
                 put("cwd", spec.workingDir)
-                putJsonArray("mcpServers") {}
+                putJsonArray("mcpServers") { servers.forEach { add(httpServer(it)) } }
             }
-        val caps = init.obj("agentCapabilities")
         return when {
             resume == null -> {
                 peer.request("session/new", params).obj()?.string("sessionId")
@@ -131,6 +135,21 @@ open class AcpSession(
             }
         }
     }
+
+    private fun httpServer(server: McpServer) =
+        buildJsonObject {
+            put("type", "http")
+            put("name", server.name)
+            put("url", server.url)
+            putJsonArray("headers") {
+                server.headers.forEach { (name, value) ->
+                    addJsonObject {
+                        put("name", name)
+                        put("value", value)
+                    }
+                }
+            }
+        }
 
     override suspend fun prompt(text: String) {
         val id = sessionId()

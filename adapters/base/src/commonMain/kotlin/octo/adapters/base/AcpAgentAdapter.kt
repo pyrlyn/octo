@@ -14,7 +14,7 @@ abstract class AcpAgentAdapter(
     protected val clientVersion: String = "0.1.0",
 ) : BaseAgentAdapter(launcher, context) {
     override val capabilities: Set<Capability> =
-        setOf(Capability.Resume, Capability.Cancel, Capability.Permissions, Capability.Plan)
+        setOf(Capability.Resume, Capability.Cancel, Capability.Permissions, Capability.Plan, Capability.Mcp)
 
     /** `authenticate` method ids that reuse the CLI's own login; never ones that take a key. */
     protected open val loginMethods: List<String> = emptyList()
