@@ -16,7 +16,7 @@ fun main() {
     val paths = OctoPaths.resolve(System.getenv(), currentHostOs(), System.getProperty("user.home"))
     val scope = CoroutineScope(SupervisorJob() + Dispatchers.Default)
     val octo = runBlocking { Octo.open(paths, JvmProcessLauncher(), scope) }
-    val models = ViewModels(octo.core, octo.catalog, scope, octo.warnings)
+    val models = ViewModels(octo.core, octo.catalog, scope, octo.warnings, octo.publisher)
     application {
         Window(
             onCloseRequest = {

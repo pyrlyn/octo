@@ -14,6 +14,9 @@ import octo.core.agent.VendorTerms
 import octo.core.git.FileChange
 import octo.core.git.FileDiff
 import octo.core.git.TaskDiff
+import octo.core.publish.PublishRequest
+import octo.core.publish.PublishResult
+import octo.core.publish.TaskPublisher
 import octo.core.status.AgentStatus
 import octo.core.task.PendingRequest
 import octo.core.task.SidebarStatus
@@ -23,6 +26,7 @@ import octo.core.task.TranscriptEntry
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertFalse
+import kotlin.test.assertNotNull
 import kotlin.test.assertNull
 import kotlin.test.assertTrue
 
@@ -215,5 +219,47 @@ class ViewModelTest {
             vm.refresh()
             settle()
             assertEquals("a.kt", vm.state.value.selectedPath)
+        }
+
+    @Test
+    fun publishSendsTheFormAndShowsTheResultOrError() =
+        runTest {
+            val requests = mutableListOf<PublishRequest>()
+            var fail = true
+            val publisher =
+                object : TaskPublisher {
+                    override suspend fun publish(
+                        taskId: TaskId,
+                        request: PublishRequest,
+                    ): PublishResult {
+                        requests += request
+                        if (fail) error("no origin remote")
+                        return PublishResult("abc", "https://example.com/pr/1", created = true)
+                    }
+                }
+            val models = ViewModels(core, FakeCatalog(core), backgroundScope, publisher = publisher)
+            assertTrue(models.canPublish)
+            assertFalse(ViewModels(core, FakeCatalog(core), backgroundScope).canPublish)
+            val vm = assertNotNull(models.publish(TaskId("a"), "Fix it"))
+            assertEquals("Fix it", vm.state.value.commitMessage)
+
+            vm.editBody("  Details  ")
+            vm.publish()
+            settle()
+            assertEquals("no origin remote", vm.state.value.error)
+            assertFalse(vm.state.value.running)
+
+            fail = false
+            vm.publish()
+            settle()
+            assertEquals(
+                "https://example.com/pr/1",
+                vm.state.value.result
+                    ?.pullRequestUrl,
+            )
+            assertEquals(PublishRequest("Fix it", "Fix it", "Details"), requests.last())
+
+            vm.editTitle(" ")
+            assertFalse(vm.state.value.canPublish)
         }
 }
