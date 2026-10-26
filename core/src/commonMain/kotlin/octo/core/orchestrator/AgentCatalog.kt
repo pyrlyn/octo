@@ -19,8 +19,11 @@ data class AgentInfo(
 
 /** The agents the user can pick from, and their terms; the UI's only view of adapters. */
 interface AgentCatalog {
-    /** Every registered agent, probed in parallel. */
-    suspend fun agents(): List<AgentInfo>
+    /** Remote machine ids a task can run on; empty unless the `remote-ssh` flag is on. */
+    val machines: List<String>
+
+    /** Every agent registered for [machine] (null for this computer), probed in parallel there. */
+    suspend fun agents(machine: String? = null): List<AgentInfo>
 
     suspend fun pendingTerms(id: AgentId): VendorTerms?
 
@@ -30,9 +33,13 @@ interface AgentCatalog {
 class RegistryAgentCatalog(
     private val registry: AdapterRegistry,
     private val terms: TermsGate,
+    private val remote: Map<String, AdapterRegistry> = emptyMap(),
 ) : AgentCatalog {
-    override suspend fun agents(): List<AgentInfo> =
+    override val machines: List<String> = remote.keys.sorted()
+
+    override suspend fun agents(machine: String?): List<AgentInfo> =
         coroutineScope {
+            val registry = if (machine == null) registry else remote[machine] ?: throw UnknownMachineException(machine)
             registry.adapters
                 .map { adapter ->
                     async { AgentInfo(adapter.id, adapter.displayName, adapter.capabilities, adapter.probe()) }
@@ -43,5 +50,7 @@ class RegistryAgentCatalog(
 
     override suspend fun acknowledgeTerms(id: AgentId) = terms.acknowledge(adapter(id))
 
-    private fun adapter(id: AgentId) = registry[id] ?: throw UnknownAgentException(id)
+    // Terms belong to the vendor, not the machine, so any registry that has the agent will do.
+    private fun adapter(id: AgentId) =
+        registry[id] ?: remote.values.firstNotNullOfOrNull { it[id] } ?: throw UnknownAgentException(id)
 }

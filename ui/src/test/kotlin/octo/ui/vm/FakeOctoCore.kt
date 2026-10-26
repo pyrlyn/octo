@@ -42,7 +42,8 @@ class FakeOctoCore : OctoCore {
 
     override suspend fun createTask(request: NewTask): TaskId {
         termsPending?.let { throw TermsNotAcknowledgedException(request.agent, it) }
-        calls += "create ${request.title} ${request.prompt}"
+        calls +=
+            listOfNotNull("create", request.title, request.prompt, request.machine?.let { "on $it" }).joinToString(" ")
         val id = TaskId("t${++next}")
         put(TaskView(task(id, request.repo, request.title), AgentStatus.Starting))
         return id
@@ -109,12 +110,24 @@ class FakeCatalog(
     private val core: FakeOctoCore,
 ) : AgentCatalog {
     val acknowledged = mutableListOf<AgentId>()
+    override val machines = listOf("box")
 
-    override suspend fun agents() =
-        listOf(
-            AgentInfo(AgentId("missing"), "Missing", emptySet(), AgentProbe(null, null, "1", AuthState.Unknown)),
-            AgentInfo(AgentId("demo"), "Demo", emptySet(), AgentProbe("built-in", "1", "1", AuthState.LoggedIn)),
-        )
+    override suspend fun agents(machine: String?) =
+        if (machine == "box") {
+            listOf(
+                AgentInfo(
+                    AgentId("claude"),
+                    "Claude",
+                    emptySet(),
+                    AgentProbe("/usr/bin/claude", "2", "2", AuthState.LoggedIn),
+                ),
+            )
+        } else {
+            listOf(
+                AgentInfo(AgentId("missing"), "Missing", emptySet(), AgentProbe(null, null, "1", AuthState.Unknown)),
+                AgentInfo(AgentId("demo"), "Demo", emptySet(), AgentProbe("built-in", "1", "1", AuthState.LoggedIn)),
+            )
+        }
 
     override suspend fun pendingTerms(id: AgentId) = core.termsPending
 

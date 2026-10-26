@@ -43,6 +43,12 @@ class Octo private constructor(
             val flags = config.featureFlags()
             val registry = adapterRegistry(launcher, flags)
             val terms = TermsGate(AtomicFile(paths.acknowledgements))
+            val remote =
+                if (flags.isEnabled(CoreFlags.REMOTE_SSH)) {
+                    remoteMachines(config.machines, launcher, flags)
+                } else {
+                    RemoteMachines(emptyMap(), emptyList())
+                }
             val orchestrator =
                 Orchestrator.open(
                     registry,
@@ -51,6 +57,7 @@ class Octo private constructor(
                     terms,
                     paths.worktrees,
                     scope,
+                    machines = remote.machines,
                 )
             val publisher =
                 if (flags.isEnabled(
@@ -61,7 +68,8 @@ class Octo private constructor(
                 } else {
                     null
                 }
-            return Octo(orchestrator, RegistryAgentCatalog(registry, terms), listOfNotNull(warning), publisher)
+            val catalog = RegistryAgentCatalog(registry, terms, remote.machines.mapValues { it.value.registry })
+            return Octo(orchestrator, catalog, listOfNotNull(warning) + remote.warnings, publisher)
         }
 
         // An unreadable config must not keep Octo from starting; it runs with defaults and says so.
