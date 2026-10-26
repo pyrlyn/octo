@@ -109,7 +109,10 @@ event mapping, extensions and fixtures.
 | `grok` | ACP `grok agent stdio` | `grok` (the official xAI build; refuses the community CLI) |
 | `antigravity` | ACP `agy_acp_server` | Behind the `antigravity` flag, with a terms notice |
 
-**`ui`** holds the Compose screens and state holders. It talks only to `OctoCore`.
+**`ui`** follows MVVM, the creator's choice. Each screen has a view model that reads `OctoCore`
+flows and exposes one immutable UI state as a `StateFlow`, plus methods for user actions that
+call `OctoCore`. Composables only render that state and forward actions; they never touch
+`OctoCore` or adapters. The UI talks only to `OctoCore`.
 
 **`app`** holds `main()`, the adapter list, platform paths and the Compose Desktop packaging.
 
@@ -288,7 +291,7 @@ interface OctoCore {
   documented schemas (research §6).
 - **Isolation.** Tests get their Octo home from a temp dir. Any test that runs `git` sets `HOME`,
   `XDG_CONFIG_HOME` and `GIT_CONFIG_GLOBAL` to temp paths.
-- **UI.** State holders are plain classes, tested without a window.
+- **UI.** View models are plain classes over a fake `OctoCore`, tested without a window.
 - **Gates.** `./gradlew check` runs the tests on JVM and on the native host targets, plus ktlint
   and detekt. CI runs it on Linux (JVM, `linuxX64`, `mingwX64` compile).
 
