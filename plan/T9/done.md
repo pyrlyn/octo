@@ -82,3 +82,5 @@ All in `core` (common code unless noted):
   collectors never run.
 - The UI shows `TermsGate.pending(adapter)` and calls `acknowledge` on the user's OK, then
   retries `createTask`.
+
+PR: https://github.com/pyrlyn/octo/pull/12
