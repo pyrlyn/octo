@@ -75,3 +75,5 @@
   not checked by eye.
 - The folder picker (`JFileChooser`) and the terms link (`LocalUriHandler`) were not clicked.
 - Windows and Linux were not launched.
+
+PR: https://github.com/pyrlyn/octo/pull/13
