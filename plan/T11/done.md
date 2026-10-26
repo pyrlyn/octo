@@ -51,3 +51,5 @@
 
 - Not run against real GitHub with a real `gh` login; the tests use a fake `gh`.
 - The dialog was not inspected visually.
+
+PR: https://github.com/pyrlyn/octo/pull/14
