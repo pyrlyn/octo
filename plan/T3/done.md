@@ -15,5 +15,9 @@
 - `ui` and `app`: an empty Compose window titled Octo, packaging for dmg, msi and deb.
 - CI: `.github/workflows/ci.yml` runs `./gradlew check -Pocto.allNativeTargets=true`.
 
-Checked: `./gradlew check` green locally (jvm and macosArm64 tests); `./gradlew :app:run` opened
-the window without errors; CI on the PR.
+PR: https://github.com/pyrlyn/octo/pull/5
+
+Checked: `./gradlew check -Pocto.allNativeTargets=true` green locally (jvm and macosArm64 tests,
+linuxX64 and mingwX64 compiled); `./gradlew :app:run` opened the window without errors. GitHub
+Actions did not start the CI job: the account's Actions billing is blocked. CI has to be rerun
+once billing is fixed.
