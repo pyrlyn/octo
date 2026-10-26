@@ -66,6 +66,18 @@ class OctoTest {
     }
 
     @Test
+    fun presetsNeedTheirFlag() {
+        File(home, "presets.json").writeText("{broken")
+        val off = open(null)
+        assertNull(off.presets)
+        assertEquals(emptyList(), off.warnings, "the presets file is not read while the feature is off")
+
+        val on = open("""{"flags": {"${CoreFlags.PRESETS.id}": true}}""")
+        assertNotNull(on.presets)
+        assertTrue(on.warnings.single().contains("presets.json"), on.warnings.toString())
+    }
+
+    @Test
     fun aBrokenConfigStartsWithDefaultsAndAWarning() {
         val octo = open("{not json")
         assertNull(octo.publisher)

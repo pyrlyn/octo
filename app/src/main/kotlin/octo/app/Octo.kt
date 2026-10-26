@@ -16,6 +16,8 @@ import octo.core.orchestrator.Orchestrator
 import octo.core.orchestrator.RegistryAgentCatalog
 import octo.core.paths.OctoPaths
 import octo.core.persist.StateStore
+import octo.core.preset.FilePresetLibrary
+import octo.core.preset.PresetLibrary
 import octo.core.process.ProcessLauncher
 import octo.core.publish.GitTaskPublisher
 import octo.core.publish.TaskPublisher
@@ -31,6 +33,8 @@ class Octo private constructor(
     val publisher: TaskPublisher?,
     /** Null unless the `agent-messaging` flag is on and the server could start. */
     internal val mcpServer: HttpMcpServer?,
+    /** Null unless the `presets` flag is on. */
+    val presets: PresetLibrary?,
 ) {
     val core: OctoCore get() = orchestrator
 
@@ -80,8 +84,17 @@ class Octo private constructor(
                     null
                 }
             val catalog = RegistryAgentCatalog(registry, terms, remote.machines.mapValues { it.value.registry })
-            val warnings = listOfNotNull(warning, mcpWarning) + remote.warnings
-            return Octo(orchestrator, catalog, warnings, publisher, mcpServer)
+            val presets =
+                if (flags.isEnabled(
+                        CoreFlags.PRESETS,
+                    )
+                ) {
+                    FilePresetLibrary.open(AtomicFile(paths.presets))
+                } else {
+                    null
+                }
+            val warnings = listOfNotNull(warning, mcpWarning, presets?.warning) + remote.warnings
+            return Octo(orchestrator, catalog, warnings, publisher, mcpServer, presets)
         }
 
         private data class Messaging(

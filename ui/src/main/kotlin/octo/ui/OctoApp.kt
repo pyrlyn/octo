@@ -67,7 +67,7 @@ fun OctoApp(models: ViewModels) {
             if (state.newTaskOpen) {
                 val vm = remember { models.newTask() }
                 DisposableEffect(vm) { onDispose { vm.close() } }
-                NewTaskDialog(vm, onCreated = main::created, onDismiss = main::closeNewTask)
+                NewTaskDialog(vm, onCreated = main::created, onDismiss = main::closeNewTask, presets = models::presets)
             }
         }
     }

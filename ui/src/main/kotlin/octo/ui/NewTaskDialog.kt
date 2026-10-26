@@ -16,9 +16,13 @@ import androidx.compose.material3.RadioButton
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalUriHandler
@@ -27,6 +31,7 @@ import octo.core.orchestrator.AgentInfo
 import octo.core.task.TaskId
 import octo.ui.vm.NewTaskUiState
 import octo.ui.vm.NewTaskViewModel
+import octo.ui.vm.PresetsViewModel
 import octo.ui.vm.TermsNotice
 import javax.swing.JFileChooser
 
@@ -35,18 +40,42 @@ internal fun NewTaskDialog(
     vm: NewTaskViewModel,
     onCreated: (TaskId) -> Unit,
     onDismiss: () -> Unit,
+    /** Opens the preset editor; null while the `presets` flag is off. */
+    presets: (() -> PresetsViewModel?)? = null,
 ) {
     val state by vm.state.collectAsState()
     LaunchedEffect(state.created) { state.created?.let(onCreated) }
-    state.terms?.let {
-        TermsDialog(it, vm)
-        return
+    var editing by remember { mutableStateOf(false) }
+    val terms = state.terms
+    when {
+        terms != null -> TermsDialog(terms, vm)
+        editing && presets != null -> PresetsEditor(presets, onDone = { editing = false })
+        else -> FormDialog(state, vm, onDismiss, onEditPresets = { editing = true })
     }
+}
+
+@Composable
+private fun PresetsEditor(
+    presets: () -> PresetsViewModel?,
+    onDone: () -> Unit,
+) {
+    val editor = remember { presets() } ?: return
+    DisposableEffect(editor) { onDispose { editor.close() } }
+    PresetsDialog(editor, onDismiss = onDone)
+}
+
+@Composable
+private fun FormDialog(
+    state: NewTaskUiState,
+    vm: NewTaskViewModel,
+    onDismiss: () -> Unit,
+    onEditPresets: () -> Unit,
+) {
     AlertDialog(
         onDismissRequest = onDismiss,
         modifier = Modifier.width(DialogWidth),
-        title = { Text("New task") },
-        text = { Form(state, vm) },
+        title = { Text(if (state.team) "Start a team" else "New task") },
+        text = { Form(state, vm, onEditPresets) },
         confirmButton = {
             Button(
                 onClick = vm::create,
@@ -61,8 +90,10 @@ internal fun NewTaskDialog(
 private fun Form(
     state: NewTaskUiState,
     vm: NewTaskViewModel,
+    onEditPresets: () -> Unit,
 ) {
     Column(Modifier.verticalScroll(rememberScrollState()), verticalArrangement = Arrangement.spacedBy(Gap)) {
+        if (state.presetsEnabled) ModeChoice(state, vm)
         if (state.machines.isNotEmpty()) MachineChoice(state, vm)
         Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(Gap)) {
             OutlinedTextField(
@@ -80,25 +111,83 @@ private fun Form(
         OutlinedTextField(state.baseRef, vm::editBaseRef, Modifier.fillMaxWidth(), label = {
             Text("Base branch")
         }, singleLine = true)
-        OutlinedTextField(
-            state.title,
-            vm::editTitle,
-            Modifier.fillMaxWidth(),
-            label = { Text("Title") },
-            placeholder = { Text(state.effectiveTitle.ifEmpty { "Taken from the prompt when empty" }) },
-            singleLine = true,
-        )
-        OutlinedTextField(
-            state.prompt,
-            vm::editPrompt,
-            Modifier.fillMaxWidth(),
-            label = { Text("First prompt") },
-            minLines = 3,
-        )
-        Text("Agent", style = MaterialTheme.typography.titleSmall)
-        if (state.loadingAgents) Text("Looking for installed agents…")
-        state.agents.forEach { AgentChoice(it, selected = it.id == state.agent, onSelect = { vm.selectAgent(it.id) }) }
+        if (state.team) {
+            TeamChoice(state, vm, onEditPresets)
+        } else {
+            SingleAgent(state, vm)
+        }
         state.error?.let { Text(it, color = MaterialTheme.colorScheme.error) }
+    }
+}
+
+@Composable
+private fun SingleAgent(
+    state: NewTaskUiState,
+    vm: NewTaskViewModel,
+) {
+    OutlinedTextField(
+        state.title,
+        vm::editTitle,
+        Modifier.fillMaxWidth(),
+        label = { Text("Title") },
+        placeholder = { Text(state.effectiveTitle.ifEmpty { "Taken from the prompt when empty" }) },
+        singleLine = true,
+    )
+    OutlinedTextField(
+        state.prompt,
+        vm::editPrompt,
+        Modifier.fillMaxWidth(),
+        label = { Text("First prompt") },
+        minLines = 3,
+    )
+    Text("Agent", style = MaterialTheme.typography.titleSmall)
+    if (state.loadingAgents) Text("Looking for installed agents…")
+    state.agents.forEach { AgentChoice(it, selected = it.id == state.agent, onSelect = { vm.selectAgent(it.id) }) }
+}
+
+@Composable
+private fun ModeChoice(
+    state: NewTaskUiState,
+    vm: NewTaskViewModel,
+) {
+    Row(verticalAlignment = Alignment.CenterVertically) {
+        RadioButton(selected = !state.team, onClick = { vm.useTeam(false) })
+        Text("One agent")
+        RadioButton(selected = state.team, onClick = { vm.useTeam(true) })
+        Text("Team preset")
+    }
+}
+
+@Composable
+private fun TeamChoice(
+    state: NewTaskUiState,
+    vm: NewTaskViewModel,
+    onEditPresets: () -> Unit,
+) {
+    Row(verticalAlignment = Alignment.CenterVertically) {
+        Text("Preset", Modifier.weight(1f), style = MaterialTheme.typography.titleSmall)
+        TextButton(onClick = onEditPresets) { Text("Edit presets…") }
+    }
+    if (state.presets.isEmpty()) Text("No presets yet.")
+    state.presets.forEach { preset ->
+        Row(verticalAlignment = Alignment.CenterVertically) {
+            RadioButton(selected = preset.name == state.preset, onClick = { vm.selectPreset(preset.name) })
+            Column {
+                Text(preset.name)
+                Text(
+                    preset.summary(state.agents),
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
+            }
+        }
+    }
+    if (state.loadingAgents) Text("Looking for installed agents…")
+    if (!state.loadingAgents && state.missingAgents.isNotEmpty()) {
+        Text(
+            "Not installed here: ${state.missingAgents.joinToString { it.value }}",
+            color = MaterialTheme.colorScheme.error,
+        )
     }
 }
 
