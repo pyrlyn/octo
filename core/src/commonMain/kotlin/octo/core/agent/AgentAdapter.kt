@@ -86,3 +86,10 @@ interface AgentSession {
 class AgentNotInstalledException(
     id: AgentId,
 ) : IllegalStateException("Agent '${id.value}' is not installed or not on PATH")
+
+/** The binary on PATH has the agent's name but is a different program. */
+class WrongAgentBinaryException(
+    id: AgentId,
+    path: String,
+    reason: String,
+) : IllegalStateException("'$path' is not the ${id.value} agent Octo supports: $reason")

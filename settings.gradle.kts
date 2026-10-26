@@ -22,6 +22,7 @@ include(
     ":adapters:claude",
     ":adapters:codex",
     ":adapters:cursor",
+    ":adapters:grok",
     ":ui",
     ":app",
 )
