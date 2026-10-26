@@ -5,6 +5,8 @@ naming:
 style:
   MagicNumber:
     excludes: ['**/test/**', '**/commonTest/**', '**/jvmTest/**']
+    # A named property already says what its number means; UI sizes and colours live in them.
+    ignorePropertyDeclaration: true
 
 complexity:
   # A protocol mapper has one small function per message type; splitting it across classes

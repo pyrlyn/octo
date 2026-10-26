@@ -108,6 +108,7 @@ event mapping, extensions and fixtures.
 | `cursor` | ACP `cursor-agent acp` plus `cursor/*` extensions | `cursor-agent` (`agent` collides with Grok's binary) |
 | `grok` | ACP `grok agent stdio` | `grok` (the official xAI build; refuses the community CLI) |
 | `antigravity` | ACP `agy_acp_server` | Behind the `antigravity` flag, with a terms notice |
+| `demo` | In-process, no binary | Behind the `demo-agent` flag; asks for permission and writes `octo-demo.md` |
 
 **`ui`** follows MVVM, the creator's choice. Each screen has a view model that reads `OctoCore`
 flows and exposes one immutable UI state as a `StateFlow`, plus methods for user actions that
