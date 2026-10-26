@@ -48,3 +48,5 @@ The plugin tests run on the JVM and on macosArm64. They cover:
 
 kotlin-wasm `./gradlew check` is green (14 tests). rtok's
 `./gradlew check macosArm64Test cliTest e2eTest` is green on its PR branch.
+
+PR: https://github.com/pyrlyn/octo/pull/20
