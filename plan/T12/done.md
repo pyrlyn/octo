@@ -76,3 +76,5 @@
 - Each process opens its own SSH connection; multiplexing (`ControlMaster`) is in `ideas.md`.
 - The window, by eye (no visual check this time either).
 - CI on GitHub: blocked by the account's billing, as for the previous tasks.
+
+PR: https://github.com/pyrlyn/octo/pull/15
