@@ -1,0 +1,21 @@
+# A permission, a multi-select question, a plan, todos, a subagent task and refused requests (synthetic).
+> {"id":1,"method":"initialize"}
+< {"jsonrpc":"2.0","id":1,"result":{"protocolVersion":1,"agentCapabilities":{"loadSession":true},"authMethods":[]}}
+> {"id":2,"method":"session/new"}
+< {"jsonrpc":"2.0","id":2,"result":{"sessionId":"s-1"}}
+> {"id":3,"method":"session/prompt"}
+< {"jsonrpc":"2.0","id":100,"method":"session/request_permission","params":{"sessionId":"s-1","toolCall":{"toolCallId":"t1","title":"rm a.txt","kind":"execute","status":"pending"},"options":[{"optionId":"allow-once","name":"Allow once","kind":"allow_once"},{"optionId":"allow-always","name":"Allow always","kind":"allow_always"},{"optionId":"reject-once","name":"Reject","kind":"reject_once"}]}}
+> {"id":100,"result":{"outcome":{"outcome":"selected","optionId":"allow-always"}}}
+< {"jsonrpc":"2.0","id":101,"method":"cursor/ask_question","params":{"toolCallId":"q1","title":"Format","questions":[{"id":"fmt","prompt":"Which formats?","options":[{"id":"s","label":"Summary"},{"id":"d","label":"Detailed"},{"id":"t","label":"Table"}],"allowMultiple":true}]}}
+> {"id":101,"result":{"outcome":{"outcome":"answered","answers":[{"questionId":"fmt","selectedOptionIds":["s","t"]}]}}}
+< {"jsonrpc":"2.0","id":102,"method":"cursor/create_plan","params":{"toolCallId":"p1","name":"Cleanup","plan":"# Cleanup\n1. Delete a.txt","todos":[{"id":"a","content":"Delete a.txt","status":"pending"},{"id":"b","content":"Report","status":"pending"}]}}
+> {"id":102,"result":{"outcome":{"outcome":"accepted"}}}
+< {"jsonrpc":"2.0","method":"cursor/update_todos","params":{"toolCallId":"u1","todos":[{"id":"a","content":"Delete a.txt","status":"completed"}],"merge":true}}
+< {"jsonrpc":"2.0","method":"cursor/task","params":{"toolCallId":"k1","description":"Explore","prompt":"Find tests","subagentType":"explore"}}
+# Octo declared no file system support, so the agent must not lean on it.
+< {"jsonrpc":"2.0","id":103,"method":"fs/read_text_file","params":{"sessionId":"s-1","path":"/etc/hosts"}}
+> {"id":103,"error":{"code":-32601}}
+< {"jsonrpc":"2.0","id":104,"method":"session/request_permission","params":{"sessionId":"s-1","toolCall":{"toolCallId":"t2"},"options":[{"optionId":"allow-once","name":"Allow once","kind":"allow_once"},{"optionId":"reject-once","name":"Reject","kind":"reject_once"}]}}
+> {"id":104,"result":{"outcome":{"outcome":"cancelled"}}}
+< {"jsonrpc":"2.0","id":3,"result":{"stopReason":"end_turn"}}
+x 0

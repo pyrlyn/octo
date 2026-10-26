@@ -1,0 +1,15 @@
+# Load with a replayed history, cancel with a pending permission, then a failed prompt (synthetic).
+> {"id":1,"method":"initialize"}
+< {"jsonrpc":"2.0","id":1,"result":{"protocolVersion":1,"agentCapabilities":{"loadSession":true},"authMethods":[]}}
+> {"id":2,"method":"session/load","params":{"sessionId":"old","cwd":"/repo","mcpServers":[]}}
+< {"jsonrpc":"2.0","method":"session/update","params":{"sessionId":"old","update":{"sessionUpdate":"user_message_chunk","content":{"type":"text","text":"hi"}}}}
+< {"jsonrpc":"2.0","method":"session/update","params":{"sessionId":"old","update":{"sessionUpdate":"agent_message_chunk","content":{"type":"text","text":"old answer"}}}}
+< {"jsonrpc":"2.0","id":2,"result":{}}
+> {"id":3,"method":"session/prompt","params":{"sessionId":"old"}}
+< {"jsonrpc":"2.0","id":100,"method":"session/request_permission","params":{"sessionId":"old","toolCall":{"toolCallId":"t1","title":"rm -rf build"},"options":[{"optionId":"allow-once","name":"Allow once","kind":"allow_once"}]}}
+> {"method":"session/cancel","params":{"sessionId":"old"}}
+> {"id":100,"result":{"outcome":{"outcome":"cancelled"}}}
+< {"jsonrpc":"2.0","id":3,"result":{"stopReason":"cancelled"}}
+> {"id":4,"method":"session/prompt"}
+< {"jsonrpc":"2.0","id":4,"error":{"code":-32603,"message":"Model overloaded"}}
+x 1
