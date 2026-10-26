@@ -8,7 +8,9 @@ Status: early development. See `docs/research.md`, `docs/architecture.md` and `p
 
 ## Build
 
-Needs JDK 21.
+Needs JDK 21 and a checkout of the shared `ci-diffuser` build next to this one
+(`../ci-diffuser`). It supplies ktlint, detekt, repositories and the optional remote build
+cache. Set `CI_DIFFUSER_DIR` when it lives elsewhere, for example from a worktree outside `apps/`.
 
 ```bash
 ./gradlew check      # build, tests, ktlint, detekt
