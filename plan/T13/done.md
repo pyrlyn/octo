@@ -81,3 +81,5 @@
 
 - A real two-agent conversation through the running app.
 - CI on GitHub: blocked by the account's billing, as for the previous tasks.
+
+PR: https://github.com/pyrlyn/octo/pull/17
