@@ -60,6 +60,10 @@ import kotlin.random.Random
  * one agent never reaches another. Lifecycle calls for the same task are serialized; different
  * tasks never wait on each other.
  */
+@Suppress(
+    // It implements the whole of OctoCore, so it carries that interface's size.
+    "TooManyFunctions",
+)
 class Orchestrator private constructor(
     private val machines: Machines,
     private val store: StateStore,
@@ -123,6 +127,11 @@ class Orchestrator private constructor(
         }
         return id
     }
+
+    override suspend fun branches(
+        repo: String,
+        machine: String?,
+    ) = machines[machine].workspace.branches(repo)
 
     private suspend fun firstPrompt(
         id: TaskId,

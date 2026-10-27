@@ -43,6 +43,11 @@ class PresetViewModelTest {
 
     private fun TestScope.settle() = testScheduler.runCurrent()
 
+    private fun TestScope.loadBranches() {
+        testScheduler.advanceTimeBy(NewTaskUiState.BRANCH_LOOKUP_DELAY_MS)
+        settle()
+    }
+
     @Test
     fun teamsAreHiddenWithoutALibrary() =
         runTest {
@@ -62,6 +67,7 @@ class PresetViewModelTest {
             settle()
             vm.useTeam(true)
             vm.editRepo("/src/octo")
+            loadBranches()
             assertFalse(vm.state.value.canCreate, "no preset chosen yet")
             vm.selectPreset("Pair")
             assertTrue(vm.state.value.canCreate)
@@ -89,6 +95,7 @@ class PresetViewModelTest {
             settle()
             vm.useTeam(true)
             vm.editRepo("/src/octo")
+            loadBranches()
             vm.selectPreset("Broken")
             assertEquals(listOf(AgentId("missing")), vm.state.value.missingAgents)
             assertFalse(vm.state.value.canCreate)
