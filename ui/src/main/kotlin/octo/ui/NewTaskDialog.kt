@@ -6,9 +6,16 @@ import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.text.KeyboardActions
+import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
+import androidx.compose.material3.DropdownMenuItem
+import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.ExposedDropdownMenuAnchorType
+import androidx.compose.material3.ExposedDropdownMenuBox
+import androidx.compose.material3.ExposedDropdownMenuDefaults
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.OutlinedTextField
@@ -25,7 +32,9 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.focus.onFocusChanged
 import androidx.compose.ui.platform.LocalUriHandler
+import androidx.compose.ui.text.input.ImeAction
 import octo.core.agent.AuthState
 import octo.core.orchestrator.AgentInfo
 import octo.core.task.TaskId
@@ -108,9 +117,7 @@ private fun Form(
                 OutlinedButton(onClick = { pickDirectory(state.repo)?.let(vm::editRepo) }) { Text("Browse…") }
             }
         }
-        OutlinedTextField(state.baseRef, vm::editBaseRef, Modifier.fillMaxWidth(), label = {
-            Text("Base branch")
-        }, singleLine = true)
+        BranchChoice(state, vm)
         if (state.team) {
             TeamChoice(state, vm, onEditPresets)
         } else {
@@ -119,6 +126,85 @@ private fun Form(
         state.error?.let { Text(it, color = MaterialTheme.colorScheme.error) }
     }
 }
+
+/** A select whose field doubles as a search box; whatever is typed, only a listed branch is taken. */
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+private fun BranchChoice(
+    state: NewTaskUiState,
+    vm: NewTaskViewModel,
+) {
+    var open by remember { mutableStateOf(false) }
+    var query by remember(state.baseRef) { mutableStateOf(state.baseRef) }
+    val searching = query != state.baseRef
+    val matches =
+        if (searching) {
+            state.branches.filter {
+                it.contains(
+                    query.trim(),
+                    ignoreCase = true,
+                )
+            }
+        } else {
+            state.branches
+        }
+    // Closing without a pick puts the chosen branch back, so the field never shows one that is not used.
+    val close = {
+        open = false
+        query = state.baseRef
+    }
+    val pick = { branch: String ->
+        vm.selectBaseRef(branch)
+        open = false
+        query = branch
+    }
+    val note = branchNote(state, searching && matches.isEmpty())
+    ExposedDropdownMenuBox(open, onExpandedChange = {
+        if (it &&
+            state.branches.isNotEmpty()
+        ) {
+            open = true
+        } else {
+            close()
+        }
+    }) {
+        OutlinedTextField(
+            query,
+            {
+                query = it
+                open = true
+            },
+            Modifier
+                .menuAnchor(ExposedDropdownMenuAnchorType.PrimaryEditable)
+                .fillMaxWidth()
+                .onFocusChanged { if (!it.isFocused) close() },
+            label = { Text("Base branch") },
+            trailingIcon = { ExposedDropdownMenuDefaults.TrailingIcon(open) },
+            supportingText = note?.let { { Text(it.first) } },
+            isError = note?.second == true,
+            keyboardOptions = KeyboardOptions(imeAction = ImeAction.Done),
+            keyboardActions = KeyboardActions(onDone = { matches.firstOrNull()?.let(pick) }),
+            singleLine = true,
+        )
+        ExposedDropdownMenu(open && matches.isNotEmpty(), onDismissRequest = close) {
+            matches.forEach { branch -> DropdownMenuItem(text = { Text(branch) }, onClick = { pick(branch) }) }
+        }
+    }
+}
+
+/** The hint under the branch field and whether it is an error. */
+private fun branchNote(
+    state: NewTaskUiState,
+    noMatch: Boolean,
+): Pair<String, Boolean>? =
+    when {
+        state.repo.isBlank() -> null
+        state.loadingBranches -> "Looking for branches…" to false
+        state.branchesError != null -> state.branchesError to true
+        state.branches.isEmpty() -> "The repository has no branches yet" to true
+        noMatch -> "No branch matches" to true
+        else -> null
+    }
 
 @Composable
 private fun SingleAgent(
