@@ -248,6 +248,7 @@ class FeatureFlags(config: Map<String, Boolean>) {
 | `remote-access` (a token-paired JSON API on `127.0.0.1`, reached through the user's tunnel) | T15 |
 | `plugins` (WebAssembly plugins that add ACP agents and task actions; see `docs/plugins.md`) | T16 |
 | `handoff` (switch a task's agent or model; a fresh session gets the conversation from the transcript) | T23 |
+| `fork` (a new task on a new branch from a task's current worktree, linked to its parent) | T24 |
 | `pty-terminal` | Reserved |
 
 ## 7. Core API and orchestration
@@ -265,6 +266,7 @@ interface OctoCore {
     suspend fun removeQueued(taskId: TaskId, queuedId: Int)
     suspend fun respond(taskId: TaskId, requestId: String, response: RequestResponse)
     suspend fun switchAgent(taskId: TaskId, agent: AgentId, model: String?) // same worktree and branch
+    suspend fun forkTask(taskId: TaskId): TaskId    // new branch from the worktree as it is
     suspend fun setPermissionMode(taskId: TaskId, mode: PermissionMode)
     suspend fun cancel(taskId: TaskId)              // cancel the current turn
     suspend fun stop(taskId: TaskId)
@@ -298,6 +300,13 @@ agent and writes the state. `close()` belongs to `app`, so it is not on the inte
   `Handoff.build` makes from Octo's transcript: the original request, then the newest messages
   and command outcomes (each output's tail) that fit a token budget. The new request is never
   cut. The handoff goes out once.
+- **Forks.** `forkTask` cuts a new branch from the parent's HEAD and copies its uncommitted and
+  untracked files over through a separate git index, so the parent's index and files stay as they
+  are. The fork keeps the parent's agent, options and transcript, and `Task.parentId` puts it under
+  the parent in the sidebar. An adapter with `Capability.Fork` copies its own session
+  (`SessionSpec.fork`: Claude's `--resume --fork-session` with an Octo-chosen `--session-id`,
+  Codex's `thread/fork`); any other agent starts fresh and gets the T23 handoff with the next
+  prompt.
 - **Prompts while busy.** `sendPrompt` runs under the task's lock. An idle agent gets the prompt
   and reads as working at once, so a second sender never sees a stale idle. A busy agent is
   steered when its adapter declares `Steer` and the steer succeeds; otherwise the text joins

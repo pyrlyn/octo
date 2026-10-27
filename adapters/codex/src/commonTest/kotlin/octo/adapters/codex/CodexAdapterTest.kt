@@ -176,6 +176,17 @@ class CodexAdapterTest {
         }
 
     @Test
+    fun aForkStartsANewThread() =
+        runTest {
+            val (adapter, _) = fixture("fork.transcript")
+            val session = adapter.start(SessionSpec("/fork", resume = AgentSessionRef("old"), fork = true))
+            assertEquals(
+                AgentEvent.SessionReady(AgentSessionRef("thr-2")),
+                Events(backgroundScope, session).next<AgentEvent.SessionReady>(),
+            )
+        }
+
+    @Test
     fun steersTheRunningTurnOnly() =
         runTest {
             val (adapter, _) = fixture("steer.transcript")

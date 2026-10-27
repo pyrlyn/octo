@@ -77,7 +77,13 @@ internal class CodexSession(
                         spec.options[CodexAdapter.OPTION_MODEL]?.let { put("model", it) }
                         CodexPermissions.of(spec.permissionMode).putThread(this)
                     }
-                peer.request(if (resume != null) "thread/resume" else "thread/start", params)
+                val method =
+                    when {
+                        resume == null -> "thread/start"
+                        spec.fork -> "thread/fork"
+                        else -> "thread/resume"
+                    }
+                peer.request(method, params)
             }
         val id = thread.obj()?.obj("thread")?.string("id") ?: error("Codex returned no thread id")
         lock.withLock { threadId = id }

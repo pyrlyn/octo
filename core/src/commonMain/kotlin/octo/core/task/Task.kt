@@ -50,6 +50,8 @@ data class Task(
     val machine: String? = null,
     /** The agent this task was switched away from; the next prompt carries the conversation over. */
     val handoffFrom: String? = null,
+    /** The task this one was forked from. */
+    val parentId: TaskId? = null,
     /** What the user chose; the agent runs it only if its adapter has it. */
     val permissionMode: PermissionMode = PermissionMode.Supervised,
     /** Prompts waiting for the agent to be idle, oldest first; persisted so a restart keeps them. */

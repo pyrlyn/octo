@@ -17,10 +17,11 @@ class Git(
         dir: String,
         args: List<String>,
         okCodes: Set<Int> = setOf(0),
+        env: Map<String, String> = emptyMap(),
     ): String {
         // Quoted paths would hide non-ASCII names from the diff parser.
         val full = listOf("-c", "core.quotepath=off", "-C", dir) + args
-        val result = launcher.run(ProcessSpec(path.get(), full))
+        val result = launcher.run(ProcessSpec(path.get(), full, env = env))
         if (result.exitCode !in okCodes) throw GitException(args, result.exitCode, result.stderr.trim())
         return result.stdout
     }

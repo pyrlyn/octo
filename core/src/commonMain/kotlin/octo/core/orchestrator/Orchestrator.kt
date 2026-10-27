@@ -30,6 +30,7 @@ import octo.core.agent.AdapterRegistry
 import octo.core.agent.AgentEvent
 import octo.core.agent.AgentId
 import octo.core.agent.AgentSession
+import octo.core.agent.AgentSessionRef
 import octo.core.agent.Capability
 import octo.core.agent.MODEL_OPTION
 import octo.core.agent.PermissionMode
@@ -141,6 +142,42 @@ class Orchestrator private constructor(
         repo: String,
         machine: String?,
     ) = machines[machine].workspace.branches(repo)
+
+    override suspend fun forkTask(taskId: TaskId): TaskId {
+        val parent = view(taskId).task
+        val machine = machines[parent.machine]
+        val adapter = machine.registry[parent.agent] ?: throw UnknownAgentException(parent.agent)
+        terms.requireAcknowledged(adapter)
+        val id = uniqueId()
+        val title = "${parent.title} (fork)"
+        val slug = slug(title, id)
+        val worktree = machine.worktree(parent.repo, slug)
+        val branch = "$BRANCH_PREFIX$slug"
+        machine.workspace.forkWorktree(parent.repo, parent.worktree, worktree, branch)
+        val forkFrom = parent.sessionRef.takeIf { Capability.Fork in adapter.capabilities }
+        val native = forkFrom != null
+        val task =
+            Task(
+                id,
+                title,
+                parent.repo,
+                worktree,
+                branch,
+                parent.baseRef,
+                parent.agent,
+                parent.options,
+                machine = parent.machine,
+                permissionMode = parent.permissionMode,
+                handoffFrom = if (native) parent.handoffFrom else parent.handoffFrom ?: adapter.displayName,
+                parentId = parent.id,
+            )
+        mutableState.update { it.copy(tasks = it.tasks + TaskView(task, AgentStatus.Starting)) }
+        transcripts.update { it + (id to it[taskId].orEmpty()) }
+        val how = if (native) "" else "; the next prompt carries the conversation over"
+        note(id, TranscriptEntry.Notice("Forked from \"${parent.title}\"$how"))
+        withTask(id) { startAgent(id, resume = false, forkFrom = forkFrom) }
+        return id
+    }
 
     private suspend fun firstPrompt(
         id: TaskId,
@@ -462,11 +499,13 @@ class Orchestrator private constructor(
     private suspend fun startAgent(
         id: TaskId,
         resume: Boolean,
+        // Never stored on the task, so a fork that fails to start cannot later resume its parent's session.
+        forkFrom: AgentSessionRef? = null,
     ) {
         val task = view(id).task
         val adapter = machines[task.machine].registry[task.agent] ?: throw UnknownAgentException(task.agent)
         terms.requireAcknowledged(adapter)
-        val ref = task.sessionRef.takeIf { resume && Capability.Resume in adapter.capabilities }
+        val ref = forkFrom ?: task.sessionRef.takeIf { resume && Capability.Resume in adapter.capabilities }
         if (resume && task.sessionRef != null && ref == null) {
             note(id, TranscriptEntry.Notice("${adapter.displayName} cannot resume a session; started a fresh one"))
         }
@@ -486,6 +525,7 @@ class Orchestrator private constructor(
                         options = task.options,
                         permissionMode = effectiveMode(id) ?: PermissionMode.Supervised,
                         mcpServers = servers.orEmpty(),
+                        fork = forkFrom != null,
                     ),
                 )
             } catch (e: CancellationException) {

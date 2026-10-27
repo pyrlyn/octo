@@ -102,7 +102,8 @@ internal class FakeAdapter(
         if (failStart) error("fake is not installed")
         specs += spec
         return FakeSession(pid, refuseModel).also {
-            it.emit(AgentEvent.SessionReady(spec.resume ?: AgentSessionRef("s${sessions.size + 1}")))
+            val ref = spec.resume.takeUnless { spec.fork } ?: AgentSessionRef("s${sessions.size + 1}")
+            it.emit(AgentEvent.SessionReady(ref))
             sessions += it
         }
     }
@@ -111,6 +112,9 @@ internal class FakeAdapter(
 internal class FakeWorkspace : Workspace {
     val worktrees = mutableMapOf<String, String>()
     val removed = mutableListOf<String>()
+
+    /** Source worktree to the fork's path. */
+    val forks = mutableListOf<Pair<String, String>>()
     val dirty = mutableSetOf<String>()
 
     override suspend fun repoRoot(dir: String) = "/src/app"
@@ -123,6 +127,16 @@ internal class FakeWorkspace : Workspace {
         branch: String,
         baseRef: String,
     ) {
+        worktrees[path] = branch
+    }
+
+    override suspend fun forkWorktree(
+        repo: String,
+        source: String,
+        path: String,
+        branch: String,
+    ) {
+        forks += source to path
         worktrees[path] = branch
     }
 

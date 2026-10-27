@@ -1,0 +1,7 @@
+# Forking a thread into a new one (synthetic, codex-cli 0.162.1 app-server v2 schema).
+> {"id":1,"method":"initialize"}
+< {"id":1,"result":{}}
+> {"method":"initialized"}
+> {"id":2,"method":"thread/fork","params":{"threadId":"old","cwd":"/fork"}}
+< {"id":2,"result":{"thread":{"id":"thr-2"},"model":"gpt-5"}}
+x 0

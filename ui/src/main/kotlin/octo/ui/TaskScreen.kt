@@ -61,12 +61,14 @@ internal fun TaskScreen(
     plugins: PluginActionsViewModel? = null,
     /** Null while the `handoff` flag is off, which hides the action. */
     onSwitchAgent: (() -> Unit)? = null,
+    /** Null while the `fork` flag is off, which hides the action. */
+    onFork: (() -> Unit)? = null,
 ) {
     val state by vm.state.collectAsState()
     val task = state.task ?: return
     Column(Modifier.fillMaxSize().padding(LargeGap), verticalArrangement = Arrangement.spacedBy(Gap)) {
         // Publishing runs this computer's git and gh, which cannot reach a remote worktree.
-        Header(state, vm, onDiff, onPublish.takeIf { task.machine == null }, plugins, onSwitchAgent)
+        Header(state, vm, onDiff, onPublish.takeIf { task.machine == null }, plugins, onSwitchAgent, onFork)
         Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(Gap)) {
             Text(
                 task.machine?.let { "${task.branch} · on $it" } ?: task.branch,
@@ -95,6 +97,7 @@ private fun Header(
     onPublish: (() -> Unit)?,
     plugins: PluginActionsViewModel?,
     onSwitchAgent: (() -> Unit)?,
+    onFork: (() -> Unit)?,
 ) {
     val task = state.task ?: return
     val status = state.sidebarStatus
@@ -109,6 +112,8 @@ private fun Header(
         if (state.canRestart) OutlinedButton(onClick = vm::restart) { Text("Restart") }
         // A switch ends the running turn, so it waits until the agent is done.
         onSwitchAgent?.let { OutlinedButton(onClick = it, enabled = !state.canCancel) { Text("Switch agent") } }
+        // A fork taken mid-turn would copy half-written files.
+        onFork?.let { OutlinedButton(onClick = it, enabled = !state.canCancel) { Text("Fork") } }
         OutlinedButton(onClick = onDiff) { Text("Diff") }
         // Publishing while the agent writes would push half a change.
         onPublish?.let { OutlinedButton(onClick = it, enabled = !state.canCancel) { Text("Publish") } }

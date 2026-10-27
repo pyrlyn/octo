@@ -37,6 +37,7 @@ class CodexAdapter(
             Capability.Questions,
             Capability.Plan,
             Capability.ModelSelection,
+            Capability.Fork,
             Capability.Steer,
         )
     override val permissionModes = PermissionMode.entries.toSet()

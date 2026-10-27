@@ -118,6 +118,14 @@ class FakeOctoCore : OctoCore {
         calls += "respond $requestId $response"
     }
 
+    override suspend fun forkTask(taskId: TaskId): TaskId {
+        calls += "fork ${taskId.value}"
+        val parent = state.value[taskId]!!.task
+        val id = TaskId("t${++next}")
+        put(TaskView(parent.copy(id = id, title = "${parent.title} (fork)", parentId = taskId), AgentStatus.Starting))
+        return id
+    }
+
     override suspend fun switchAgent(
         taskId: TaskId,
         agent: AgentId,

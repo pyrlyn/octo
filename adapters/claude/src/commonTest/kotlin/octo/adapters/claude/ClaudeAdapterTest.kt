@@ -114,6 +114,22 @@ class ClaudeAdapterTest {
         }
 
     @Test
+    fun aForkResumesACopyUnderItsOwnId() =
+        runTest {
+            val (adapter, launcher) = fixture("turn.transcript")
+            val session = adapter.start(SessionSpec("/fork", resume = AgentSessionRef("old"), fork = true))
+            val args = launcher.launched.single().args
+            assertTrue("--resume=old" in args)
+            assertTrue("--fork-session" in args)
+            val id = args.single { it.startsWith("--session-id=") }.removePrefix("--session-id=")
+            assertTrue(id != "old")
+            assertEquals(
+                AgentEvent.SessionReady(AgentSessionRef(id)),
+                Events(backgroundScope, session).next<AgentEvent.SessionReady>(),
+            )
+        }
+
+    @Test
     fun turnMapsToEvents() =
         runTest {
             val (adapter, _) = fixture("turn.transcript")

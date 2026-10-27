@@ -66,6 +66,13 @@ interface OctoCore {
     )
 
     /**
+     * A new task on a new branch that starts from this task's worktree as it is now, uncommitted
+     * and untracked changes included, with the same agent and transcript. The agent forks its
+     * own session when it can; otherwise the next prompt carries the conversation over.
+     */
+    suspend fun forkTask(taskId: TaskId): TaskId
+
+    /**
      * Moves the task to [agent], optionally on [model]; the worktree and branch stay. The same
      * agent switches its model in place when it can. Otherwise a fresh session starts and the
      * next prompt goes out with a handoff built from the transcript.
