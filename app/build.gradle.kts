@@ -22,6 +22,8 @@ dependencies {
 compose.desktop {
     application {
         mainClass = "octo.app.MainKt"
+        // Skiko loads its native renderer with System.load; JDK 24+ warns about that and will block it.
+        jvmArgs += "--enable-native-access=ALL-UNNAMED"
         nativeDistributions {
             targetFormats(TargetFormat.Dmg, TargetFormat.Msi, TargetFormat.Deb)
             packageName = "Octo"
