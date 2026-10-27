@@ -140,6 +140,7 @@ interface AgentAdapter {
     val displayName: String
     val icon: AgentIcon?                 // a small SVG for the agents screen; null shows a monogram
     val capabilities: Set<Capability>    // Resume, Cancel, Permissions, Questions, Plan, Models, …
+    val permissionModes: Set<PermissionMode> // the modes it maps; Supervised at least
     suspend fun probe(): AgentProbe       // installed? version? verified version? auth state?
     fun start(spec: SessionSpec): AgentSession
 }
@@ -148,7 +149,8 @@ data class SessionSpec(
     val workingDir: String,
     val resume: AgentSessionRef?,         // the agent's own session id, when resuming
     val env: Map<String, String>,         // extra variables, e.g. a config-dir override in tests
-    val options: Map<String, String>,     // model, permission mode, …
+    val options: Map<String, String>,     // model, …
+    val permissionMode: PermissionMode,   // already one the adapter has
 )
 
 interface AgentSession {
@@ -156,6 +158,7 @@ interface AgentSession {
     val processId: Long?                  // the agent's root process, for CPU and memory figures
     suspend fun prompt(text: String)
     suspend fun respond(requestId: String, response: RequestResponse)
+    suspend fun setPermissionMode(mode: PermissionMode) // in place; throws when it cannot
     suspend fun cancel()                  // cancel the current turn
     suspend fun close()                   // end the process
 }
@@ -257,6 +260,7 @@ interface OctoCore {
     suspend fun createTask(request: NewTask): TaskId // repo, base ref, agent, title, first prompt
     suspend fun sendPrompt(taskId: TaskId, text: String)
     suspend fun respond(taskId: TaskId, requestId: String, response: RequestResponse)
+    suspend fun setPermissionMode(taskId: TaskId, mode: PermissionMode)
     suspend fun cancel(taskId: TaskId)              // cancel the current turn
     suspend fun stop(taskId: TaskId)
     suspend fun restart(taskId: TaskId)             // resume when the adapter can, else fresh
@@ -303,8 +307,10 @@ agent and writes the state. `close()` belongs to `app`, so it is not on the inte
   tolerate unknown fields and unknown event types: they log them and skip them.
 - Octo passes the user's environment to agents unchanged, apart from documented additions. It
   never injects or reads tokens.
-- Permission requests are never auto-approved by default. Agent-side modes (for example Claude's
-  `--permission-mode`) are explicit task options.
+- Permission requests are never auto-approved by default: a task runs Supervised unless the user
+  or `defaultPermissionMode` in the config picks a looser `PermissionMode`. Each adapter maps the
+  mode to its own setting (Claude's `--permission-mode`, Codex's approval policy and sandbox);
+  an agent without the mode runs Supervised.
 - Process handling: Octo kills only the processes it spawned, by handle and never by pattern, and
   kills the whole process tree on stop.
 - Plugins run in a WebAssembly interpreter with no imports: they can reach nothing but the JSON

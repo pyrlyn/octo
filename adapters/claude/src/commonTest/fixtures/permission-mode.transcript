@@ -1,0 +1,8 @@
+# Switching the permission mode of a running session; the second switch is refused (synthetic).
+> {"type":"control_request","request_id":"req_1","request":{"subtype":"initialize"}}
+< {"type":"control_response","response":{"subtype":"success","request_id":"req_1","response":{}}}
+> {"type":"control_request","request_id":"req_2","request":{"subtype":"set_permission_mode","mode":"acceptEdits"}}
+< {"type":"control_response","response":{"subtype":"success","request_id":"req_2","response":{}}}
+> {"type":"control_request","request_id":"req_3","request":{"subtype":"set_permission_mode","mode":"bypassPermissions"}}
+< {"type":"control_response","response":{"subtype":"error","request_id":"req_3","error":"Cannot set permission mode to bypassPermissions"}}
+x 0

@@ -1,0 +1,10 @@
+# A thread started in full access, switched to auto-accept edits before the next turn (synthetic, codex-cli 0.162.1 app-server v2 schema).
+> {"id":1,"method":"initialize"}
+< {"id":1,"result":{}}
+> {"method":"initialized"}
+> {"id":2,"method":"thread/start","params":{"cwd":"/repo","approvalPolicy":"never","approvalsReviewer":"user","sandbox":"danger-full-access"}}
+< {"id":2,"result":{"thread":{"id":"thr-1"}}}
+> {"id":3,"method":"turn/start","params":{"threadId":"thr-1","approvalPolicy":"untrusted","approvalsReviewer":"user","sandboxPolicy":{"type":"workspaceWrite","writableRoots":[],"networkAccess":false,"excludeTmpdirEnvVar":false,"excludeSlashTmp":false}}}
+< {"id":3,"result":{"turn":{"id":"turn-1","status":"inProgress"}}}
+< {"method":"turn/completed","params":{"threadId":"thr-1","turn":{"id":"turn-1","status":"completed"}}}
+x 0

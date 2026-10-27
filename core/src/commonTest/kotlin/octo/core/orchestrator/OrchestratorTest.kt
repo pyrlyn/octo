@@ -9,6 +9,7 @@ import octo.core.agent.AgentEvent
 import octo.core.agent.AgentId
 import octo.core.agent.AgentSessionRef
 import octo.core.agent.PermissionKind
+import octo.core.agent.PermissionMode
 import octo.core.agent.PermissionOption
 import octo.core.agent.RequestResponse
 import octo.core.agent.Role
@@ -80,6 +81,89 @@ class OrchestratorTest {
             s.core.removeTask(id, deleteWorktree = true, force = false)
             assertEquals(listOf(task.worktree), remoteWorkspace.removed)
             assertFailsWith<UnknownMachineException> { s.core.createTask(newTask.copy(machine = "gone")) }
+        }
+
+    @Test
+    fun aTaskRunsItsModeOrTheConfigDefaultAndFallsBackToSupervised() =
+        runTest {
+            var next = 0
+            val adapter =
+                FakeAdapter(permissionModes = setOf(PermissionMode.Supervised, PermissionMode.AutoAcceptEdits))
+            val s = setup(adapter, newId = { "id${++next}" }, defaultPermissionMode = PermissionMode.AutoAcceptEdits)
+
+            val byDefault = s.core.createTask(newTask)
+            val full = s.core.createTask(newTask.copy(permissionMode = PermissionMode.FullAccess))
+            testScheduler.runCurrent()
+
+            assertEquals(
+                PermissionMode.AutoAcceptEdits,
+                s.core.state.value[byDefault]!!
+                    .task.permissionMode,
+            )
+            assertEquals(
+                PermissionMode.FullAccess,
+                s.core.state.value[full]!!
+                    .task.permissionMode,
+            )
+            assertEquals(
+                listOf(PermissionMode.AutoAcceptEdits, PermissionMode.Supervised),
+                adapter.specs.map { it.permissionMode },
+            )
+            assertTrue(
+                TranscriptEntry.Notice("Fake has no Full access mode; it runs Supervised") in
+                    s.core.transcript(full).first(),
+            )
+        }
+
+    @Test
+    fun aRunningTaskSwitchesModeInPlaceOrOnItsNextStart() =
+        runTest {
+            val s = setup(FakeAdapter(permissionModes = PermissionMode.entries.toSet()))
+            val id = s.core.createTask(newTask)
+            testScheduler.runCurrent()
+            val session = s.adapter.sessions.single()
+
+            s.core.setPermissionMode(id, PermissionMode.Auto)
+            assertEquals(listOf(PermissionMode.Auto), session.modes)
+            assertEquals(
+                PermissionMode.Auto,
+                s.core.state.value[id]!!
+                    .task.permissionMode,
+            )
+
+            session.refuseMode = true
+            s.core.setPermissionMode(id, PermissionMode.FullAccess)
+            assertEquals(
+                PermissionMode.FullAccess,
+                s.core.state.value[id]!!
+                    .task.permissionMode,
+            )
+            val notices =
+                s.core
+                    .transcript(id)
+                    .first()
+                    .filterIsInstance<TranscriptEntry.Notice>()
+                    .map { it.text }
+            assertTrue("Permissions: Auto" in notices)
+            assertTrue(notices.any { it.startsWith("Permissions change to Full access on the next restart") })
+
+            s.core.restart(id)
+            testScheduler.runCurrent()
+            assertEquals(
+                PermissionMode.FullAccess,
+                s.adapter.specs
+                    .last()
+                    .permissionMode,
+            )
+
+            s.core.stop(id)
+            s.core.setPermissionMode(id, PermissionMode.Supervised)
+            assertEquals(
+                PermissionMode.Supervised,
+                s.core.state.value[id]!!
+                    .task.permissionMode,
+            )
+            assertEquals(listOf(PermissionMode.Auto), session.modes)
         }
 
     @Test

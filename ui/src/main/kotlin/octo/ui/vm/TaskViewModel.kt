@@ -8,6 +8,7 @@ import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.onStart
 import kotlinx.coroutines.flow.update
+import octo.core.agent.PermissionMode
 import octo.core.agent.RequestResponse
 import octo.core.orchestrator.OctoCore
 import octo.core.orchestrator.WorktreeDirtyException
@@ -122,6 +123,8 @@ class TaskViewModel(
     }
 
     fun dismiss(requestId: String) = act { core.respond(taskId, requestId, RequestResponse.Cancelled) }
+
+    fun setPermissionMode(mode: PermissionMode) = act { core.setPermissionMode(taskId, mode) }
 
     fun cancel() = act { core.cancel(taskId) }
 

@@ -8,6 +8,7 @@ import octo.core.agent.AgentSessionRef
 import octo.core.agent.AuthState
 import octo.core.agent.LogStream
 import octo.core.agent.PermissionKind
+import octo.core.agent.PermissionMode
 import octo.core.agent.PlanEntry
 import octo.core.agent.RequestResponse
 import octo.core.agent.Role
@@ -34,6 +35,18 @@ class CodexAdapterTest {
     }
 
     private fun TestScope.fixture(name: String) = adapter { replay(readFixture("src/commonTest/fixtures/$name")) }
+
+    @Test
+    fun permissionModesMapToThreadAndTurnSettings() =
+        runTest {
+            val (adapter, _) = fixture("permission-modes.transcript")
+            assertEquals(PermissionMode.entries.toSet(), adapter.permissionModes)
+            val session = adapter.start(SessionSpec("/repo", permissionMode = PermissionMode.FullAccess))
+            session.setPermissionMode(PermissionMode.AutoAcceptEdits)
+            session.prompt("Go")
+            val events = Events(backgroundScope, session).drain()
+            assertEquals(StopReason.EndTurn, events.filterIsInstance<AgentEvent.TurnEnded>().single().stopReason)
+        }
 
     @Test
     fun turnMapsToEvents() =

@@ -2,6 +2,7 @@ package octo.ui
 
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
@@ -13,6 +14,8 @@ import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.text.selection.SelectionContainer
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
+import androidx.compose.material3.DropdownMenu
+import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
@@ -39,6 +42,7 @@ import androidx.compose.ui.input.key.type
 import androidx.compose.ui.text.font.FontStyle
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
+import octo.core.agent.PermissionMode
 import octo.core.agent.Role
 import octo.core.agent.ToolStatus
 import octo.core.status.AgentStatus
@@ -61,11 +65,15 @@ internal fun TaskScreen(
     Column(Modifier.fillMaxSize().padding(LargeGap), verticalArrangement = Arrangement.spacedBy(Gap)) {
         // Publishing runs this computer's git and gh, which cannot reach a remote worktree.
         Header(state, vm, onDiff, onPublish.takeIf { task.machine == null }, plugins)
-        Text(
-            task.machine?.let { "${task.branch} · on $it" } ?: task.branch,
-            style = MaterialTheme.typography.bodySmall,
-            color = MaterialTheme.colorScheme.onSurfaceVariant,
-        )
+        Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(Gap)) {
+            Text(
+                task.machine?.let { "${task.branch} · on $it" } ?: task.branch,
+                Modifier.weight(1f),
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
+            PermissionMenu(task.permissionMode, vm::setPermissionMode)
+        }
         state.failure?.let { Text(it, color = MaterialTheme.colorScheme.error) }
         state.error?.let { Banner(it, error = true, onDismiss = vm::dismissError) }
         HorizontalDivider()
@@ -100,6 +108,29 @@ private fun Header(
         onPublish?.let { OutlinedButton(onClick = it, enabled = !state.canCancel) { Text("Publish") } }
         plugins?.let { PluginMenu(it) }
         TextButton(onClick = vm::requestRemove) { Text("Remove") }
+    }
+}
+
+/** Every mode is offered: an agent without the chosen one says so in the transcript and runs Supervised. */
+@Composable
+private fun PermissionMenu(
+    current: PermissionMode,
+    onSelect: (PermissionMode) -> Unit,
+) {
+    var open by remember { mutableStateOf(false) }
+    Box {
+        TextButton(onClick = { open = true }) { Text("Permissions: ${current.label}") }
+        DropdownMenu(open, onDismissRequest = { open = false }) {
+            PermissionMode.entries.forEach { mode ->
+                DropdownMenuItem(
+                    text = { Text(mode.label) },
+                    onClick = {
+                        open = false
+                        if (mode != current) onSelect(mode)
+                    },
+                )
+            }
+        }
     }
 }
 
