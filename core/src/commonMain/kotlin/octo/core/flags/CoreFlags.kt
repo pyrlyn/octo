@@ -14,4 +14,5 @@ object CoreFlags {
         FeatureFlag("handoff", "Switch a task's agent or model and hand the conversation over to the new one")
     val FORK = FeatureFlag("fork", "Fork a task into a new branch that starts from its current state")
     val COMPARE = FeatureFlag("compare", "Send one prompt to several agents or models, each in its own task")
+    val SECTIONS = FeatureFlag("sections", "Pin, snooze and settle tasks into sections of the sidebar")
 }

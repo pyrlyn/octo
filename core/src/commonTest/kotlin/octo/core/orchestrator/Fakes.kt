@@ -1,5 +1,6 @@
 package octo.core.orchestrator
 
+import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.channels.Channel
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.receiveAsFlow
@@ -28,6 +29,8 @@ import octo.core.process.ProcessMonitor
 import octo.core.process.ProcessResult
 import octo.core.tempDir
 import octo.core.terms.TermsGate
+import kotlin.time.Clock
+import kotlin.time.Instant
 
 internal class FakeSession(
     override val processId: Long? = null,
@@ -124,7 +127,10 @@ internal class FakeWorkspace : Workspace {
     /** What a setup run returns; one that never returns stands in for a hung command. */
     var setupResult: suspend () -> ProcessResult = { ProcessResult(0, "installed", "") }
 
-    override suspend fun repoRoot(dir: String) = "/src/app"
+    /** Every directory is in this one repository. */
+    var root = "/src/app"
+
+    override suspend fun repoRoot(dir: String) = root
 
     override suspend fun branches(repo: String) = listOf("main")
 
@@ -178,6 +184,7 @@ internal class Setup(
     val home: Path,
 )
 
+@OptIn(ExperimentalCoroutinesApi::class)
 internal suspend fun TestScope.setup(
     adapter: FakeAdapter = FakeAdapter(),
     workspace: FakeWorkspace = FakeWorkspace(),
@@ -190,6 +197,11 @@ internal suspend fun TestScope.setup(
     others: List<AgentAdapter> = emptyList(),
     defaultPermissionMode: PermissionMode = PermissionMode.Supervised,
     worktreeSetup: Map<String, String> = emptyMap(),
+    /** The test scheduler's virtual time, so a snooze runs out on `advanceTimeBy`. */
+    clock: Clock =
+        object : Clock {
+            override fun now() = Instant.fromEpochMilliseconds(testScheduler.currentTime)
+        },
 ): Setup {
     val core =
         Orchestrator.open(
@@ -205,6 +217,7 @@ internal suspend fun TestScope.setup(
             processes = processes,
             defaultPermissionMode = defaultPermissionMode,
             worktreeSetup = worktreeSetup,
+            clock = clock,
         )
     return Setup(core, adapter, workspace, home)
 }

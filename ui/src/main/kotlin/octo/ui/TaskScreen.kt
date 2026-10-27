@@ -47,6 +47,7 @@ import octo.core.agent.Role
 import octo.core.agent.ToolStatus
 import octo.core.status.AgentStatus
 import octo.core.task.TranscriptEntry
+import octo.ui.vm.MainViewModel
 import octo.ui.vm.PluginActionsViewModel
 import octo.ui.vm.RemoveStep
 import octo.ui.vm.TaskUiState
@@ -63,12 +64,14 @@ internal fun TaskScreen(
     onSwitchAgent: (() -> Unit)? = null,
     /** Null while the `fork` flag is off, which hides the action. */
     onFork: (() -> Unit)? = null,
+    /** Null while the `sections` flag is off, which hides pinning, snoozing and settling. */
+    places: MainViewModel? = null,
 ) {
     val state by vm.state.collectAsState()
     val task = state.task ?: return
     Column(Modifier.fillMaxSize().padding(LargeGap), verticalArrangement = Arrangement.spacedBy(Gap)) {
         // Publishing runs this computer's git and gh, which cannot reach a remote worktree.
-        Header(state, vm, onDiff, onPublish.takeIf { task.machine == null }, plugins, onSwitchAgent, onFork)
+        Header(state, vm, onDiff, onPublish.takeIf { task.machine == null }, plugins, onSwitchAgent, onFork, places)
         Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(Gap)) {
             Text(
                 task.machine?.let { "${task.branch} · on $it" } ?: task.branch,
@@ -98,6 +101,7 @@ private fun Header(
     plugins: PluginActionsViewModel?,
     onSwitchAgent: (() -> Unit)?,
     onFork: (() -> Unit)?,
+    places: MainViewModel?,
 ) {
     val task = state.task ?: return
     val status = state.sidebarStatus
@@ -118,6 +122,7 @@ private fun Header(
         // Publishing while the agent writes would push half a change.
         onPublish?.let { OutlinedButton(onClick = it, enabled = !state.canCancel) { Text("Publish") } }
         plugins?.let { PluginMenu(it) }
+        places?.let { PlaceMenu(task.id, task.place, it) }
         TextButton(onClick = vm::requestRemove) { Text("Remove") }
     }
 }

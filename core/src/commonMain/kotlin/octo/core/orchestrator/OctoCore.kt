@@ -11,6 +11,7 @@ import octo.core.task.Layout
 import octo.core.task.NewTask
 import octo.core.task.OctoState
 import octo.core.task.TaskId
+import octo.core.task.TaskPlace
 import octo.core.task.TranscriptEntry
 
 /** The only surface the UI uses; flow-based so a socket transport can serve it later. */
@@ -117,6 +118,12 @@ interface OctoCore {
 
     /** Clears the "done" mark once the user has looked at the task. */
     suspend fun markSeen(taskId: TaskId)
+
+    /** Pins, snoozes or settles the task, or puts it back among the active ones. */
+    suspend fun setPlace(
+        taskId: TaskId,
+        place: TaskPlace,
+    )
 
     /**
      * CPU and memory of each running agent on this computer, sampled every few seconds while

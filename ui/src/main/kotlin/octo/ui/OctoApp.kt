@@ -143,6 +143,7 @@ private fun TaskPane(
         plugins = plugins,
         onSwitchAgent = if (models.canSwitchAgent) ({ switching = true }) else null,
         onFork = if (models.canFork) ({ models.main.fork(id) }) else null,
+        places = models.main.takeIf { it.sections },
     )
     if (switching) {
         val switch = remember(id) { models.switchAgent(id) } ?: return

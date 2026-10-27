@@ -30,8 +30,10 @@ class ViewModels(
     private val fork: Boolean = false,
     /** False while the `compare` flag is off, which hides comparing agents. */
     private val compare: Boolean = false,
+    /** False while the `sections` flag is off, which keeps the sidebar one list. */
+    sections: Boolean = false,
 ) {
-    val main = MainViewModel(core, scope, startupWarnings)
+    val main = MainViewModel(core, scope, startupWarnings, sections)
 
     val canPublish: Boolean get() = publisher != null
 

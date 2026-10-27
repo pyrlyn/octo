@@ -25,6 +25,7 @@ import octo.core.task.OctoState
 import octo.core.task.QueuedPrompt
 import octo.core.task.Task
 import octo.core.task.TaskId
+import octo.core.task.TaskPlace
 import octo.core.task.TaskView
 import octo.core.task.TranscriptEntry
 import octo.core.terms.TermsNotAcknowledgedException
@@ -182,6 +183,27 @@ class FakeOctoCore : OctoCore {
     override suspend fun markSeen(taskId: TaskId) {
         calls += "seen ${taskId.value}"
         state.update { s -> s.copy(tasks = s.tasks.map { if (it.task.id == taskId) it.copy(unseen = false) else it }) }
+    }
+
+    override suspend fun setPlace(
+        taskId: TaskId,
+        place: TaskPlace,
+    ) {
+        calls += "place ${taskId.value} $place"
+        state.update { s ->
+            s.copy(
+                tasks =
+                    s.tasks.map {
+                        if (it.task.id ==
+                            taskId
+                        ) {
+                            it.copy(task = it.task.copy(place = place))
+                        } else {
+                            it
+                        }
+                    },
+            )
+        }
     }
 
     companion object {

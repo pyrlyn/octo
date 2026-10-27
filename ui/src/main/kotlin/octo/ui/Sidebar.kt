@@ -49,6 +49,14 @@ internal fun Sidebar(
                 }
                 items(group.tasks, key = { it.id.value }) { row ->
                     Column {
+                        row.sectionTitle?.let {
+                            Text(
+                                it,
+                                Modifier.padding(start = Gap, end = Gap, top = Gap),
+                                style = MaterialTheme.typography.labelLarge,
+                                color = MaterialTheme.colorScheme.primary,
+                            )
+                        }
                         row.groupTitle?.let {
                             Text(
                                 it,

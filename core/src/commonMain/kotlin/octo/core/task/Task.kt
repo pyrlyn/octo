@@ -1,5 +1,6 @@
 package octo.core.task
 
+import kotlinx.serialization.SerialName
 import kotlinx.serialization.Serializable
 import octo.core.agent.AgentId
 import octo.core.agent.AgentSessionRef
@@ -59,7 +60,36 @@ data class Task(
     val queue: List<QueuedPrompt> = emptyList(),
     /** Tasks started together to compare agents on one prompt. */
     val group: TaskGroup? = null,
+    /** Where the sidebar lists the task; only shown while the `sections` flag is on. */
+    val place: TaskPlace = TaskPlace.Active,
 )
+
+/** The sidebar section a task sits in. */
+@Serializable
+sealed interface TaskPlace {
+    @Serializable
+    @SerialName("active")
+    data object Active : TaskPlace
+
+    @Serializable
+    @SerialName("pinned")
+    data object Pinned : TaskPlace
+
+    /**
+     * Out of the way until [untilMs] (epoch milliseconds), or with null until the agent's turn
+     * ends. A task that blocks or fails wakes either way: it cannot go on without the user.
+     */
+    @Serializable
+    @SerialName("snoozed")
+    data class Snoozed(
+        val untilMs: Long? = null,
+    ) : TaskPlace
+
+    /** Finished with, such as after its pull request merged; the worktree stays until removed. */
+    @Serializable
+    @SerialName("settled")
+    data object Settled : TaskPlace
+}
 
 /** Tasks started together from one prompt; the sidebar lists them under [title]. */
 @Serializable

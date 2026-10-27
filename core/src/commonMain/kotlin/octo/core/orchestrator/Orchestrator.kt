@@ -10,6 +10,7 @@ import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.collectLatest
 import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.conflate
 import kotlinx.coroutines.flow.distinctUntilChanged
@@ -57,12 +58,14 @@ import octo.core.task.OctoState
 import octo.core.task.QueuedPrompt
 import octo.core.task.Task
 import octo.core.task.TaskId
+import octo.core.task.TaskPlace
 import octo.core.task.TaskView
 import octo.core.task.Transcript
 import octo.core.task.TranscriptEntry
 import octo.core.terms.TermsGate
 import kotlin.coroutines.cancellation.CancellationException
 import kotlin.random.Random
+import kotlin.time.Clock
 
 /**
  * Runs tasks: one worktree, one agent session and one supervisor job per task, so a crash in
@@ -83,6 +86,7 @@ class Orchestrator private constructor(
     private val processes: ProcessMonitor?,
     private val defaultPermissionMode: PermissionMode,
     private val worktreeSetup: Map<String, String>,
+    private val clock: Clock,
 ) : OctoCore {
     private val mutableState = MutableStateFlow(OctoState())
     private val transcripts = MutableStateFlow<Map<TaskId, List<TranscriptEntry>>>(emptyMap())
@@ -514,6 +518,14 @@ class Orchestrator private constructor(
         updateView(taskId) { it.copy(unseen = false) }
     }
 
+    override suspend fun setPlace(
+        taskId: TaskId,
+        place: TaskPlace,
+    ) {
+        view(taskId)
+        updateView(taskId) { it.copy(task = it.task.copy(place = place)) }
+    }
+
     override val processUsage: Flow<Map<TaskId, ProcessUsage>> =
         processes?.let { monitor ->
             flow {
@@ -629,8 +641,9 @@ class Orchestrator private constructor(
         val before = agent.value.status
         val reduced = agent.updateAndGet { it.reduce(event) }
         transcripts.update { it + (id to Transcript.reduce(it[id].orEmpty(), event)) }
-        updateView(id) { it.next(event, reduced) }
-        return before != AgentStatus.Idle && reduced.status == AgentStatus.Idle
+        val turnEnded = before != AgentStatus.Idle && reduced.status == AgentStatus.Idle
+        updateView(id) { it.next(event, reduced).wokenBy(before, reduced.status) }
+        return turnEnded
     }
 
     /** The task's mode as its agent can run it, saying so when that is a fallback; null without the adapter. */
@@ -714,6 +727,7 @@ class Orchestrator private constructor(
                     .conflate()
                     .collect { save(it) }
             }
+        scope.launch { mutableState.wakeSnoozed(clock) }
     }
 
     private suspend fun save(state: PersistedState) {
@@ -752,6 +766,8 @@ class Orchestrator private constructor(
             defaultPermissionMode: PermissionMode = PermissionMode.Supervised,
             /** A repository's top-level path to the command that prepares its new worktrees. */
             worktreeSetup: Map<String, String> = emptyMap(),
+            /** Wall time, for snoozes that last until a given moment. */
+            clock: Clock = Clock.System,
         ): Orchestrator =
             Orchestrator(
                 Machines(LocalMachine(registry, workspace, worktrees), machines),
@@ -763,6 +779,7 @@ class Orchestrator private constructor(
                 processes,
                 defaultPermissionMode,
                 worktreeSetup.mapKeys { it.key.trimEnd('/') },
+                clock,
             ).also {
                 it.begin()
             }
