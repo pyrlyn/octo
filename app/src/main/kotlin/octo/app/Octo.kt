@@ -63,6 +63,8 @@ class Octo private constructor(
     val compare: Boolean,
     /** Whether the `sections` flag lets tasks be pinned, snoozed and settled. */
     val sections: Boolean,
+    /** Whether the `palette` flag binds Cmd+K to the command palette. */
+    val palette: Boolean,
 ) {
     val core: OctoCore get() = orchestrator
 
@@ -138,6 +140,7 @@ class Octo private constructor(
                 flags.isEnabled(CoreFlags.FORK),
                 flags.isEnabled(CoreFlags.COMPARE),
                 flags.isEnabled(CoreFlags.SECTIONS),
+                flags.isEnabled(CoreFlags.PALETTE),
             )
         }
 

@@ -15,4 +15,5 @@ object CoreFlags {
     val FORK = FeatureFlag("fork", "Fork a task into a new branch that starts from its current state")
     val COMPARE = FeatureFlag("compare", "Send one prompt to several agents or models, each in its own task")
     val SECTIONS = FeatureFlag("sections", "Pin, snooze and settle tasks into sections of the sidebar")
+    val PALETTE = FeatureFlag("palette", "Find tasks and run actions from a Cmd+K command palette")
 }
