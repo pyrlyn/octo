@@ -214,7 +214,8 @@ internal class ClaudeSession(
                 toolTitle(name, input),
                 toolKind(name),
                 ToolStatus.InProgress,
-                input.toString(),
+                // Write and Edit carry whole files in their input.
+                input.toString().take(DETAIL_LIMIT),
             )
         lock.withLock { tools[id] = call }
         emit(call)
