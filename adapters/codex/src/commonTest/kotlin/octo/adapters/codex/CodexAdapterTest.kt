@@ -6,6 +6,7 @@ import kotlinx.coroutines.test.runTest
 import octo.core.agent.AgentEvent
 import octo.core.agent.AgentSessionRef
 import octo.core.agent.AuthState
+import octo.core.agent.Capability
 import octo.core.agent.LogStream
 import octo.core.agent.PermissionKind
 import octo.core.agent.PermissionMode
@@ -23,6 +24,7 @@ import octo.testing.readFixture
 import octo.testing.replay
 import kotlin.test.Test
 import kotlin.test.assertEquals
+import kotlin.test.assertFailsWith
 import kotlin.test.assertFalse
 import kotlin.test.assertTrue
 
@@ -160,6 +162,19 @@ class CodexAdapterTest {
             val all = events.drain()
             assertTrue(AgentEvent.Log(LogStream.Protocol, "stream disconnected") in all)
             assertEquals(AgentEvent.Exited(1), all.last())
+        }
+
+    @Test
+    fun steersTheRunningTurnOnly() =
+        runTest {
+            val (adapter, _) = fixture("steer.transcript")
+            assertTrue(Capability.Steer in adapter.capabilities)
+            val session = adapter.start(SessionSpec("/repo"))
+            val events = Events(backgroundScope, session)
+            session.prompt("Format the file")
+            session.steer("Use tabs")
+            assertEquals(StopReason.EndTurn, events.next<AgentEvent.TurnEnded>().stopReason)
+            assertFailsWith<IllegalStateException> { session.steer("Too late") }
         }
 
     @Test

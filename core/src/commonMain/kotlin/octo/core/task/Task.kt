@@ -50,6 +50,15 @@ data class Task(
     val machine: String? = null,
     /** What the user chose; the agent runs it only if its adapter has it. */
     val permissionMode: PermissionMode = PermissionMode.Supervised,
+    /** Prompts waiting for the agent to be idle, oldest first; persisted so a restart keeps them. */
+    val queue: List<QueuedPrompt> = emptyList(),
+)
+
+/** A prompt the user sent while the agent was busy and could not take it into the turn. */
+@Serializable
+data class QueuedPrompt(
+    val id: Int,
+    val text: String,
 )
 
 /** A request the agent is waiting on. */

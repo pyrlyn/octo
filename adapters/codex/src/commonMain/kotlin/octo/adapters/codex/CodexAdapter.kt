@@ -36,6 +36,7 @@ class CodexAdapter(
             Capability.Questions,
             Capability.Plan,
             Capability.ModelSelection,
+            Capability.Steer,
         )
     override val permissionModes = PermissionMode.entries.toSet()
     override val binary = "codex"

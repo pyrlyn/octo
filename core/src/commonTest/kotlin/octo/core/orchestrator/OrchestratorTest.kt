@@ -8,6 +8,7 @@ import octo.core.agent.AdapterRegistry
 import octo.core.agent.AgentEvent
 import octo.core.agent.AgentId
 import octo.core.agent.AgentSessionRef
+import octo.core.agent.Capability
 import octo.core.agent.PermissionKind
 import octo.core.agent.PermissionMode
 import octo.core.agent.PermissionOption
@@ -23,6 +24,7 @@ import octo.core.process.RunningProcess
 import octo.core.status.AgentStatus
 import octo.core.task.NewTask
 import octo.core.task.PendingRequest
+import octo.core.task.QueuedPrompt
 import octo.core.task.SidebarStatus
 import octo.core.task.TaskId
 import octo.core.task.TranscriptEntry
@@ -189,9 +191,10 @@ class OrchestratorTest {
             val session = s.adapter.sessions.single()
             assertEquals(listOf("Go"), session.prompts)
             assertEquals(
-                AgentStatus.Idle,
+                AgentStatus.Working,
                 s.core.state.value[id]!!
                     .status,
+                "a sent prompt reads as working before the agent says so",
             )
 
             val allow = PermissionOption("ok", "Allow", PermissionKind.AllowOnce)
@@ -390,4 +393,92 @@ class OrchestratorTest {
                     .resume,
             )
         }
+
+    @Test
+    fun aBusyAgentQueuesUntilIdleAndTheQueueCanBeEdited() =
+        runTest {
+            val s = setup()
+            val id = s.core.createTask(newTask)
+            testScheduler.runCurrent()
+            val session = s.adapter.sessions.single()
+
+            s.core.sendPrompt(id, "Next")
+            s.core.sendPrompt(id, "Third")
+            s.core.editQueued(id, 1, "Next, please")
+            s.core.removeQueued(id, 2)
+            assertEquals(listOf("Go"), session.prompts)
+            assertEquals(listOf(QueuedPrompt(1, "Next, please")), queue(s, id))
+            assertFailsWith<IllegalStateException> { s.core.editQueued(id, 2, "gone") }
+
+            session.emit(AgentEvent.TurnStarted, AgentEvent.TurnEnded(StopReason.EndTurn))
+            testScheduler.runCurrent()
+            assertEquals(listOf("Go", "Next, please"), session.prompts)
+            assertEquals(emptyList(), queue(s, id))
+            assertEquals(
+                AgentStatus.Working,
+                s.core.state.value[id]!!
+                    .status,
+            )
+            assertEquals(
+                listOf("Go", "Next, please"),
+                s.core
+                    .transcript(id)
+                    .first()
+                    .filterIsInstance<TranscriptEntry.Text>()
+                    .map { it.text },
+            )
+        }
+
+    @Test
+    fun aSteeringAgentTakesTheTextIntoTheTurnAndARefusalQueuesIt() =
+        runTest {
+            val s = setup(adapter = FakeAdapter(capabilities = setOf(Capability.Resume, Capability.Steer)))
+            val id = s.core.createTask(newTask)
+            testScheduler.runCurrent()
+            val session = s.adapter.sessions.single()
+
+            s.core.sendPrompt(id, "Use tabs")
+            assertEquals(listOf("Use tabs"), session.steered)
+            assertEquals(emptyList(), queue(s, id))
+            assertEquals(
+                TranscriptEntry.Text(Role.User, "Use tabs"),
+                s.core
+                    .transcript(id)
+                    .first()
+                    .last(),
+            )
+
+            session.refuseSteer = true
+            s.core.sendPrompt(id, "And spaces")
+            assertEquals(listOf(QueuedPrompt(1, "And spaces")), queue(s, id))
+        }
+
+    @Test
+    fun theQueueSurvivesARestartAndIsSentOnceTheAgentIsUp() =
+        runTest {
+            val home = tempDir("octo-core")
+            val first = setup(home = home)
+            val id = first.core.createTask(newTask)
+            testScheduler.runCurrent()
+            first.core.sendPrompt(id, "Later")
+            first.core.close()
+
+            val second = setup(home = home)
+            assertEquals(listOf(QueuedPrompt(1, "Later")), queue(second, id))
+            second.core.restart(id)
+            testScheduler.runCurrent()
+            assertEquals(
+                listOf("Later"),
+                second.adapter.sessions
+                    .single()
+                    .prompts,
+            )
+            assertEquals(emptyList(), queue(second, id))
+        }
+
+    private fun queue(
+        s: Setup,
+        id: TaskId,
+    ) = s.core.state.value[id]!!
+        .task.queue
 }

@@ -14,6 +14,7 @@ import octo.core.orchestrator.OctoCore
 import octo.core.orchestrator.WorktreeDirtyException
 import octo.core.status.AgentStatus
 import octo.core.task.PendingRequest
+import octo.core.task.QueuedPrompt
 import octo.core.task.SidebarStatus
 import octo.core.task.Task
 import octo.core.task.TaskId
@@ -37,6 +38,10 @@ data class TaskUiState(
     val transcript: List<TranscriptEntry> = emptyList(),
     val pending: List<PendingRequest> = emptyList(),
     val draft: String = "",
+    /** Prompts waiting for the agent, oldest first. */
+    val queue: List<QueuedPrompt> = emptyList(),
+    /** A queued prompt being rewritten; its text is the edit in progress. */
+    val editing: QueuedPrompt? = null,
     /** Answers being filled in, by request id and then question id. */
     val answers: Map<String, Map<String, List<String>>> = emptyMap(),
     val remove: RemoveStep? = null,
@@ -48,10 +53,17 @@ data class TaskUiState(
     /** Turns are marked seen while the screen is open, so this never shows "done". */
     val sidebarStatus: SidebarStatus get() = task?.let { TaskView(it, status).sidebarStatus } ?: SidebarStatus.Stopped
 
-    val canSend: Boolean get() = status == AgentStatus.Idle && draft.isNotBlank()
+    /** A busy agent still takes text: the core steers the turn or queues it. */
+    val canSend: Boolean get() = status in LIVE && draft.isNotBlank()
+
+    val busy: Boolean get() = status == AgentStatus.Working || status == AgentStatus.Blocked
     val canCancel: Boolean get() = status == AgentStatus.Working || status == AgentStatus.Blocked
     val canStop: Boolean get() = status != AgentStatus.Stopped && status != AgentStatus.Failed
     val canRestart: Boolean get() = !gone && !canStop
+
+    private companion object {
+        val LIVE = setOf(AgentStatus.Idle, AgentStatus.Starting, AgentStatus.Working, AgentStatus.Blocked)
+    }
 }
 
 /** One task: its live transcript, the requests it waits on, the prompt box and its lifecycle. */
@@ -87,6 +99,26 @@ class TaskViewModel(
         mutable.update { it.copy(draft = "") }
         act({ mutable.update { it.copy(draft = text) } }) { core.sendPrompt(taskId, text) }
     }
+
+    fun editQueued(prompt: QueuedPrompt) = mutable.update { it.copy(editing = prompt) }
+
+    fun editQueuedText(text: String) = mutable.update { it.copy(editing = it.editing?.copy(text = text)) }
+
+    fun cancelQueuedEdit() = mutable.update { it.copy(editing = null) }
+
+    fun saveQueued() {
+        val edit = state.value.editing?.takeIf { it.text.isNotBlank() } ?: return
+        act {
+            core.editQueued(taskId, edit.id, edit.text.trim())
+            mutable.update { it.copy(editing = null) }
+        }
+    }
+
+    fun removeQueued(id: Int) =
+        act {
+            core.removeQueued(taskId, id)
+            mutable.update { s -> s.copy(editing = s.editing?.takeIf { it.id != id }) }
+        }
 
     fun choose(
         requestId: String,
@@ -175,4 +207,14 @@ private fun TaskUiState.withCore(
     failure = view?.failure,
     transcript = transcript,
     pending = view?.pending.orEmpty(),
+    queue = view?.task?.queue.orEmpty(),
+    // A prompt sent while it was being edited leaves nothing to save.
+    editing =
+        editing?.takeIf { edit ->
+            view
+                ?.task
+                ?.queue
+                .orEmpty()
+                .any { it.id == edit.id }
+        },
 )
