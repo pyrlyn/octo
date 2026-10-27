@@ -12,11 +12,11 @@ import octo.core.task.OctoState
 import octo.core.task.TaskId
 import octo.core.task.TranscriptEntry
 
-/**
- * The only surface the UI uses; flow-based so a socket transport can serve it later. Every user
- * action is one call here, so the count of functions grows with the features.
- */
-@Suppress("TooManyFunctions")
+/** The only surface the UI uses; flow-based so a socket transport can serve it later. */
+@Suppress(
+    // Being the only surface, it grows with every screen; splitting it would give the UI a second door.
+    "TooManyFunctions",
+)
 interface OctoCore {
     val state: StateFlow<OctoState>
 
@@ -28,6 +28,12 @@ interface OctoCore {
      * agent's terms are still pending.
      */
     suspend fun createTask(request: NewTask): TaskId
+
+    /** Branches of [repo] on [machine] (null for this computer) that a new task can start from. */
+    suspend fun branches(
+        repo: String,
+        machine: String?,
+    ): List<String>
 
     /**
      * Sends [text] to an idle agent. A busy agent is steered when its adapter can take the text

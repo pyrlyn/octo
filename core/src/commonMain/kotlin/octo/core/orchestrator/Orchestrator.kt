@@ -61,10 +61,11 @@ import kotlin.random.Random
  * Runs tasks: one worktree, one agent session and one supervisor job per task, so a crash in
  * one agent never reaches another. Lifecycle calls for the same task are serialized; different
  * tasks never wait on each other.
- *
- * One class owns every task's runtime, lock and view, so splitting it would share that state.
  */
-@Suppress("TooManyFunctions")
+@Suppress(
+    // It implements the whole of OctoCore, so it carries that interface's size.
+    "TooManyFunctions",
+)
 class Orchestrator private constructor(
     private val machines: Machines,
     private val store: StateStore,
@@ -129,6 +130,11 @@ class Orchestrator private constructor(
         }
         return id
     }
+
+    override suspend fun branches(
+        repo: String,
+        machine: String?,
+    ) = machines[machine].workspace.branches(repo)
 
     private suspend fun firstPrompt(
         id: TaskId,

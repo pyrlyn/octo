@@ -7,6 +7,9 @@ interface Workspace {
     /** The top level of the repository that contains [dir]. */
     suspend fun repoRoot(dir: String): String
 
+    /** Local branches, then remote-tracking ones, by short name. */
+    suspend fun branches(repo: String): List<String>
+
     /** A new worktree at [path] on a new [branch] cut from [baseRef]. */
     suspend fun createWorktree(
         repo: String,
@@ -36,6 +39,15 @@ class GitWorkspace(
     private val dirs: Directories = LocalDirectories(),
 ) : Workspace {
     override suspend fun repoRoot(dir: String): String = git.run(dir, listOf("rev-parse", "--show-toplevel")).trim()
+
+    // Refs come sorted by full name, so refs/heads lands before refs/remotes.
+    override suspend fun branches(repo: String): List<String> =
+        git
+            .run(repo, listOf("for-each-ref", "--format=%(refname)", "refs/heads", "refs/remotes"))
+            .lines()
+            // A remote's HEAD is only an alias of one of its branches.
+            .filter { it.isNotBlank() && !it.endsWith("/HEAD") }
+            .map { it.removePrefix("refs/heads/").removePrefix("refs/remotes/") }
 
     override suspend fun createWorktree(
         repo: String,

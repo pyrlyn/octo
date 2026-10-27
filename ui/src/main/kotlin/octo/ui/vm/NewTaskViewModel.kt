@@ -1,7 +1,9 @@
 package octo.ui.vm
 
 import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Job
 import kotlinx.coroutines.cancel
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -26,7 +28,13 @@ data class TermsNotice(
 
 data class NewTaskUiState(
     val repo: String = "",
+    /** Always one of [branches] once they are known. */
     val baseRef: String = DEFAULT_BASE_REF,
+    /** Branches of [repo] on the chosen machine; the base branch is picked from them. */
+    val branches: List<String> = emptyList(),
+    val loadingBranches: Boolean = false,
+    /** Why [repo] has no branches to offer, e.g. it is not a git repository. */
+    val branchesError: String? = null,
     val title: String = "",
     val prompt: String = "",
     /** Remote machines; the choice is shown only when there are some. */
@@ -75,7 +83,7 @@ data class NewTaskUiState(
 
     val canCreate: Boolean
         get() =
-            !creating && repo.isNotBlank() && baseRef.isNotBlank() &&
+            !creating && repo.isNotBlank() && baseRef in branches &&
                 if (team) {
                     selectedPreset != null && !loadingAgents && missingAgents.isEmpty()
                 } else {
@@ -85,6 +93,9 @@ data class NewTaskUiState(
     companion object {
         const val DEFAULT_BASE_REF = "main"
         const val TITLE_LENGTH = 60
+
+        /** How long typing in the repository field must pause before git is asked for its branches. */
+        const val BRANCH_LOOKUP_DELAY_MS = 300L
     }
 }
 
@@ -100,6 +111,7 @@ class NewTaskViewModel(
     private val mutable =
         MutableStateFlow(NewTaskUiState(machines = catalog.machines, presetsEnabled = library != null))
     val state: StateFlow<NewTaskUiState> = mutable.asStateFlow()
+    private var branchLookup: Job? = null
 
     init {
         loadAgents(null)
@@ -123,6 +135,7 @@ class NewTaskViewModel(
         if (id == state.value.machine) return
         mutable.update { it.copy(machine = id, agents = emptyList(), agent = null, loadingAgents = true, error = null) }
         loadAgents(id)
+        loadBranches()
     }
 
     private fun loadAgents(machine: String?) {
@@ -143,9 +156,55 @@ class NewTaskViewModel(
         }
     }
 
-    fun editRepo(value: String) = mutable.update { it.copy(repo = value) }
+    fun editRepo(value: String) {
+        mutable.update { it.copy(repo = value) }
+        loadBranches()
+    }
 
-    fun editBaseRef(value: String) = mutable.update { it.copy(baseRef = value) }
+    /** Only a branch the repository has can be the base. */
+    fun selectBaseRef(value: String) = mutable.update { if (value in it.branches) it.copy(baseRef = value) else it }
+
+    // The repository path changes on every key, so git is asked only after a pause, and an answer
+    // for a path or machine the user has since left is dropped.
+    private fun loadBranches() {
+        branchLookup?.cancel()
+        val repo = state.value.repo.trim()
+        val machine = state.value.machine
+        mutable.update { it.copy(branches = emptyList(), loadingBranches = repo.isNotEmpty(), branchesError = null) }
+        if (repo.isEmpty()) return
+
+        fun current(s: NewTaskUiState) = s.repo.trim() == repo && s.machine == machine
+        branchLookup =
+            scope.action({ e ->
+                mutable.update {
+                    if (current(
+                            it,
+                        )
+                    ) {
+                        it.copy(loadingBranches = false, branchesError = e.userMessage)
+                    } else {
+                        it
+                    }
+                }
+            }) {
+                delay(NewTaskUiState.BRANCH_LOOKUP_DELAY_MS)
+                val branches = core.branches(repo, machine)
+                mutable.update { s ->
+                    if (!current(s)) {
+                        s
+                    } else {
+                        s.copy(branches = branches, loadingBranches = false, baseRef = defaultBase(s.baseRef, branches))
+                    }
+                }
+            }
+    }
+
+    private fun defaultBase(
+        current: String,
+        branches: List<String>,
+    ) = current.takeIf { it in branches }
+        ?: NewTaskUiState.DEFAULT_BASE_REF.takeIf { it in branches }
+        ?: branches.firstOrNull().orEmpty()
 
     fun editTitle(value: String) = mutable.update { it.copy(title = value) }
 

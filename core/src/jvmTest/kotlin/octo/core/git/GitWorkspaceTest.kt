@@ -87,6 +87,16 @@ class GitWorkspaceTest {
         }
 
     @Test
+    fun branchesListLocalThenRemoteWithoutTheRemoteHead() =
+        runBlocking {
+            val repo = repo()
+            git.run(repo.path, listOf("branch", "feature"))
+            git.run(repo.path, listOf("update-ref", "refs/remotes/origin/main", "HEAD"))
+            git.run(repo.path, listOf("symbolic-ref", "refs/remotes/origin/HEAD", "refs/remotes/origin/main"))
+            assertEquals(listOf("feature", "main", "origin/main"), workspace.branches(repo.path))
+        }
+
+    @Test
     fun removingAWorktreeDeletedByHandOnlyPrunes() =
         runBlocking {
             val repo = repo()

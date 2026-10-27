@@ -45,6 +45,11 @@ class ViewModelTest {
 
     private fun TestScope.settle() = testScheduler.runCurrent()
 
+    private fun TestScope.loadBranches() {
+        testScheduler.advanceTimeBy(NewTaskUiState.BRANCH_LOOKUP_DELAY_MS)
+        settle()
+    }
+
     @Test
     fun mainGroupsByRepositoryAndPersistsTheLayout() =
         runTest {
@@ -215,6 +220,8 @@ class ViewModelTest {
             assertEquals(AgentId("demo"), vm.state.value.agent)
 
             vm.editRepo("/src/octo")
+
+            loadBranches()
             vm.editPrompt("Fix the build\nand more")
             assertEquals("Fix the build", vm.state.value.effectiveTitle)
             assertTrue(vm.state.value.canCreate)
@@ -240,6 +247,32 @@ class ViewModelTest {
         }
 
     @Test
+    fun theBaseBranchIsPickedOnlyFromTheRepositorysBranches() =
+        runTest {
+            core.branches = listOf("dev", "origin/main")
+            val vm = NewTaskViewModel(core, FakeCatalog(core), backgroundScope)
+            vm.editPrompt("Go")
+            vm.editRepo("/src/oct")
+            vm.editRepo("/src/octo")
+            assertTrue(vm.state.value.loadingBranches)
+            assertFalse(vm.state.value.canCreate, "no branches yet")
+            loadBranches()
+            assertEquals(listOf("branches /src/octo"), core.calls, "typing waits for a pause before asking git")
+            assertEquals(listOf("dev", "origin/main"), vm.state.value.branches)
+            assertEquals("dev", vm.state.value.baseRef, "without main the first branch is taken")
+            assertTrue(vm.state.value.canCreate)
+
+            vm.selectBaseRef("nope")
+            assertEquals("dev", vm.state.value.baseRef, "a branch that is not listed is ignored")
+            vm.selectBaseRef("origin/main")
+            assertEquals("origin/main", vm.state.value.baseRef)
+
+            vm.editRepo("")
+            assertEquals(emptyList(), vm.state.value.branches)
+            assertFalse(vm.state.value.canCreate)
+        }
+
+    @Test
     fun aRemoteMachineReloadsItsAgentsAndGoesIntoTheTask() =
         runTest {
             val vm = NewTaskViewModel(core, FakeCatalog(core), backgroundScope)
@@ -258,6 +291,8 @@ class ViewModelTest {
             assertEquals(AgentId("claude"), vm.state.value.agent)
 
             vm.editRepo("/home/me/octo")
+
+            loadBranches()
             vm.editPrompt("Go")
             vm.create()
             settle()

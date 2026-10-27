@@ -1,5 +1,6 @@
 package octo.ui
 
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
@@ -22,6 +23,9 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.alpha
@@ -34,7 +38,10 @@ import androidx.compose.ui.input.key.onPreviewKeyEvent
 import androidx.compose.ui.input.key.type
 import androidx.compose.ui.text.font.FontStyle
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextOverflow
 import octo.core.agent.Role
+import octo.core.agent.ToolStatus
+import octo.core.status.AgentStatus
 import octo.core.task.TranscriptEntry
 import octo.ui.vm.PluginActionsViewModel
 import octo.ui.vm.RemoveStep
@@ -103,8 +110,11 @@ private fun Transcript(
     modifier: Modifier,
 ) {
     val list = rememberLazyListState()
-    // Follow the live output like a terminal does.
-    LaunchedEffect(entries.size) { if (entries.isNotEmpty()) list.scrollToItem(entries.lastIndex) }
+    // Follow the live output like a terminal does; tool updates and streamed text change the last
+    // entry in place, so its content is a key too.
+    LaunchedEffect(entries.size, entries.lastOrNull()) {
+        if (entries.isNotEmpty()) list.scrollToItem(entries.lastIndex)
+    }
     SelectionContainer(modifier) {
         LazyColumn(state = list, verticalArrangement = Arrangement.spacedBy(Gap)) {
             itemsIndexed(entries) { _, entry -> Entry(entry) }
@@ -124,14 +134,11 @@ private fun Entry(entry: TranscriptEntry) {
         }
 
         is TranscriptEntry.Thought -> {
-            Text(entry.text, color = muted, fontStyle = FontStyle.Italic)
+            Collapsible("Thinking", entry.text, FontStyle.Italic)
         }
 
         is TranscriptEntry.Tool -> {
-            Text(
-                "Tool · ${entry.title} · ${entry.status.name}" + entry.detail?.let { "\n$it" }.orEmpty(),
-                color = muted,
-            )
+            Collapsible("${entry.title} · ${entry.status.label}", entry.detail)
         }
 
         is TranscriptEntry.Plan -> {
@@ -174,6 +181,45 @@ private fun Queue(
         }
     }
 }
+
+/** A one-line header; thoughts and tool output run to pages, so the body opens on a click. */
+@Composable
+private fun Collapsible(
+    header: String,
+    body: String?,
+    bodyStyle: FontStyle = FontStyle.Normal,
+) {
+    val muted = MaterialTheme.colorScheme.onSurfaceVariant
+    var open by remember { mutableStateOf(false) }
+    val expandable = !body.isNullOrBlank()
+    val marker =
+        when {
+            !expandable -> "  "
+            open -> "▾ "
+            else -> "▸ "
+        }
+    Column {
+        Text(
+            marker + header,
+            color = muted,
+            maxLines = 1,
+            overflow = TextOverflow.Ellipsis,
+            modifier = if (expandable) Modifier.clickable { open = !open } else Modifier,
+        )
+        if (open && body != null) {
+            Text(body, color = muted, fontStyle = bodyStyle, modifier = Modifier.padding(start = LargeGap))
+        }
+    }
+}
+
+private val ToolStatus.label: String
+    get() =
+        when (this) {
+            ToolStatus.Pending -> "pending"
+            ToolStatus.InProgress -> "running"
+            ToolStatus.Completed -> "done"
+            ToolStatus.Failed -> "failed"
+        }
 
 @Composable
 private fun PromptBox(

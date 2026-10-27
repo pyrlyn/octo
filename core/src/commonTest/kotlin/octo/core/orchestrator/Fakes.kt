@@ -98,6 +98,8 @@ internal class FakeWorkspace : Workspace {
 
     override suspend fun repoRoot(dir: String) = "/src/app"
 
+    override suspend fun branches(repo: String) = listOf("main")
+
     override suspend fun createWorktree(
         repo: String,
         path: String,

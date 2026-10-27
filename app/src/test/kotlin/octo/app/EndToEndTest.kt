@@ -75,6 +75,7 @@ class EndToEndTest {
             form.state.until { !it.loadingAgents }
             form.selectAgent(DemoAdapter.ID)
             form.editRepo(repo.path)
+            form.state.until { it.baseRef in it.branches }
             form.editPrompt("Say hello")
             form.create()
             val id = form.state.until { it.created != null || it.error != null }.let { it.created ?: error(it.error!!) }

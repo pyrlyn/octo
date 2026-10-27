@@ -35,6 +35,7 @@ class FakeOctoCore : OctoCore {
     var termsPending: VendorTerms? = null
     var dirty = false
     var diffResult = TaskDiff("main", "abc", emptyList())
+    var branches = listOf("main", "dev", "origin/main")
     val usage = MutableStateFlow<Map<TaskId, ProcessUsage>>(emptyMap())
     private var next = 0
 
@@ -50,6 +51,14 @@ class FakeOctoCore : OctoCore {
         val id = TaskId("t${++next}")
         put(TaskView(task(id, request.repo, request.title), AgentStatus.Starting))
         return id
+    }
+
+    override suspend fun branches(
+        repo: String,
+        machine: String?,
+    ): List<String> {
+        calls += listOfNotNull("branches", repo, machine?.let { "on $it" }).joinToString(" ")
+        return branches
     }
 
     override suspend fun sendPrompt(
