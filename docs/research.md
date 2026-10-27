@@ -591,12 +591,51 @@ ACP registry `antigravity-acp/agent.json`.
 | Cursor | Native ACP `agent acp` | `-p` stream-json | ACP permission requests, `cursor/ask_question` | `session/load`, `--resume` | `CURSOR_CONFIG_DIR` | API key recommended |
 | Grok Build | Native ACP `grok agent stdio` | `-p` streaming-json (read-only) | ACP; `Notification` hook | `-r`, ACP | `GROK_HOME` | Subscription use unverified |
 | Antigravity | ACP binary (undocumented) **or** per-turn `agy -p` + hook callback | stream-json | `step_update`, JSON `status`, `Stop.fullyIdle` | `--conversation <id>` | `HOME` only (keyring caveat) | Consumer-plan wrapping not supported |
+| Kimi Code | Native ACP `kimi acp` | `-p` stream-json (read-only) | ACP permission requests | `session/load`, `session/resume`, `-S <id>` | `KIMI_CODE_HOME` | Third-party use documented; keep the User-Agent |
 
 *Assessment.* The base adapter should implement an ACP client plus a stream-JSON process driver.
 The Claude and Codex adapters choose between ACP adapters (which add Node as a runtime dependency)
 and their native protocols; that choice belongs to the architecture review. The status reducer must
 accept "blocked" from three kinds of source: ACP pending requests, native protocol flags, and hook
 callbacks.
+
+### 6.7 Kimi Code — `kimi` 2.3.3 (Moonshot AI)
+
+Sources (read 2026-10-27): repo `MoonshotAI/kimi-code` (MIT, release `@moonshot-ai/kimi-code@2.3.3`)
+files `docs/en/reference/kimi-acp.md`, `docs/en/reference/kimi-command.md`,
+`apps/kimi-code/src/cli/sub/acp.ts`, `apps/kimi-code/src/cli/commands.ts`,
+`apps/kimi-code/src/constant/app.ts`, `packages/acp-server/src/{server,approval}.ts`;
+https://www.kimi.com/code/docs/en/kimi-code-cli/reference/kimi-command; a live `kimi acp`
+`initialize` from `kimi` 0.39.1 with `KIMI_CODE_HOME` pointed at a temp dir.
+
+- **Two CLIs, one binary name.** The Python `MoonshotAI/kimi-cli` (1.x, last release 1.52.0) is
+  archived and points to Kimi Code. Both install `kimi`. Kimi Code prints a bare version
+  (`kimi -V` → `2.3.3`, commander `.version()`); the legacy CLI prints `kimi, version 1.52.0`
+  (typer callback). Kimi Code versions went 0.43.1 → 2.0.0, so 0.x is Kimi Code too.
+- **Install.** Official install script (binary in `~/.kimi-code/bin/kimi`), Homebrew, npm
+  `@moonshot-ai/kimi-code`.
+- **Headless.** `-p/--prompt`; `--output-format text|stream-json` (only with `--prompt`);
+  `-S/--session [id]`, `-c/--continue`; `-m/--model`; `--yolo`, `--auto`, `--plan` (none of them
+  allowed with `--prompt`); `--add-dir`; `--agent`, `--agent-file`. `stream-json` writes assistant
+  and tool messages as JSONL; thinking is not written. Read-only: no approvals.
+- **ACP (native).** `kimi acp`, JSON-RPC over stdio, no banner, logs on stderr. Capabilities:
+  `loadSession`, image and embedded-context prompts, `session/{list,resume,close,delete,fork}`,
+  `additionalDirectories`, HTTP and SSE MCP forwarding (stdio MCP servers are forwarded too),
+  `auth.logout`. Methods: all of core and `session/*`, `session/request_permission` (options
+  `allow_once`, `allow_always`, `reject_once`), `fs/*` and `terminal/*` reverse calls only when the
+  client advertises them, `elicitation/create` with a fallback to `request_permission`,
+  `session/set_mode`, `session/set_config_option`, `session/set_model`.
+- **Auth.** `kimi login` (device code; `kimi acp --login [--region mainland-cn|global]` is the ACP
+  terminal-auth entry). `initialize` advertises one method, `login` (`type: terminal`).
+  `authenticate("login")` only re-checks the stored token; gated calls return `auth_required`
+  (-32000) while it is missing. Octo can retry with `login` safely: it never starts a sign-in.
+- **Config dir.** `KIMI_CODE_HOME` (default `~/.kimi-code`) holds config, tokens, sessions and
+  logs.
+- **Terms.** Kimi's help pages document using a Kimi Code membership with third-party tools and
+  warn against altering the client's User-Agent (https://www.kimi.ai/help/kimi-code/third-party-agents,
+  read 2026-10-27). Octo runs the user's own `kimi`, so its User-Agent is untouched. Claims that
+  membership keys may not be used for automation come only from an unofficial blog
+  (**unverified**).
 
 ---
 
@@ -798,6 +837,9 @@ Vendor docs (read 2026-10-26):
 - Codex — https://learn.chatgpt.com/docs/ (non-interactive-mode, developer-commands, app-server,
   hooks, auth, codex-sdk)
 - Cursor — https://cursor.com/docs/cli/ (overview, headless, acp, reference/*),
+- Kimi Code (read 2026-10-27) — https://www.kimi.com/code/docs/en/kimi-code-cli/reference/kimi-command ,
+  https://www.kimi.ai/help/kimi-code/third-party-agents ; repo https://github.com/MoonshotAI/kimi-code
+  at `@moonshot-ai/kimi-code@2.3.3`
   https://cursor.com/docs/sdk/typescript , https://cursor.com/docs/hooks ,
   https://cursor.com/docs/cloud-agent/api/overview
 - Grok Build — https://docs.x.ai/build/ (overview, cli/headless-scripting, features/hooks,

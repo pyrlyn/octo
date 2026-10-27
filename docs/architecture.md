@@ -64,6 +64,7 @@ octo/
 │   ├── codex/            "
 │   ├── cursor/           "
 │   ├── grok/             "
+│   ├── kimi/             "
 │   ├── antigravity/      "
 │   └── plugin/           " (the generic ACP adapter for agents plugins declare)
 ├── ui/                   JVM + Compose; depends on core
@@ -110,6 +111,7 @@ event mapping, extensions and fixtures.
 | `codex` | `codex app-server` (JSON-RPC over stdio, no `jsonrpc` field) | `codex` |
 | `cursor` | ACP `cursor-agent acp` plus `cursor/*` extensions | `cursor-agent` (`agent` collides with Grok's binary) |
 | `grok` | ACP `grok agent stdio` | `grok` (the official xAI build; refuses the community CLI) |
+| `kimi` | ACP `kimi acp` | `kimi` (Kimi Code CLI; refuses the archived Python `kimi-cli`) |
 | `antigravity` | ACP `agy_acp_server` | Behind the `antigravity` flag, with a terms notice |
 | `demo` | In-process, no binary | Behind the `demo-agent` flag; asks for permission and writes `octo-demo.md` |
 | `plugin` | ACP, with the arguments a plugin's manifest gives | The bare command the manifest names, on `PATH` |
@@ -177,7 +179,7 @@ interface AgentSession {
 **Registry.** `AdapterRegistry` is built in `app` from a list:
 
 ```kotlin
-listOf(ClaudeAdapter(...), CodexAdapter(...), CursorAdapter(...), GrokAdapter(...), AntigravityAdapter(...))
+listOf(ClaudeAdapter(...), CodexAdapter(...), CursorAdapter(...), GrokAdapter(...), KimiAdapter(...), AntigravityAdapter(...))
 ```
 
 Adding an agent means a new module and one line in that list. The registry drops adapters whose

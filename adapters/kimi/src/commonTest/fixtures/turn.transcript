@@ -1,0 +1,14 @@
+# Login retry and one turn (synthetic; initialize reply as kimi 0.39.1 sent it, with the temp
+# KIMI_CODE_HOME path replaced).
+> {"jsonrpc":"2.0","id":1,"method":"initialize","params":{"protocolVersion":1,"clientCapabilities":{"fs":{"readTextFile":false,"writeTextFile":false},"terminal":false},"clientInfo":{"name":"octo"}}}
+< {"jsonrpc":"2.0","id":1,"result":{"protocolVersion":1,"agentCapabilities":{"loadSession":true,"promptCapabilities":{"image":true,"audio":false,"embeddedContext":true},"sessionCapabilities":{"list":{},"resume":{},"close":{},"delete":{},"fork":{},"additionalDirectories":{}},"mcpCapabilities":{"http":true,"sse":true},"auth":{"logout":{}}},"authMethods":[{"id":"login","type":"terminal","name":"Login with Kimi account","description":"Open the device-code login flow in a terminal.","args":["--login"],"env":{"KIMI_CODE_HOME":"/tmp/kimi-home"},"_meta":{"terminal-auth":{"type":"terminal","label":"Login with Kimi account","command":"kimi","args":["login"],"env":{"KIMI_CODE_HOME":"/tmp/kimi-home"}}}}],"agentInfo":{"name":"Kimi Code CLI","version":"0.39.1"}}}
+> {"jsonrpc":"2.0","id":2,"method":"session/new","params":{"cwd":"/repo","mcpServers":[]}}
+< {"jsonrpc":"2.0","id":2,"error":{"code":-32000,"message":"Authentication required"}}
+> {"id":3,"method":"authenticate","params":{"methodId":"login"}}
+< {"jsonrpc":"2.0","id":3,"result":{}}
+> {"id":4,"method":"session/new","params":{"cwd":"/repo"}}
+< {"jsonrpc":"2.0","id":4,"result":{"sessionId":"kimi-1"}}
+> {"jsonrpc":"2.0","id":5,"method":"session/prompt","params":{"sessionId":"kimi-1","prompt":[{"type":"text","text":"Hi"}]}}
+< {"jsonrpc":"2.0","method":"session/update","params":{"sessionId":"kimi-1","update":{"sessionUpdate":"agent_message_chunk","content":{"type":"text","text":"Hello."}}}}
+< {"jsonrpc":"2.0","id":5,"result":{"stopReason":"end_turn"}}
+x 0
