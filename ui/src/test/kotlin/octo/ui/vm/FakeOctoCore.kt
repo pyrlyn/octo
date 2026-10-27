@@ -20,6 +20,7 @@ import octo.core.status.AgentStatus
 import octo.core.task.Layout
 import octo.core.task.NewTask
 import octo.core.task.OctoState
+import octo.core.task.QueuedPrompt
 import octo.core.task.Task
 import octo.core.task.TaskId
 import octo.core.task.TaskView
@@ -56,6 +57,41 @@ class FakeOctoCore : OctoCore {
         text: String,
     ) {
         calls += "prompt $text"
+    }
+
+    override suspend fun editQueued(
+        taskId: TaskId,
+        queuedId: Int,
+        text: String,
+    ) {
+        calls += "edit $queuedId $text"
+        updateQueue(taskId) { queue -> queue.map { if (it.id == queuedId) it.copy(text = text) else it } }
+    }
+
+    override suspend fun removeQueued(
+        taskId: TaskId,
+        queuedId: Int,
+    ) {
+        calls += "unqueue $queuedId"
+        updateQueue(taskId) { queue -> queue.filterNot { it.id == queuedId } }
+    }
+
+    private fun updateQueue(
+        taskId: TaskId,
+        change: (List<QueuedPrompt>) -> List<QueuedPrompt>,
+    ) = state.update { s ->
+        s.copy(
+            tasks =
+                s.tasks.map {
+                    if (it.task.id ==
+                        taskId
+                    ) {
+                        it.copy(task = it.task.copy(queue = change(it.task.queue)))
+                    } else {
+                        it
+                    }
+                },
+        )
     }
 
     override suspend fun respond(

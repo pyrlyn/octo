@@ -12,6 +12,7 @@ import octo.core.agent.AgentEvent
 import octo.core.agent.PermissionKind
 import octo.core.agent.PermissionOption
 import octo.core.agent.RequestResponse
+import octo.core.agent.StopReason
 import octo.core.agent.VendorTerms
 import octo.core.io.AtomicFile
 import octo.core.orchestrator.FakeAdapter
@@ -93,6 +94,8 @@ class RemoteApiTest {
                 t.s.adapter.sessions
                     .single()
             assertEquals(listOf("Go"), session.prompts)
+            session.emit(AgentEvent.TurnEnded(StopReason.EndTurn))
+            testScheduler.runCurrent()
 
             assertEquals(204, t.call("POST", "/tasks/$id/prompt", """{"text":"More"}""").status)
             assertEquals(listOf("Go", "More"), session.prompts)

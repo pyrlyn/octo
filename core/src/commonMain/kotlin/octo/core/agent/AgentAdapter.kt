@@ -28,6 +28,9 @@ enum class Capability {
 
     /** Takes the MCP servers Octo offers in [SessionSpec.mcpServers], such as agent messaging. */
     Mcp,
+
+    /** Takes a message into the running turn through [AgentSession.steer]; without it Octo queues. */
+    Steer,
 }
 
 enum class AuthState { LoggedIn, LoggedOut, Unknown }
@@ -104,6 +107,12 @@ interface AgentSession {
     val events: Flow<AgentEvent>
 
     suspend fun prompt(text: String)
+
+    /**
+     * Adds [text] to the turn that is running; called only on adapters with [Capability.Steer].
+     * Throws when no turn can take it, and the core queues the text instead.
+     */
+    suspend fun steer(text: String): Unit = throw UnsupportedOperationException("This agent cannot steer a turn")
 
     suspend fun respond(
         requestId: String,

@@ -12,7 +12,11 @@ import octo.core.task.OctoState
 import octo.core.task.TaskId
 import octo.core.task.TranscriptEntry
 
-/** The only surface the UI uses; flow-based so a socket transport can serve it later. */
+/**
+ * The only surface the UI uses; flow-based so a socket transport can serve it later. Every user
+ * action is one call here, so the count of functions grows with the features.
+ */
+@Suppress("TooManyFunctions")
 interface OctoCore {
     val state: StateFlow<OctoState>
 
@@ -25,9 +29,27 @@ interface OctoCore {
      */
     suspend fun createTask(request: NewTask): TaskId
 
+    /**
+     * Sends [text] to an idle agent. A busy agent is steered when its adapter can take the text
+     * into the running turn; otherwise the text waits in [octo.core.task.Task.queue] and is sent
+     * once the agent is idle.
+     */
     suspend fun sendPrompt(
         taskId: TaskId,
         text: String,
+    )
+
+    /** Replaces the text of a prompt that is still queued; throws when it was already sent. */
+    suspend fun editQueued(
+        taskId: TaskId,
+        queuedId: Int,
+        text: String,
+    )
+
+    /** Drops a queued prompt; one that was already sent is left alone. */
+    suspend fun removeQueued(
+        taskId: TaskId,
+        queuedId: Int,
     )
 
     suspend fun respond(

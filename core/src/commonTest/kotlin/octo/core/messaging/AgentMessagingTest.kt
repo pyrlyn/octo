@@ -47,6 +47,8 @@ class AgentMessagingTest {
         val task = NewTask(repo = "/src/app", baseRef = "main", agent = AgentId("fake"), title = "A", prompt = "Go")
         val a = s.core.createTask(task)
         val b = s.core.createTask(task.copy(title = "B"))
+        // Both agents finish their first prompt, so they start out idle.
+        s.adapter.sessions.forEach { it.emit(AgentEvent.TurnEnded(StopReason.EndTurn)) }
         testScheduler.runCurrent()
         return Two(s, messaging, a, b)
     }

@@ -19,6 +19,7 @@ import octo.core.publish.PublishResult
 import octo.core.publish.TaskPublisher
 import octo.core.status.AgentStatus
 import octo.core.task.PendingRequest
+import octo.core.task.QueuedPrompt
 import octo.core.task.SidebarStatus
 import octo.core.task.TaskId
 import octo.core.task.TaskView
@@ -96,10 +97,8 @@ class ViewModelTest {
             assertTrue("seen a" in core.calls)
 
             vm.editDraft("  next  ")
-            assertFalse(vm.state.value.canSend, "a working agent takes no prompt")
+            assertTrue(vm.state.value.canSend, "a working agent is steered or queued")
             assertTrue(vm.state.value.canCancel)
-            core.put(view("a", AgentStatus.Idle))
-            settle()
             vm.send()
             settle()
             assertEquals("", vm.state.value.draft)
@@ -122,6 +121,47 @@ class ViewModelTest {
             assertTrue(vm.state.value.canRestart)
             assertFalse(vm.state.value.canStop)
             vm.close()
+        }
+
+    @Test
+    fun queuedPromptsCanBeEditedAndRemoved() =
+        runTest {
+            val queued =
+                FakeOctoCore
+                    .task(
+                        TaskId("a"),
+                    ).copy(queue = listOf(QueuedPrompt(1, "one"), QueuedPrompt(2, "two")))
+            core.put(TaskView(queued, AgentStatus.Working))
+            val vm = TaskViewModel(core, TaskId("a"), backgroundScope)
+            settle()
+            assertEquals(
+                listOf("one", "two"),
+                vm.state.value.queue
+                    .map { it.text },
+            )
+
+            vm.editQueued(vm.state.value.queue[0])
+            vm.editQueuedText("  first  ")
+            vm.saveQueued()
+            settle()
+            assertTrue("edit 1 first" in core.calls)
+            assertNull(vm.state.value.editing)
+            assertEquals(
+                "first",
+                vm.state.value.queue[0]
+                    .text,
+            )
+
+            vm.editQueued(vm.state.value.queue[1])
+            vm.removeQueued(2)
+            settle()
+            assertEquals(
+                listOf(1),
+                vm.state.value.queue
+                    .map { it.id },
+            )
+            assertNull(vm.state.value.editing, "the removed prompt is no longer being edited")
+            assertFalse(vm.state.value.canSend, "an empty draft sends nothing")
         }
 
     @Test

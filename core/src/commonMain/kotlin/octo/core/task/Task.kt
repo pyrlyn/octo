@@ -45,6 +45,15 @@ data class Task(
     val lastStatus: AgentStatus = AgentStatus.Stopped,
     /** Null for this computer; optional so state files from before remote machines still load. */
     val machine: String? = null,
+    /** Prompts waiting for the agent to be idle, oldest first; persisted so a restart keeps them. */
+    val queue: List<QueuedPrompt> = emptyList(),
+)
+
+/** A prompt the user sent while the agent was busy and could not take it into the turn. */
+@Serializable
+data class QueuedPrompt(
+    val id: Int,
+    val text: String,
 )
 
 /** A request the agent is waiting on. */
