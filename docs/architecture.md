@@ -250,6 +250,7 @@ class FeatureFlags(config: Map<String, Boolean>) {
 | `handoff` (switch a task's agent or model; a fresh session gets the conversation from the transcript) | T23 |
 | `fork` (a new task on a new branch from a task's current worktree, linked to its parent) | T24 |
 | `compare` (one prompt to several agents or models, each in its own task, grouped in the sidebar) | T26 |
+| `sections` (pin, snooze and settle tasks; with `git-publish`, settle a task once its PR merges) | T28 |
 | `pty-terminal` | Reserved |
 
 ## 7. Core API and orchestration
@@ -319,6 +320,13 @@ agent and writes the state. `close()` belongs to `app`, so it is not on the inte
   `AgentPick` (an agent and an optional model) with the same prompt, all sharing one
   `Task.group`. A pick that fails is reported in `Comparison.failures` and the others still run.
   The sidebar gathers a group's tasks, forks included, under the group's title.
+- **Places.** `Task.place` (`TaskPlace`: Active, Pinned, `Snoozed(untilMs)`, Settled) is
+  persisted with the task and changed through `setPlace`. A snooze without a time ends when the
+  turn ends; any snooze ends when the agent blocks or fails. A timed one is woken by a coroutine
+  that waits for the earliest `untilMs` on an injected `kotlin.time.Clock`. `SettleMerged` asks
+  `MergedBranches` (the user's `gh pr list --state=merged`, once per repository every five
+  minutes) and settles a local task whose branch merged, once per run, so a task the user moves
+  back stays put. A repository `gh` cannot answer is skipped.
 - **Prompts while busy.** `sendPrompt` runs under the task's lock. An idle agent gets the prompt
   and reads as working at once, so a second sender never sees a stale idle. A busy agent is
   steered when its adapter declares `Steer` and the steer succeeds; otherwise the text joins

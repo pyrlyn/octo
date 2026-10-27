@@ -122,6 +122,12 @@ fork their own session; other agents get the conversation with your next prompt.
 or several models of one agent (comma-separated), each in its own task on its own branch. The
 tasks sit together in the sidebar under the prompt's title, so their diffs are easy to compare.
 
+`"sections": true` sorts each repository's tasks into Pinned, Active, Snoozed and Settled. The
+menu in a task's header pins, snoozes (for an hour, a day, or until the agent's turn ends) or
+settles it. A snoozed task comes back early when its agent blocks or fails. With `git-publish` on
+as well, a task whose branch has a merged pull request is settled on its own; Octo asks `gh`
+every five minutes.
+
 `"plugins": true` loads WebAssembly plugins from the `plugins` folder in the Octo home. A plugin
 can add ACP agents and actions in a task's Plugins menu. A plugin cannot reach files, processes or
 the network. A broken one is skipped with a warning. See `docs/plugins.md` for the ABI.

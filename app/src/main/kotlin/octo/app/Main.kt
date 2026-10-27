@@ -30,6 +30,7 @@ fun main() {
             octo.handoff,
             octo.fork,
             octo.compare,
+            octo.sections,
         )
     application {
         Window(

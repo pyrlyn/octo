@@ -10,6 +10,7 @@ import octo.core.orchestrator.OctoCore
 import octo.core.task.OctoState
 import octo.core.task.SidebarStatus
 import octo.core.task.TaskId
+import octo.core.task.TaskPlace
 import octo.core.task.TaskView
 import octo.core.task.rollup
 
@@ -23,7 +24,31 @@ data class TaskRow(
     val depth: Int = 0,
     /** Set on the first row of a comparison: the tasks below it, one level deeper, share one prompt. */
     val groupTitle: String? = null,
+    val place: TaskPlace = TaskPlace.Active,
+    /** Set on the first row of each section, while a repository's tasks sit in more than one. */
+    val sectionTitle: String? = null,
 )
+
+/** Sidebar sections, in the order they are listed. */
+enum class Section(
+    val title: String,
+) {
+    Pinned("Pinned"),
+    Active("Active"),
+    Snoozed("Snoozed"),
+    Settled("Settled"),
+    ;
+
+    companion object {
+        fun of(place: TaskPlace) =
+            when (place) {
+                TaskPlace.Pinned -> Pinned
+                TaskPlace.Active -> Active
+                is TaskPlace.Snoozed -> Snoozed
+                TaskPlace.Settled -> Settled
+            }
+    }
+}
 
 data class RepoGroup(
     val repo: String,
@@ -57,12 +82,15 @@ class MainViewModel(
     private val scope: CoroutineScope,
     /** Problems found before core started, shown with the ones core reports. */
     private val startupWarnings: List<String> = emptyList(),
+    /** False while the `sections` flag is off: one flat list, and places cannot be changed. */
+    val sections: Boolean = false,
+    private val now: () -> Long = System::currentTimeMillis,
 ) {
-    private val mutable = MutableStateFlow(MainUiState().withCore(core.state.value, startupWarnings))
+    private val mutable = MutableStateFlow(MainUiState().withCore(core.state.value, startupWarnings, sections))
     val state: StateFlow<MainUiState> = mutable.asStateFlow()
 
     init {
-        act { core.state.collect { octo -> mutable.update { it.withCore(octo, startupWarnings) } } }
+        act { core.state.collect { octo -> mutable.update { it.withCore(octo, startupWarnings, sections) } } }
     }
 
     fun select(id: TaskId) {
@@ -106,6 +134,17 @@ class MainViewModel(
     /** Forks [id] and opens the fork. */
     fun fork(id: TaskId) = act { select(core.forkTask(id)) }
 
+    fun place(
+        id: TaskId,
+        place: TaskPlace,
+    ) = act { core.setPlace(id, place) }
+
+    /** Snoozes [id] for [forMs], or with null until its agent's turn ends. */
+    fun snooze(
+        id: TaskId,
+        forMs: Long?,
+    ) = place(id, TaskPlace.Snoozed(forMs?.let { now() + it }))
+
     /** Called once a task was created from the dialog. */
     fun created(id: TaskId) {
         closeNewTask()
@@ -127,6 +166,7 @@ class MainViewModel(
 private fun MainUiState.withCore(
     state: OctoState,
     startupWarnings: List<String>,
+    sections: Boolean,
 ): MainUiState {
     val groups =
         state.tasks
@@ -137,17 +177,19 @@ private fun MainUiState.withCore(
                     name = repo.trimEnd('/', '\\').substringAfterLast('/').substringAfterLast('\\'),
                     status = views.rollup(),
                     tasks =
-                        grouped(lineage(views)).map { (it, depth, groupTitle) ->
-                            TaskRow(
-                                it.task.id,
-                                it.task.title,
-                                it.task.agent,
-                                it.task.branch,
-                                it.sidebarStatus,
-                                depth,
-                                groupTitle,
-                            )
-                        },
+                        grouped(lineage(views))
+                            .map { (it, depth, groupTitle) ->
+                                TaskRow(
+                                    it.task.id,
+                                    it.task.title,
+                                    it.task.agent,
+                                    it.task.branch,
+                                    it.sidebarStatus,
+                                    depth,
+                                    groupTitle,
+                                    it.task.place,
+                                )
+                            }.let { if (sections) sectioned(it) else it },
                 )
             }
     val layout = state.layout
@@ -221,5 +263,25 @@ private fun grouped(rows: List<Pair<TaskView, Int>>): List<Triple<TaskView, Int,
                 }
             }
         }
+    }
+}
+
+/** Each task with its forks, or each comparison, moves to the section of its first task. */
+private fun sectioned(rows: List<TaskRow>): List<TaskRow> {
+    val blocks =
+        rows.fold(mutableListOf<MutableList<TaskRow>>()) { acc, row ->
+            if (row.depth == 0 || row.groupTitle != null ||
+                acc.isEmpty()
+            ) {
+                acc += mutableListOf(row)
+            } else {
+                acc.last() += row
+            }
+            acc
+        }
+    val bySection = blocks.groupBy { Section.of(it.first().place) }.toSortedMap()
+    if (bySection.size < 2) return rows
+    return bySection.flatMap { (section, inSection) ->
+        inSection.flatten().mapIndexed { i, row -> if (i == 0) row.copy(sectionTitle = section.title) else row }
     }
 }

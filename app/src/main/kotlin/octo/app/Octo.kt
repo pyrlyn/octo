@@ -29,7 +29,9 @@ import octo.core.preset.FilePresetLibrary
 import octo.core.preset.PresetLibrary
 import octo.core.process.JvmProcessMonitor
 import octo.core.process.ProcessLauncher
+import octo.core.publish.GitHubMergedBranches
 import octo.core.publish.GitTaskPublisher
+import octo.core.publish.SettleMerged
 import octo.core.publish.TaskPublisher
 import octo.core.terms.TermsGate
 import wasm.chasm.ChasmRuntime
@@ -59,6 +61,8 @@ class Octo private constructor(
     val fork: Boolean,
     /** Whether the `compare` flag lets one prompt go to several agents. */
     val compare: Boolean,
+    /** Whether the `sections` flag lets tasks be pinned, snoozed and settled. */
+    val sections: Boolean,
 ) {
     val core: OctoCore get() = orchestrator
 
@@ -107,10 +111,7 @@ class Octo private constructor(
                     worktreeSetup = config.worktreeSetup,
                 )
             messaging?.attach(orchestrator)
-            val publisher =
-                flags.ifOn(
-                    CoreFlags.GIT_PUBLISH,
-                ) { GitTaskPublisher(orchestrator.state, Git(launcher), GitHubCli(launcher)) }
+            val publisher = publishing(flags, orchestrator, launcher, scope)
             val catalog = RegistryAgentCatalog(registry, terms, remote.machines.mapValues { it.value.registry })
             val presets = flags.ifOn(CoreFlags.PRESETS) { FilePresetLibrary.open(AtomicFile(paths.presets)) }
             val access =
@@ -136,7 +137,24 @@ class Octo private constructor(
                 flags.isEnabled(CoreFlags.HANDOFF),
                 flags.isEnabled(CoreFlags.FORK),
                 flags.isEnabled(CoreFlags.COMPARE),
+                flags.isEnabled(CoreFlags.SECTIONS),
             )
+        }
+
+        /**
+         * Commit, push and pull request, plus settling tasks whose pull requests merged; both
+         * drive the user's gh, so settling also waits for `git-publish`.
+         */
+        private fun publishing(
+            flags: FeatureFlags,
+            orchestrator: Orchestrator,
+            launcher: ProcessLauncher,
+            scope: CoroutineScope,
+        ): TaskPublisher? {
+            if (!flags.isEnabled(CoreFlags.GIT_PUBLISH)) return null
+            val gh = GitHubCli(launcher)
+            if (flags.isEnabled(CoreFlags.SECTIONS)) SettleMerged(orchestrator, GitHubMergedBranches(gh)).watch(scope)
+            return GitTaskPublisher(orchestrator.state, Git(launcher), gh)
         }
 
         private inline fun <T> FeatureFlags.ifOn(
