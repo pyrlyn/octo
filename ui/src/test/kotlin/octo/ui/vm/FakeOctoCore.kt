@@ -15,6 +15,7 @@ import octo.core.orchestrator.AgentCatalog
 import octo.core.orchestrator.AgentInfo
 import octo.core.orchestrator.OctoCore
 import octo.core.orchestrator.WorktreeDirtyException
+import octo.core.process.ProcessUsage
 import octo.core.status.AgentStatus
 import octo.core.task.Layout
 import octo.core.task.NewTask
@@ -33,6 +34,7 @@ class FakeOctoCore : OctoCore {
     var termsPending: VendorTerms? = null
     var dirty = false
     var diffResult = TaskDiff("main", "abc", emptyList())
+    val usage = MutableStateFlow<Map<TaskId, ProcessUsage>>(emptyMap())
     private var next = 0
 
     fun put(view: TaskView) =
@@ -70,7 +72,12 @@ class FakeOctoCore : OctoCore {
 
     override suspend fun stop(taskId: TaskId) {
         calls += "stop"
+        stopped += taskId
     }
+
+    val stopped = mutableListOf<TaskId>()
+
+    override val processUsage: Flow<Map<TaskId, ProcessUsage>> = usage
 
     override suspend fun restart(taskId: TaskId) {
         calls += "restart"

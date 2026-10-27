@@ -17,6 +17,6 @@
 < {"method":"item/agentMessage/delta","params":{"threadId":"thr-1","turnId":"turn-1","itemId":"m1","delta":"ing."}}
 < {"method":"item/completed","params":{"threadId":"thr-1","turnId":"turn-1","item":{"type":"agentMessage","id":"m1","text":"Looking."}}}
 < not json at all
-< {"method":"thread/tokenUsage/updated","params":{"threadId":"thr-1","turnId":"turn-1","tokenUsage":{"total":{"inputTokens":500,"outputTokens":90},"last":{"inputTokens":120,"outputTokens":30}}}}
+< {"method":"thread/tokenUsage/updated","params":{"threadId":"thr-1","turnId":"turn-1","tokenUsage":{"total":{"inputTokens":500,"cachedInputTokens":400,"outputTokens":90},"last":{"inputTokens":120,"outputTokens":30,"totalTokens":150},"modelContextWindow":272000}}}
 < {"method":"turn/completed","params":{"threadId":"thr-1","turn":{"id":"turn-1","status":"completed","error":null}}}
 x 0

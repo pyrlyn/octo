@@ -13,6 +13,7 @@ import octo.core.agent.PlanEntry
 import octo.core.agent.RequestResponse
 import octo.core.agent.Role
 import octo.core.agent.SessionSpec
+import octo.core.agent.SessionStats
 import octo.core.agent.StopReason
 import octo.core.agent.ToolStatus
 import octo.testing.Events
@@ -119,6 +120,22 @@ class ClaudeAdapterTest {
             assertEquals(120L, end.usage?.inputTokens)
             assertEquals(0.012, end.usage?.costUsd)
             assertEquals(AgentEvent.Exited(0), events.last())
+
+            // The subagent's 90k-token message is not the session's context.
+            assertEquals(
+                listOf(
+                    SessionStats(model = "claude-opus-5-5"),
+                    SessionStats(contextUsed = 1208),
+                    SessionStats(
+                        contextWindow = 200_000,
+                        inputTokens = 120,
+                        outputTokens = 30,
+                        cacheReadTokens = 2000,
+                        cacheWriteTokens = 200,
+                    ),
+                ),
+                events.filterIsInstance<AgentEvent.StatsUpdated>().map { it.stats },
+            )
         }
 
     @Test

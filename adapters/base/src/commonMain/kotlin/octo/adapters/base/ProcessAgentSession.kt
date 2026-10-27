@@ -29,6 +29,8 @@ abstract class ProcessAgentSession(
 
     override val events: Flow<AgentEvent> = channel.receiveAsFlow()
 
+    override val processId: Long? get() = process.pid
+
     protected fun emit(event: AgentEvent) {
         channel.trySend(event)
     }

@@ -27,6 +27,7 @@ import octo.core.plugins.Plugin
 import octo.core.plugins.PluginLoader
 import octo.core.preset.FilePresetLibrary
 import octo.core.preset.PresetLibrary
+import octo.core.process.JvmProcessMonitor
 import octo.core.process.ProcessLauncher
 import octo.core.publish.GitTaskPublisher
 import octo.core.publish.TaskPublisher
@@ -95,6 +96,7 @@ class Octo private constructor(
                     scope,
                     machines = remote.machines,
                     mcp = messaging,
+                    processes = JvmProcessMonitor(launcher),
                 )
             messaging?.attach(orchestrator)
             val publisher =

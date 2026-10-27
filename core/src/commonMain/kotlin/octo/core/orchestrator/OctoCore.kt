@@ -5,6 +5,7 @@ import kotlinx.coroutines.flow.StateFlow
 import octo.core.agent.AgentId
 import octo.core.agent.RequestResponse
 import octo.core.git.TaskDiff
+import octo.core.process.ProcessUsage
 import octo.core.task.Layout
 import octo.core.task.NewTask
 import octo.core.task.OctoState
@@ -60,6 +61,12 @@ interface OctoCore {
 
     /** Clears the "done" mark once the user has looked at the task. */
     suspend fun markSeen(taskId: TaskId)
+
+    /**
+     * CPU and memory of each running agent on this computer, sampled every few seconds while
+     * collected; a task on a remote machine or without a known process is left out.
+     */
+    val processUsage: Flow<Map<TaskId, ProcessUsage>>
 }
 
 class UnknownTaskException(

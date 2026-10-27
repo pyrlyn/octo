@@ -19,6 +19,7 @@ import kotlinx.io.files.SystemFileSystem
 import kotlinx.io.writeString
 import octo.core.agent.AgentAdapter
 import octo.core.agent.AgentEvent
+import octo.core.agent.AgentIcon
 import octo.core.agent.AgentId
 import octo.core.agent.AgentProbe
 import octo.core.agent.AgentSession
@@ -44,6 +45,10 @@ import kotlin.random.Random
 class DemoAdapter : AgentAdapter {
     override val id = ID
     override val displayName = "Demo agent"
+    override val icon =
+        AgentIcon(
+            """<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><rect width="24" height="24" rx="6" fill="#6B7280"/><circle cx="12" cy="12" r="4" fill="#fff"/></svg>""",
+        )
     override val capabilities = setOf(Capability.Resume, Capability.Cancel, Capability.Permissions, Capability.Plan)
     override val featureFlag = FLAG
 

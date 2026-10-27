@@ -65,6 +65,8 @@ private class JvmRunningProcess(
     private val writer = process.outputStream.bufferedWriter()
     private val writeLock = Mutex()
 
+    override val pid: Long = process.pid()
+
     override val stdout: Flow<String> = out.receiveAsFlow()
     override val stderr: Flow<String> = err.receiveAsFlow()
 

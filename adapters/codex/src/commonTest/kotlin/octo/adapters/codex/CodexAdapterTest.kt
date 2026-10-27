@@ -12,6 +12,7 @@ import octo.core.agent.PlanEntry
 import octo.core.agent.RequestResponse
 import octo.core.agent.Role
 import octo.core.agent.SessionSpec
+import octo.core.agent.SessionStats
 import octo.core.agent.StopReason
 import octo.core.agent.ToolStatus
 import octo.testing.Events
@@ -44,7 +45,8 @@ class CodexAdapterTest {
             val events = Events(backgroundScope, session).drain()
 
             assertEquals(AgentEvent.SessionReady(AgentSessionRef("thr-1")), events[0])
-            assertEquals(AgentEvent.TurnStarted, events[1])
+            assertEquals(AgentEvent.StatsUpdated(SessionStats(model = "gpt-5")), events[1])
+            assertEquals(AgentEvent.TurnStarted, events[2])
             assertEquals(listOf("Look", "ing."), events.filterIsInstance<AgentEvent.MessageDelta>().map { it.text })
             assertEquals(
                 listOf(AgentEvent.Message(Role.Assistant, "Looking.")),
@@ -71,6 +73,20 @@ class CodexAdapterTest {
             assertEquals(120L, end.usage?.inputTokens)
             assertEquals(30L, end.usage?.outputTokens)
             assertEquals(AgentEvent.Exited(0), events.last())
+
+            assertEquals(
+                listOf(
+                    SessionStats(model = "gpt-5"),
+                    SessionStats(
+                        contextUsed = 150,
+                        contextWindow = 272_000,
+                        inputTokens = 500,
+                        outputTokens = 90,
+                        cacheReadTokens = 400,
+                    ),
+                ),
+                events.filterIsInstance<AgentEvent.StatsUpdated>().map { it.stats },
+            )
         }
 
     @Test

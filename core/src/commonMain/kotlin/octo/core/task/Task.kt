@@ -5,6 +5,7 @@ import octo.core.agent.AgentId
 import octo.core.agent.AgentSessionRef
 import octo.core.agent.PermissionOption
 import octo.core.agent.Question
+import octo.core.agent.SessionStats
 import octo.core.status.AgentStatus
 import kotlin.jvm.JvmInline
 
@@ -69,6 +70,8 @@ data class TaskView(
     val failure: String? = null,
     /** A turn finished since the user last looked at the task. */
     val unseen: Boolean = false,
+    /** Figures from the running agent; cleared on every start, never persisted. */
+    val stats: SessionStats = SessionStats(),
 ) {
     val sidebarStatus: SidebarStatus
         get() =

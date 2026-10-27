@@ -22,6 +22,7 @@ import octo.core.agent.PlanEntry
 import octo.core.agent.RequestResponse
 import octo.core.agent.Role
 import octo.core.agent.SessionSpec
+import octo.core.agent.SessionStats
 import octo.core.agent.StopReason
 import octo.core.agent.ToolStatus
 import octo.core.process.RunningProcess
@@ -45,6 +46,7 @@ open class AcpSession(
     private val tools = mutableMapOf<String, AgentEvent.ToolCall>()
     private val message = StringBuilder()
     private val thought = StringBuilder()
+    private var totals = SessionStats()
 
     protected suspend fun sessionId(): String = lock.withLock { sessionId } ?: error("No ACP session")
 
@@ -109,12 +111,13 @@ open class AcpSession(
             }
         return when {
             resume == null -> {
-                peer.request("session/new", params).obj()?.string("sessionId")
-                    ?: error("ACP agent returned no session id")
+                val reply = peer.request("session/new", params).obj()
+                reportModel(reply)
+                reply?.string("sessionId") ?: error("ACP agent returned no session id")
             }
 
             caps?.obj("sessionCapabilities")?.obj("resume") != null -> {
-                peer.request("session/resume", params)
+                reportModel(peer.request("session/resume", params).obj())
                 resume
             }
 
@@ -123,7 +126,7 @@ open class AcpSession(
                 // replay is dropped instead of shown twice.
                 lock.withLock { replaying = true }
                 try {
-                    peer.request("session/load", params)
+                    reportModel(peer.request("session/load", params).obj())
                 } finally {
                     lock.withLock { replaying = false }
                 }
@@ -134,6 +137,35 @@ open class AcpSession(
                 error("This agent cannot resume sessions")
             }
         }
+    }
+
+    private fun reportModel(reply: JsonObject?) {
+        model(reply)?.let { emit(AgentEvent.StatsUpdated(SessionStats(model = it))) }
+    }
+
+    /** The model's display name from the `model` config option, or from the older `models` state. */
+    private fun model(reply: JsonObject?): String? {
+        val option =
+            reply?.array("configOptions")?.mapNotNull { it.obj() }?.firstOrNull { it.string("category") == "model" }
+        return if (option != null) configModel(option) else reply?.obj("models")?.let(::legacyModel)
+    }
+
+    private fun configModel(option: JsonObject): String? {
+        val current = option.string("currentValue") ?: return null
+        val choices =
+            option.array("options").mapNotNull { it.obj() }.flatMap { choice ->
+                if ("group" in choice) choice.array("options").mapNotNull { it.obj() } else listOf(choice)
+            }
+        return choices.firstOrNull { it.string("value") == current }?.string("name") ?: current
+    }
+
+    private fun legacyModel(models: JsonObject): String? {
+        val current = models.string("currentModelId") ?: return null
+        return models
+            .array("availableModels")
+            .mapNotNull { it.obj() }
+            .firstOrNull { it.string("modelId") == current }
+            ?.string("name") ?: current
     }
 
     private fun httpServer(server: McpServer) =
@@ -171,8 +203,9 @@ open class AcpSession(
                     }
                 val end =
                     try {
-                        val reason = peer.request("session/prompt", params).obj()?.string("stopReason")
-                        AgentEvent.TurnEnded(stopReason(reason), null, null)
+                        val reply = peer.request("session/prompt", params).obj()
+                        reply?.obj("usage")?.let { turnStats(it) }
+                        AgentEvent.TurnEnded(stopReason(reply?.string("stopReason")), null, null)
                     } catch (e: CancellationException) {
                         throw e
                     } catch (e: JsonRpcException) {
@@ -182,6 +215,17 @@ open class AcpSession(
                 emit(end)
             }
         lock.withLock { turn = job }
+    }
+
+    private suspend fun turnStats(usage: JsonObject) {
+        val turn =
+            SessionStats(
+                inputTokens = usage.long("inputTokens"),
+                outputTokens = usage.long("outputTokens"),
+                cacheReadTokens = usage.long("cachedReadTokens"),
+                cacheWriteTokens = usage.long("cachedWriteTokens"),
+            )
+        emit(AgentEvent.StatsUpdated(lock.withLock { totals.plusTokens(turn).also { totals = it } }))
     }
 
     // A turn whose reply arrived just before the agent exited still reports its end before
@@ -256,6 +300,8 @@ open class AcpSession(
             "agent_thought_chunk" -> chunk(update, thought)
             "tool_call", "tool_call_update" -> toolCall(update)
             "plan" -> plan(update)
+            "config_option_update" -> reportModel(update)
+            "usage_update" -> emit(usage(update))
         }
     }
 
@@ -287,6 +333,9 @@ open class AcpSession(
             }
         emit(event)
     }
+
+    private fun usage(update: JsonObject) =
+        AgentEvent.StatsUpdated(SessionStats(contextUsed = update.long("used"), contextWindow = update.long("size")))
 
     private fun plan(update: JsonObject) {
         val entries =

@@ -23,10 +23,13 @@ import octo.core.git.Workspace
 import octo.core.io.AtomicFile
 import octo.core.messaging.McpProvider
 import octo.core.persist.StateStore
+import octo.core.process.ProcessMonitor
 import octo.core.tempDir
 import octo.core.terms.TermsGate
 
-internal class FakeSession : AgentSession {
+internal class FakeSession(
+    override val processId: Long? = null,
+) : AgentSession {
     val channel = Channel<AgentEvent>(Channel.UNLIMITED)
     val prompts = mutableListOf<String>()
     val responses = mutableListOf<Pair<String, RequestResponse>>()
@@ -61,6 +64,8 @@ internal class FakeAdapter(
     override val capabilities: Set<Capability> = setOf(Capability.Resume),
     override val terms: VendorTerms? = null,
     var failStart: Boolean = false,
+    /** The process id each new session reports. */
+    var pid: Long? = null,
 ) : AgentAdapter {
     override val id = AgentId("fake")
     override val displayName = "Fake"
@@ -72,7 +77,7 @@ internal class FakeAdapter(
     override suspend fun start(spec: SessionSpec): AgentSession {
         if (failStart) error("fake is not installed")
         specs += spec
-        return FakeSession().also {
+        return FakeSession(pid).also {
             it.emit(AgentEvent.SessionReady(spec.resume ?: AgentSessionRef("s${sessions.size + 1}")))
             sessions += it
         }
@@ -125,6 +130,7 @@ internal suspend fun TestScope.setup(
     machines: Map<String, Machine> = emptyMap(),
     newId: () -> String = { "id1" },
     mcp: McpProvider? = null,
+    processes: ProcessMonitor? = null,
 ): Setup {
     val core =
         Orchestrator.open(
@@ -137,6 +143,7 @@ internal suspend fun TestScope.setup(
             newId = newId,
             machines = machines,
             mcp = mcp,
+            processes = processes,
         )
     return Setup(core, adapter, workspace, home)
 }

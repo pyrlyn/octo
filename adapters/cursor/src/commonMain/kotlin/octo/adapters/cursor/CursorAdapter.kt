@@ -5,6 +5,7 @@ import kotlinx.coroutines.withTimeoutOrNull
 import octo.adapters.base.AcpAgentAdapter
 import octo.adapters.base.AcpSession
 import octo.adapters.base.ProcessAgentSession
+import octo.core.agent.AgentIcon
 import octo.core.agent.AgentId
 import octo.core.agent.AuthState
 import octo.core.agent.Capability
@@ -22,6 +23,10 @@ class CursorAdapter(
 ) : AcpAgentAdapter(launcher, context) {
     override val id = ID
     override val displayName = "Cursor"
+    override val icon =
+        AgentIcon(
+            """<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><rect width="24" height="24" rx="6" fill="#3B82F6"/><path d="M7 5l11 6-5 1.5L10.5 18z" fill="#fff"/></svg>""",
+        )
     override val capabilities =
         setOf(
             Capability.Resume,

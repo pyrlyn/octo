@@ -1,0 +1,13 @@
+# Model, context and token figures over two turns (synthetic; field names from the ACP v1 schema,
+# agentclientprotocol/agent-client-protocol@40c8ec9: configOptions, usage_update, PromptResponse.usage).
+> {"jsonrpc":"2.0","id":1,"method":"initialize","params":{"protocolVersion":1}}
+< {"jsonrpc":"2.0","id":1,"result":{"protocolVersion":1,"agentCapabilities":{"loadSession":true},"authMethods":[]}}
+> {"jsonrpc":"2.0","id":2,"method":"session/new","params":{"cwd":"/repo"}}
+< {"jsonrpc":"2.0","id":2,"result":{"sessionId":"s-1","configOptions":[{"id":"mode","name":"Mode","category":"mode","type":"select","currentValue":"agent","options":[{"value":"agent","name":"Agent"}]},{"id":"model","name":"Model","category":"model","type":"select","currentValue":"fast","options":[{"group":"cursor","name":"Cursor","options":[{"value":"fast","name":"Composer Fast"}]}]}]}}
+> {"id":3,"method":"session/prompt","params":{"sessionId":"s-1"}}
+< {"jsonrpc":"2.0","method":"session/update","params":{"sessionId":"s-1","update":{"sessionUpdate":"usage_update","used":1200,"size":200000}}}
+< {"jsonrpc":"2.0","method":"session/update","params":{"sessionId":"s-1","update":{"sessionUpdate":"config_option_update","configOptions":[{"id":"model","name":"Model","category":"model","type":"select","currentValue":"max","options":[{"value":"max","name":"Composer Max"}]}]}}}
+< {"jsonrpc":"2.0","id":3,"result":{"stopReason":"end_turn","usage":{"totalTokens":180,"inputTokens":100,"outputTokens":30,"cachedReadTokens":50}}}
+> {"id":4,"method":"session/prompt","params":{"sessionId":"s-1"}}
+< {"jsonrpc":"2.0","id":4,"result":{"stopReason":"end_turn","usage":{"totalTokens":20,"inputTokens":15,"outputTokens":5}}}
+x 0

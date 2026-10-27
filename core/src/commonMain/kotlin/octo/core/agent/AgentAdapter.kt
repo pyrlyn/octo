@@ -44,6 +44,12 @@ data class AgentProbe(
     val versionDrift: Boolean get() = version != null && version != verifiedVersion
 }
 
+/** An agent's glyph as SVG markup, shipped with its adapter so the UI needs no per-agent code. */
+@JvmInline
+value class AgentIcon(
+    val svg: String,
+)
+
 /** A change of [version] shows the notice again. */
 data class VendorTerms(
     val version: String,
@@ -82,12 +88,18 @@ interface AgentAdapter {
     /** Vendor terms the user must acknowledge before the first session (see `TermsGate`). */
     val terms: VendorTerms? get() = null
 
+    /** Null shows a monogram of [displayName]. */
+    val icon: AgentIcon? get() = null
+
     suspend fun probe(): AgentProbe
 
     suspend fun start(spec: SessionSpec): AgentSession
 }
 
 interface AgentSession {
+    /** The agent's root process on the machine that launched it, for CPU and memory figures. */
+    val processId: Long? get() = null
+
     /** Normalized events; single collector. Completes after [AgentEvent.Exited]. */
     val events: Flow<AgentEvent>
 

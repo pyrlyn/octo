@@ -41,6 +41,8 @@ class ViewModels(
 
     fun diff(id: TaskId) = DiffViewModel(core, id, scope)
 
+    fun agents() = AgentsViewModel(core, catalog, scope)
+
     fun newTask() = NewTaskViewModel(core, catalog, scope, presets)
 
     fun presets(): PresetsViewModel? = presets?.let { PresetsViewModel(it, catalog, scope) }

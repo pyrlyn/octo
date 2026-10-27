@@ -2,6 +2,7 @@ package octo.adapters.antigravity
 
 import kotlinx.coroutines.Dispatchers
 import octo.adapters.base.AcpAgentAdapter
+import octo.core.agent.AgentIcon
 import octo.core.agent.AgentId
 import octo.core.agent.SessionSpec
 import octo.core.agent.VendorTerms
@@ -21,6 +22,10 @@ class AntigravityAdapter(
 ) : AcpAgentAdapter(launcher, context) {
     override val id = ID
     override val displayName = "Antigravity"
+    override val icon =
+        AgentIcon(
+            """<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><rect width="24" height="24" rx="6" fill="#F59E0B"/><path d="M12 5l7 12H5z" fill="#fff"/></svg>""",
+        )
     override val featureFlag = FLAG
     override val terms = TERMS
     override val binary = "agy_acp_server.par"

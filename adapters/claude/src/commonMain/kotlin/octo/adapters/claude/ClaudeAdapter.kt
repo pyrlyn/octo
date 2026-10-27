@@ -9,6 +9,7 @@ import octo.adapters.base.BaseAgentAdapter
 import octo.adapters.base.ProcessAgentSession
 import octo.adapters.base.bool
 import octo.adapters.base.parseJsonObject
+import octo.core.agent.AgentIcon
 import octo.core.agent.AgentId
 import octo.core.agent.AgentSession
 import octo.core.agent.AgentSessionRef
@@ -35,6 +36,10 @@ class ClaudeAdapter(
 ) : BaseAgentAdapter(launcher, context) {
     override val id = ID
     override val displayName = "Claude"
+    override val icon =
+        AgentIcon(
+            """<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><rect width="24" height="24" rx="6" fill="#C96442"/><circle cx="12" cy="12" r="5" fill="none" stroke="#fff" stroke-width="2.5"/></svg>""",
+        )
     override val capabilities =
         setOf(
             Capability.Resume,

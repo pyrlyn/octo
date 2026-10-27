@@ -86,7 +86,11 @@ Neither `ui` nor `core` depends on any adapter.
   kotlin-wasm; the app hands it the Chasm runtime.
 
 `commonMain` holds everything except platform implementations. `jvmMain` holds
-`JvmProcessLauncher` (`ProcessBuilder`) and the platform paths. Native targets compile
+`JvmProcessLauncher` (`ProcessBuilder`), `JvmProcessMonitor` and the platform paths.
+`JvmProcessMonitor` implements the `ProcessMonitor` interface: it walks an agent's process tree
+with `ProcessHandle`, takes CPU time from it and resident memory from one `ps` call (macOS,
+Linux) or `Get-Process` call (Windows) per sample. On macOS the JDK reports CPU time only for its
+own process, so `ps` supplies it there. Native targets compile
 `commonMain` only. A native `ProcessLauncher` comes with the headless daemon; it is an interface,
 not an `expect`, so nothing is missing at link time.
 
@@ -121,6 +125,11 @@ flows and exposes one immutable UI state as a `StateFlow`, plus methods for user
 call `OctoCore`. Composables only render that state and forward actions; they never touch
 `OctoCore` or adapters. The UI talks only to `OctoCore`.
 
+The agents screen lists running tasks with the adapter's icon, the probe's sign-in state (shown
+as a mask; Octo has no secret to show), `OctoCore.processUsage` for CPU and memory, and the
+task's `SessionStats` for model, context and tokens. A task on a remote machine shows "remote"
+instead of process figures, because its local process is only the ssh client.
+
 **`app`** holds `main()`, the adapter list, platform paths and the Compose Desktop packaging.
 
 ## 4. The adapter SPI (core)
@@ -129,6 +138,7 @@ call `OctoCore`. Composables only render that state and forward actions; they ne
 interface AgentAdapter {
     val id: AgentId                      // "claude", "codex", …
     val displayName: String
+    val icon: AgentIcon?                 // a small SVG for the agents screen; null shows a monogram
     val capabilities: Set<Capability>    // Resume, Cancel, Permissions, Questions, Plan, Models, …
     suspend fun probe(): AgentProbe       // installed? version? verified version? auth state?
     fun start(spec: SessionSpec): AgentSession
@@ -143,6 +153,7 @@ data class SessionSpec(
 
 interface AgentSession {
     val events: Flow<AgentEvent>          // hot; completes when the process exits
+    val processId: Long?                  // the agent's root process, for CPU and memory figures
     suspend fun prompt(text: String)
     suspend fun respond(requestId: String, response: RequestResponse)
     suspend fun cancel()                  // cancel the current turn
@@ -164,6 +175,7 @@ interface AgentSession {
 | `RequestResolved` | id | A pending request is closed |
 | `PlanUpdated` | entries | The agent's plan |
 | `TurnEnded` | `stopReason`, usage | `EndTurn`, `Cancelled`, `MaxTurns`, `Refusal`, `Error` |
+| `StatsUpdated` | model, context used and window, session token totals | What the agent reports about its session; a null field keeps its last value |
 | `Log` | stream, line | stderr and other diagnostics |
 | `Failed` | message | The adapter or the protocol failed |
 | `Exited` | code | The process ended |
@@ -252,6 +264,7 @@ interface OctoCore {
     suspend fun diff(taskId: TaskId): TaskDiff
     suspend fun updateLayout(layout: Layout)
     suspend fun markSeen(taskId: TaskId)            // clears the "done" mark
+    val processUsage: Flow<Map<TaskId, ProcessUsage>> // CPU and memory of local running agents
 }
 ```
 

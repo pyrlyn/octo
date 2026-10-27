@@ -15,6 +15,9 @@ data class ProcessSpec(
 
 /** A spawned process with line-framed stdio. */
 interface RunningProcess {
+    /** The OS process id on this machine; null where there is none, as with a fake process. */
+    val pid: Long? get() = null
+
     /** stdout lines; single collector; completes at EOF. */
     val stdout: Flow<String>
 

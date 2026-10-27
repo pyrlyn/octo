@@ -19,6 +19,10 @@ The plugin host also needs a checkout of [kotlin-wasm](https://github.com/pyrlyn
 ./gradlew :app:run   # open the desktop app
 ```
 
+Agents in the sidebar lists every running agent: its icon, whether it is signed in (never the
+login itself), the CPU and memory of its own processes, its model, how much of its context
+window is used and its session's token totals. Each row has a stop button.
+
 To try Octo without installing an agent, turn on the built-in demo agent in `config.json` in
 the Octo home (`OCTO_HOME`, or the platform's app data folder):
 
