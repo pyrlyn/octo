@@ -33,6 +33,7 @@ include(
     ":adapters:cursor",
     ":adapters:demo",
     ":adapters:grok",
+    ":adapters:kimi",
     ":adapters:plugin",
     ":ui",
     ":app",

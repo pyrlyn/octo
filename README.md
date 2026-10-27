@@ -50,7 +50,7 @@ quits. Its socket lives in a folder only you can read: `$TMPDIR/octo` on macOS,
 a separate connection per call, with a warning. Windows always uses a connection per call.
 
 `"agent-messaging": true` lets agents talk to each other. Octo runs an MCP server on
-`127.0.0.1` and gives each Claude, Cursor, Grok and Antigravity session three tools:
+`127.0.0.1` and gives each Claude, Cursor, Grok, Kimi Code and Antigravity session three tools:
 `list_tasks`, `send_message` and `wait_for_idle`. A message waits until its target is idle and
 then arrives as a prompt, so a busy agent is never interrupted. Each session gets its own token,
 passed through the environment, never on the command line. Tasks on remote machines and Codex

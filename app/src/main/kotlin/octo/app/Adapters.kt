@@ -6,6 +6,7 @@ import octo.adapters.codex.CodexAdapter
 import octo.adapters.cursor.CursorAdapter
 import octo.adapters.demo.DemoAdapter
 import octo.adapters.grok.GrokAdapter
+import octo.adapters.kimi.KimiAdapter
 import octo.adapters.plugin.PluginAgentAdapter
 import octo.core.agent.AdapterRegistry
 import octo.core.agent.AgentAdapter
@@ -26,6 +27,7 @@ fun builtInAdapters(
         CodexAdapter(launcher),
         CursorAdapter(launcher),
         GrokAdapter(launcher),
+        KimiAdapter(launcher),
         AntigravityAdapter(launcher, os),
         DemoAdapter(),
     )
