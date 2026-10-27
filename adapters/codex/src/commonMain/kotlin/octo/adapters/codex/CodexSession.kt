@@ -22,6 +22,7 @@ import octo.core.agent.AgentEvent
 import octo.core.agent.AgentSessionRef
 import octo.core.agent.LogStream
 import octo.core.agent.PermissionKind
+import octo.core.agent.PermissionMode
 import octo.core.agent.PermissionOption
 import octo.core.agent.PlanEntry
 import octo.core.agent.Question
@@ -49,6 +50,9 @@ internal class CodexSession(
     private var turnId: String? = null
     private var usage: Usage? = null
 
+    /** Set by a live switch and sent with the next turn, which is where Codex takes it. */
+    private var permissions: CodexPermissions? = null
+
     override suspend fun initialize(spec: SessionSpec) {
         val thread =
             withTimeout(HANDSHAKE_TIMEOUT_MS) {
@@ -70,8 +74,7 @@ internal class CodexSession(
                         if (resume != null) put("threadId", resume.value)
                         put("cwd", spec.workingDir)
                         spec.options[CodexAdapter.OPTION_MODEL]?.let { put("model", it) }
-                        put("approvalPolicy", spec.options[CodexAdapter.OPTION_APPROVAL_POLICY] ?: "on-request")
-                        put("sandbox", spec.options[CodexAdapter.OPTION_SANDBOX] ?: "workspace-write")
+                        CodexPermissions.of(spec.permissionMode).putThread(this)
                     }
                 peer.request(if (resume != null) "thread/resume" else "thread/start", params)
             }
@@ -83,13 +86,18 @@ internal class CodexSession(
 
     override suspend fun prompt(text: String) {
         val thread = lock.withLock { threadId } ?: error("No Codex thread")
-        lock.withLock { usage = null }
+        val switched =
+            lock.withLock {
+                usage = null
+                permissions.also { permissions = null }
+            }
         emit(AgentEvent.TurnStarted)
         val response =
             peer.request(
                 "turn/start",
                 buildJsonObject {
                     put("threadId", thread)
+                    switched?.putTurn(this)
                     put("input", input(text))
                 },
             )
@@ -98,6 +106,10 @@ internal class CodexSession(
             ?.obj("turn")
             ?.string("id")
             ?.let { id -> lock.withLock { turnId = id } }
+    }
+
+    override suspend fun setPermissionMode(mode: PermissionMode) {
+        lock.withLock { permissions = CodexPermissions.of(mode) }
     }
 
     // `expectedTurnId` makes Codex refuse a turn that already ended, so the core queues the text.

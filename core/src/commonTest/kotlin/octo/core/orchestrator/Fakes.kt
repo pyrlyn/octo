@@ -14,6 +14,7 @@ import octo.core.agent.AgentSession
 import octo.core.agent.AgentSessionRef
 import octo.core.agent.AuthState
 import octo.core.agent.Capability
+import octo.core.agent.PermissionMode
 import octo.core.agent.RequestResponse
 import octo.core.agent.SessionSpec
 import octo.core.agent.VendorTerms
@@ -36,6 +37,8 @@ internal class FakeSession(
     var refuseSteer = false
     val responses = mutableListOf<Pair<String, RequestResponse>>()
     var cancelled = 0
+    val modes = mutableListOf<PermissionMode>()
+    var refuseMode = false
 
     override val events: Flow<AgentEvent> = channel.receiveAsFlow()
 
@@ -57,6 +60,11 @@ internal class FakeSession(
         responses += requestId to response
     }
 
+    override suspend fun setPermissionMode(mode: PermissionMode) {
+        check(!refuseMode) { "fake cannot switch" }
+        modes += mode
+    }
+
     override suspend fun cancel() {
         cancelled++
     }
@@ -73,6 +81,7 @@ internal class FakeAdapter(
     var failStart: Boolean = false,
     /** The process id each new session reports. */
     var pid: Long? = null,
+    override val permissionModes: Set<PermissionMode> = setOf(PermissionMode.Supervised),
 ) : AgentAdapter {
     override val id = AgentId("fake")
     override val displayName = "Fake"
@@ -140,6 +149,7 @@ internal suspend fun TestScope.setup(
     newId: () -> String = { "id1" },
     mcp: McpProvider? = null,
     processes: ProcessMonitor? = null,
+    defaultPermissionMode: PermissionMode = PermissionMode.Supervised,
 ): Setup {
     val core =
         Orchestrator.open(
@@ -153,6 +163,7 @@ internal suspend fun TestScope.setup(
             machines = machines,
             mcp = mcp,
             processes = processes,
+            defaultPermissionMode = defaultPermissionMode,
         )
     return Setup(core, adapter, workspace, home)
 }

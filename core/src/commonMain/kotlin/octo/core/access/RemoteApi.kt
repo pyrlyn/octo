@@ -9,6 +9,7 @@ import kotlinx.serialization.json.JsonElement
 import kotlinx.serialization.json.buildJsonObject
 import kotlinx.serialization.json.put
 import octo.core.agent.AgentId
+import octo.core.agent.PermissionMode
 import octo.core.agent.PermissionOption
 import octo.core.agent.Question
 import octo.core.agent.RequestResponse
@@ -144,6 +145,7 @@ class RemoteApi(
                     prompt = body.prompt?.takeIf { it.isNotBlank() },
                     options = body.options,
                     machine = body.machine,
+                    permissionMode = body.permissionMode,
                 ),
             )
         return ApiResponse(CREATED, buildJsonObject { put("id", id.value) })
@@ -224,6 +226,8 @@ class RemoteApi(
         val prompt: String? = null,
         val options: Map<String, String> = emptyMap(),
         val machine: String? = null,
+        /** One of [PermissionMode]'s names; left out, the config default. */
+        val permissionMode: PermissionMode? = null,
     )
 
     @Serializable

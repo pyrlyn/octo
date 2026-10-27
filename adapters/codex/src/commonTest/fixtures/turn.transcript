@@ -2,7 +2,7 @@
 > {"id":1,"method":"initialize","params":{"clientInfo":{"name":"octo"},"capabilities":null}}
 < {"id":1,"result":{"userAgent":"codex/0.162.1","codexHome":"/home/u/.codex","platformFamily":"unix","platformOs":"macos"}}
 > {"method":"initialized"}
-> {"id":2,"method":"thread/start","params":{"cwd":"/repo","model":"gpt-5","approvalPolicy":"on-request","sandbox":"workspace-write"}}
+> {"id":2,"method":"thread/start","params":{"cwd":"/repo","model":"gpt-5","approvalPolicy":"untrusted","approvalsReviewer":"user","sandbox":"read-only"}}
 < {"id":2,"result":{"thread":{"id":"thr-1"},"model":"gpt-5"}}
 > {"id":3,"method":"turn/start","params":{"threadId":"thr-1","input":[{"type":"text","text":"List the files"}]}}
 < {"id":3,"result":{"turn":{"id":"turn-1","status":"inProgress","error":null,"items":[]}}}

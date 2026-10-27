@@ -30,6 +30,7 @@ import octo.core.agent.AdapterRegistry
 import octo.core.agent.AgentEvent
 import octo.core.agent.AgentSession
 import octo.core.agent.Capability
+import octo.core.agent.PermissionMode
 import octo.core.agent.RequestResponse
 import octo.core.agent.Role
 import octo.core.agent.SessionSpec
@@ -74,6 +75,7 @@ class Orchestrator private constructor(
     private val newId: () -> String,
     private val mcp: McpProvider?,
     private val processes: ProcessMonitor?,
+    private val defaultPermissionMode: PermissionMode,
 ) : OctoCore {
     private val mutableState = MutableStateFlow(OctoState())
     private val transcripts = MutableStateFlow<Map<TaskId, List<TranscriptEntry>>>(emptyMap())
@@ -122,6 +124,7 @@ class Orchestrator private constructor(
                 request.agent,
                 request.options,
                 machine = request.machine,
+                permissionMode = request.permissionMode ?: defaultPermissionMode,
             )
         mutableState.update { it.copy(tasks = it.tasks + TaskView(task, AgentStatus.Starting)) }
         withTask(id) {
@@ -289,6 +292,33 @@ class Orchestrator private constructor(
         (running(taskId) ?: throw TaskNotRunningException(taskId)).session.respond(requestId, response)
     }
 
+    // Unsupported operations, errors from the agent and a dead process all leave the same outcome:
+    // the mode waits for the next start.
+    @Suppress("TooGenericExceptionCaught")
+    override suspend fun setPermissionMode(
+        taskId: TaskId,
+        mode: PermissionMode,
+    ) {
+        withTask(taskId) {
+            updateView(taskId) { it.copy(task = it.task.copy(permissionMode = mode)) }
+            val runtime = running(taskId) ?: return@withTask
+            val effective = effectiveMode(taskId) ?: return@withTask
+            try {
+                runtime.session.setPermissionMode(effective)
+                note(taskId, TranscriptEntry.Notice("Permissions: ${effective.label}"))
+            } catch (e: CancellationException) {
+                throw e
+            } catch (e: Exception) {
+                note(
+                    taskId,
+                    TranscriptEntry.Notice(
+                        "Permissions change to ${effective.label} on the next restart: ${e.message}",
+                    ),
+                )
+            }
+        }
+    }
+
     override suspend fun cancel(taskId: TaskId) {
         (running(taskId) ?: throw TaskNotRunningException(taskId)).session.cancel()
     }
@@ -393,7 +423,13 @@ class Orchestrator private constructor(
                 val servers =
                     mcp?.takeIf { task.machine == null && Capability.Mcp in adapter.capabilities }?.servers(id)
                 adapter.start(
-                    SessionSpec(task.worktree, resume = ref, options = task.options, mcpServers = servers.orEmpty()),
+                    SessionSpec(
+                        task.worktree,
+                        resume = ref,
+                        options = task.options,
+                        permissionMode = effectiveMode(id) ?: PermissionMode.Supervised,
+                        mcpServers = servers.orEmpty(),
+                    ),
                 )
             } catch (e: CancellationException) {
                 throw e
@@ -449,6 +485,22 @@ class Orchestrator private constructor(
         transcripts.update { it + (id to Transcript.reduce(it[id].orEmpty(), event)) }
         updateView(id) { it.next(event, reduced) }
         return before != AgentStatus.Idle && reduced.status == AgentStatus.Idle
+    }
+
+    /** The task's mode as its agent can run it, saying so when that is a fallback; null without the adapter. */
+    private fun effectiveMode(id: TaskId): PermissionMode? {
+        val task = view(id).task
+        val adapter = machines[task.machine].registry[task.agent] ?: return null
+        val effective = task.permissionMode.within(adapter.permissionModes)
+        if (effective != task.permissionMode) {
+            note(
+                id,
+                TranscriptEntry.Notice(
+                    "${adapter.displayName} has no ${task.permissionMode.label} mode; it runs ${effective.label}",
+                ),
+            )
+        }
+        return effective
     }
 
     private fun running(id: TaskId): Runtime? = runtimes.value[id]?.takeIf { it.job.isActive }
@@ -548,6 +600,7 @@ class Orchestrator private constructor(
             machines: Map<String, Machine> = emptyMap(),
             mcp: McpProvider? = null,
             processes: ProcessMonitor? = null,
+            defaultPermissionMode: PermissionMode = PermissionMode.Supervised,
         ): Orchestrator =
             Orchestrator(
                 Machines(LocalMachine(registry, workspace, worktrees), machines),
@@ -557,6 +610,7 @@ class Orchestrator private constructor(
                 newId,
                 mcp,
                 processes,
+                defaultPermissionMode,
             ).also {
                 it.begin()
             }

@@ -8,6 +8,7 @@ import octo.core.agent.AgentIcon
 import octo.core.agent.AgentId
 import octo.core.agent.AuthState
 import octo.core.agent.Capability
+import octo.core.agent.PermissionMode
 import octo.core.agent.SessionSpec
 import octo.core.process.ProcessLauncher
 import octo.core.process.ProcessSpec
@@ -37,6 +38,7 @@ class CodexAdapter(
             Capability.ModelSelection,
             Capability.Steer,
         )
+    override val permissionModes = PermissionMode.entries.toSet()
     override val binary = "codex"
     override val verifiedVersion = "0.162.1"
 
@@ -64,12 +66,6 @@ class CodexAdapter(
     companion object {
         val ID = AgentId("codex")
         const val OPTION_MODEL = "model"
-
-        /** `untrusted`, `on-request` (default) or `never`. */
-        const val OPTION_APPROVAL_POLICY = "approvalPolicy"
-
-        /** `read-only`, `workspace-write` (default) or `danger-full-access`. */
-        const val OPTION_SANDBOX = "sandbox"
 
         private const val AUTH_TIMEOUT_MS = 10_000L
     }
