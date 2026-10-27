@@ -30,6 +30,7 @@ data class NewTask(
     val machine: String? = null,
     /** Null takes the default from the config. */
     val permissionMode: PermissionMode? = null,
+    val group: TaskGroup? = null,
 )
 
 /** One agent working in its own worktree; this part is persisted. */
@@ -56,6 +57,15 @@ data class Task(
     val permissionMode: PermissionMode = PermissionMode.Supervised,
     /** Prompts waiting for the agent to be idle, oldest first; persisted so a restart keeps them. */
     val queue: List<QueuedPrompt> = emptyList(),
+    /** Tasks started together to compare agents on one prompt. */
+    val group: TaskGroup? = null,
+)
+
+/** Tasks started together from one prompt; the sidebar lists them under [title]. */
+@Serializable
+data class TaskGroup(
+    val id: String,
+    val title: String,
 )
 
 /** A prompt the user sent while the agent was busy and could not take it into the turn. */

@@ -132,6 +132,7 @@ class Orchestrator private constructor(
                 request.options,
                 machine = request.machine,
                 permissionMode = request.permissionMode ?: defaultPermissionMode,
+                group = request.group,
             )
         mutableState.update { it.copy(tasks = it.tasks + TaskView(task, AgentStatus.Starting)) }
         withTask(id) {

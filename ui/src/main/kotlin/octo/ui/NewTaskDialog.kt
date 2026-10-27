@@ -4,6 +4,7 @@ import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.text.KeyboardActions
@@ -11,6 +12,7 @@ import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
+import androidx.compose.material3.Checkbox
 import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.ExposedDropdownMenuAnchorType
@@ -84,7 +86,15 @@ private fun FormDialog(
     AlertDialog(
         onDismissRequest = onDismiss,
         modifier = Modifier.width(DialogWidth),
-        title = { Text(if (state.team) "Start a team" else "New task") },
+        title = {
+            Text(
+                when {
+                    state.team -> "Start a team"
+                    state.compare -> "Compare agents"
+                    else -> "New task"
+                },
+            )
+        },
         text = { Form(state, vm, onEditPresets) },
         confirmButton = {
             Button(
@@ -103,7 +113,7 @@ private fun Form(
     onEditPresets: () -> Unit,
 ) {
     Column(Modifier.verticalScroll(rememberScrollState()), verticalArrangement = Arrangement.spacedBy(Gap)) {
-        if (state.presetsEnabled) ModeChoice(state, vm)
+        if (state.presetsEnabled || state.compareEnabled) ModeChoice(state, vm)
         if (state.machines.isNotEmpty()) MachineChoice(state, vm)
         Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(Gap)) {
             OutlinedTextField(
@@ -119,10 +129,10 @@ private fun Form(
             }
         }
         BranchChoice(state, vm)
-        if (state.team) {
-            TeamChoice(state, vm, onEditPresets)
-        } else {
-            SingleAgent(state, vm)
+        when {
+            state.team -> TeamChoice(state, vm, onEditPresets)
+            state.compare -> CompareChoice(state, vm)
+            else -> SingleAgent(state, vm)
         }
         state.error?.let { Text(it, color = MaterialTheme.colorScheme.error) }
     }
@@ -212,6 +222,47 @@ private fun SingleAgent(
     state: NewTaskUiState,
     vm: NewTaskViewModel,
 ) {
+    TitleAndPrompt(state, vm)
+    Text("Agent", style = MaterialTheme.typography.titleSmall)
+    if (state.loadingAgents) Text("Looking for installed agents…")
+    state.agents.forEach { AgentChoice(it, selected = it.id == state.agent, onSelect = { vm.selectAgent(it.id) }) }
+    if (state.permissionModes.size > 1) PermissionChoice(state, vm)
+}
+
+@Composable
+private fun CompareChoice(
+    state: NewTaskUiState,
+    vm: NewTaskViewModel,
+) {
+    TitleAndPrompt(state, vm)
+    Text("Agents", style = MaterialTheme.typography.titleSmall)
+    if (state.loadingAgents) Text("Looking for installed agents…")
+    state.agents.forEach { agent ->
+        val models = state.compared[agent.id]
+        AgentChoice(agent, selected = models != null, onSelect = { vm.toggleCompared(agent.id) }, check = true)
+        if (models != null) {
+            OutlinedTextField(
+                models,
+                { vm.editComparedModels(agent.id, it) },
+                Modifier.fillMaxWidth().padding(start = LargeGap * 2),
+                label = { Text("Models") },
+                placeholder = { Text("Default; separate several with commas") },
+                singleLine = true,
+            )
+        }
+    }
+    Text(
+        "${state.picks.size} tasks, one branch each",
+        style = MaterialTheme.typography.bodySmall,
+        color = MaterialTheme.colorScheme.onSurfaceVariant,
+    )
+}
+
+@Composable
+private fun TitleAndPrompt(
+    state: NewTaskUiState,
+    vm: NewTaskViewModel,
+) {
     OutlinedTextField(
         state.title,
         vm::editTitle,
@@ -227,10 +278,6 @@ private fun SingleAgent(
         label = { Text("First prompt") },
         minLines = 3,
     )
-    Text("Agent", style = MaterialTheme.typography.titleSmall)
-    if (state.loadingAgents) Text("Looking for installed agents…")
-    state.agents.forEach { AgentChoice(it, selected = it.id == state.agent, onSelect = { vm.selectAgent(it.id) }) }
-    if (state.permissionModes.size > 1) PermissionChoice(state, vm)
 }
 
 @Composable
@@ -253,10 +300,16 @@ private fun ModeChoice(
     vm: NewTaskViewModel,
 ) {
     Row(verticalAlignment = Alignment.CenterVertically) {
-        RadioButton(selected = !state.team, onClick = { vm.useTeam(false) })
+        RadioButton(selected = !state.team && !state.compare, onClick = { vm.useTeam(false) })
         Text("One agent")
-        RadioButton(selected = state.team, onClick = { vm.useTeam(true) })
-        Text("Team preset")
+        if (state.presetsEnabled) {
+            RadioButton(selected = state.team, onClick = { vm.useTeam(true) })
+            Text("Team preset")
+        }
+        if (state.compareEnabled) {
+            RadioButton(selected = state.compare, onClick = { vm.useCompare(true) })
+            Text("Compare agents")
+        }
     }
 }
 
@@ -312,6 +365,8 @@ internal fun AgentChoice(
     agent: AgentInfo,
     selected: Boolean,
     onSelect: () -> Unit,
+    /** A checkbox, for picking several agents, instead of a radio button. */
+    check: Boolean = false,
 ) {
     val probe = agent.probe
     val note =
@@ -322,7 +377,11 @@ internal fun AgentChoice(
             else -> probe.version.orEmpty()
         }
     Row(verticalAlignment = Alignment.CenterVertically) {
-        RadioButton(selected = selected, onClick = onSelect, enabled = probe.installed)
+        if (check) {
+            Checkbox(checked = selected, onCheckedChange = { onSelect() }, enabled = probe.installed)
+        } else {
+            RadioButton(selected = selected, onClick = onSelect, enabled = probe.installed)
+        }
         Column {
             Text(agent.displayName)
             Text(note, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
