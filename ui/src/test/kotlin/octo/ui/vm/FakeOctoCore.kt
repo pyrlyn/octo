@@ -8,6 +8,7 @@ import kotlinx.coroutines.flow.update
 import octo.core.agent.AgentId
 import octo.core.agent.AgentProbe
 import octo.core.agent.AuthState
+import octo.core.agent.PermissionMode
 import octo.core.agent.RequestResponse
 import octo.core.agent.VendorTerms
 import octo.core.git.TaskDiff
@@ -47,7 +48,13 @@ class FakeOctoCore : OctoCore {
     override suspend fun createTask(request: NewTask): TaskId {
         termsPending?.let { throw TermsNotAcknowledgedException(request.agent, it) }
         calls +=
-            listOfNotNull("create", request.title, request.prompt, request.machine?.let { "on $it" }).joinToString(" ")
+            listOfNotNull(
+                "create",
+                request.title,
+                request.prompt,
+                request.machine?.let { "on $it" },
+                request.permissionMode?.let { "as ${it.name}" },
+            ).joinToString(" ")
         val id = TaskId("t${++next}")
         put(TaskView(task(id, request.repo, request.title), AgentStatus.Starting))
         return id
@@ -127,6 +134,13 @@ class FakeOctoCore : OctoCore {
         calls += listOfNotNull("switch", agent.value, model).joinToString(" ")
     }
 
+    override suspend fun setPermissionMode(
+        taskId: TaskId,
+        mode: PermissionMode,
+    ) {
+        calls += "mode ${mode.name}"
+    }
+
     override suspend fun cancel(taskId: TaskId) {
         calls += "cancel"
     }
@@ -193,7 +207,13 @@ class FakeCatalog(
         } else {
             listOf(
                 AgentInfo(AgentId("missing"), "Missing", emptySet(), AgentProbe(null, null, "1", AuthState.Unknown)),
-                AgentInfo(AgentId("demo"), "Demo", emptySet(), AgentProbe("built-in", "1", "1", AuthState.LoggedIn)),
+                AgentInfo(
+                    AgentId("demo"),
+                    "Demo",
+                    emptySet(),
+                    AgentProbe("built-in", "1", "1", AuthState.LoggedIn),
+                    permissionModes = setOf(PermissionMode.Supervised, PermissionMode.Auto),
+                ),
             )
         }
 

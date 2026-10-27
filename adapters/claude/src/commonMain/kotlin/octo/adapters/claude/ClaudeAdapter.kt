@@ -17,6 +17,7 @@ import octo.core.agent.AuthState
 import octo.core.agent.Capability
 import octo.core.agent.MODEL_OPTION
 import octo.core.agent.McpServer
+import octo.core.agent.PermissionMode
 import octo.core.agent.SessionSpec
 import octo.core.process.ProcessLauncher
 import octo.core.process.ProcessSpec
@@ -52,6 +53,7 @@ class ClaudeAdapter(
             Capability.Fork,
             Capability.Mcp,
         )
+    override val permissionModes = PermissionMode.entries.toSet()
     override val binary = "claude"
     override val verifiedVersion = "2.1.310"
 
@@ -73,7 +75,7 @@ class ClaudeAdapter(
             addAll(BASE_ARGS)
             // The `--flag=value` form keeps a value that starts with a dash from being read as a flag.
             spec.options[OPTION_MODEL]?.let { add("--model=$it") }
-            spec.options[OPTION_PERMISSION_MODE]?.let { add("--permission-mode=$it") }
+            add("--permission-mode=${nativeMode(spec.permissionMode)}")
             spec.resume?.let { add("--resume=${it.value}") }
             // Claude takes a session id next to --resume only for a fork, which then gets that id.
             if (spec.fork) add("--fork-session")
@@ -124,8 +126,16 @@ class ClaudeAdapter(
     companion object {
         val ID = AgentId("claude")
         const val OPTION_MODEL = MODEL_OPTION
-        const val OPTION_PERMISSION_MODE = "permissionMode"
         private const val SESSION_ID = "octo.sessionId"
+
+        /** Claude's name for [mode], for `--permission-mode` and `set_permission_mode`. */
+        internal fun nativeMode(mode: PermissionMode): String =
+            when (mode) {
+                PermissionMode.Supervised -> "default"
+                PermissionMode.AutoAcceptEdits -> "acceptEdits"
+                PermissionMode.Auto -> "auto"
+                PermissionMode.FullAccess -> "bypassPermissions"
+            }
 
         private fun headerVar(
             server: Int,

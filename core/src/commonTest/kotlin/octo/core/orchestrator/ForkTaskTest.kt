@@ -8,6 +8,7 @@ import octo.core.agent.AgentEvent
 import octo.core.agent.AgentId
 import octo.core.agent.AgentSessionRef
 import octo.core.agent.Capability
+import octo.core.agent.PermissionMode
 import octo.core.agent.Role
 import octo.core.agent.StopReason
 import octo.core.status.AgentStatus
@@ -33,6 +34,7 @@ class ForkTaskTest {
             .single()
             .emit(AgentEvent.Message(Role.Assistant, "Tried plan A."), AgentEvent.TurnEnded(StopReason.EndTurn))
         testScheduler.runCurrent()
+        s.core.setPermissionMode(parent, PermissionMode.Auto)
         val child = s.core.forkTask(parent)
         testScheduler.runCurrent()
         return Triple(s, parent, child)
@@ -53,6 +55,7 @@ class ForkTaskTest {
             assertEquals("octo/fix-it-fork-id2", task.branch)
             assertEquals(listOf(from.worktree to task.worktree), s.workspace.forks)
             assertEquals(from.baseRef, task.baseRef)
+            assertEquals(PermissionMode.Auto, task.permissionMode)
             assertEquals(
                 AgentStatus.Idle,
                 s.core.state.value[parent]!!

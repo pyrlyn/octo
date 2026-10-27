@@ -26,6 +26,7 @@ import octo.core.agent.AgentEvent
 import octo.core.agent.AgentSessionRef
 import octo.core.agent.LogStream
 import octo.core.agent.PermissionKind
+import octo.core.agent.PermissionMode
 import octo.core.agent.PermissionOption
 import octo.core.agent.PlanEntry
 import octo.core.agent.Question
@@ -130,6 +131,19 @@ internal class ClaudeSession(
                 buildJsonObject {
                     put("subtype", "set_model")
                     put("model", model)
+                },
+            )
+        }
+    }
+
+    // Claude refuses a switch to bypassPermissions unless the session started able to; the core
+    // then keeps the mode for the next start.
+    override suspend fun setPermissionMode(mode: PermissionMode) {
+        withTimeout(INTERRUPT_TIMEOUT_MS) {
+            control(
+                buildJsonObject {
+                    put("subtype", "set_permission_mode")
+                    put("mode", ClaudeAdapter.nativeMode(mode))
                 },
             )
         }

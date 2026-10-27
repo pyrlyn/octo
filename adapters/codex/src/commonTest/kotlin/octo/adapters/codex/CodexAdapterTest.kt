@@ -9,6 +9,7 @@ import octo.core.agent.AuthState
 import octo.core.agent.Capability
 import octo.core.agent.LogStream
 import octo.core.agent.PermissionKind
+import octo.core.agent.PermissionMode
 import octo.core.agent.PlanEntry
 import octo.core.agent.RequestResponse
 import octo.core.agent.Role
@@ -43,6 +44,18 @@ class CodexAdapterTest {
             val (adapter, _) = fixture("model.transcript")
             val session = adapter.start(SessionSpec("/repo"))
             session.setModel("gpt-5-codex")
+            session.prompt("Go")
+            val events = Events(backgroundScope, session).drain()
+            assertEquals(StopReason.EndTurn, events.filterIsInstance<AgentEvent.TurnEnded>().single().stopReason)
+        }
+
+    @Test
+    fun permissionModesMapToThreadAndTurnSettings() =
+        runTest {
+            val (adapter, _) = fixture("permission-modes.transcript")
+            assertEquals(PermissionMode.entries.toSet(), adapter.permissionModes)
+            val session = adapter.start(SessionSpec("/repo", permissionMode = PermissionMode.FullAccess))
+            session.setPermissionMode(PermissionMode.AutoAcceptEdits)
             session.prompt("Go")
             val events = Events(backgroundScope, session).drain()
             assertEquals(StopReason.EndTurn, events.filterIsInstance<AgentEvent.TurnEnded>().single().stopReason)

@@ -10,6 +10,7 @@ import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 import octo.core.agent.AgentId
+import octo.core.agent.PermissionMode
 import octo.core.agent.VendorTerms
 import octo.core.orchestrator.AgentCatalog
 import octo.core.orchestrator.AgentInfo
@@ -43,6 +44,8 @@ data class NewTaskUiState(
     val machine: String? = null,
     val agents: List<AgentInfo> = emptyList(),
     val agent: AgentId? = null,
+    /** Null takes the default from the config. */
+    val permissionMode: PermissionMode? = null,
     val loadingAgents: Boolean = true,
     val creating: Boolean = false,
     /** Shown before the first task with an agent whose vendor's terms need a decision. */
@@ -57,6 +60,13 @@ data class NewTaskUiState(
     val preset: String? = null,
 ) {
     val selectedAgent: AgentInfo? get() = agents.firstOrNull { it.id == agent }
+
+    /** The selected agent's modes; offered only when it has a choice. */
+    val permissionModes: List<PermissionMode>
+        get() = PermissionMode.entries.filter { it in selectedAgent?.permissionModes.orEmpty() }
+
+    /** A mode the agent lacks, left over from another agent, falls back to the config default. */
+    val chosenPermissionMode: PermissionMode? get() = permissionMode?.takeIf { it in permissionModes }
 
     val selectedPreset: Preset? get() = presets.firstOrNull { it.name == preset }
 
@@ -212,6 +222,9 @@ class NewTaskViewModel(
 
     fun selectAgent(id: AgentId) = mutable.update { it.copy(agent = id) }
 
+    /** Null goes back to the config default. */
+    fun selectPermissionMode(mode: PermissionMode?) = mutable.update { it.copy(permissionMode = mode) }
+
     fun create() {
         val s = state.value.takeIf { it.canCreate } ?: return
         if (s.team) createTeam(s) else createOne(s)
@@ -248,6 +261,7 @@ class NewTaskViewModel(
                             title = s.effectiveTitle,
                             prompt = s.prompt.trim().ifEmpty { null },
                             machine = s.machine,
+                            permissionMode = s.chosenPermissionMode,
                         ),
                     )
                 mutable.update { it.copy(creating = false, created = id) }

@@ -3,6 +3,7 @@ package octo.core.orchestrator
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.StateFlow
 import octo.core.agent.AgentId
+import octo.core.agent.PermissionMode
 import octo.core.agent.RequestResponse
 import octo.core.git.TaskDiff
 import octo.core.process.ProcessUsage
@@ -80,6 +81,15 @@ interface OctoCore {
         taskId: TaskId,
         agent: AgentId,
         model: String?,
+    )
+
+    /**
+     * Keeps [mode] on the task and switches a running agent to it; an agent that cannot switch in
+     * place takes it on its next start, and one without the mode runs Supervised.
+     */
+    suspend fun setPermissionMode(
+        taskId: TaskId,
+        mode: PermissionMode,
     )
 
     /** Cancels the current turn; the agent keeps running. */
