@@ -74,6 +74,7 @@ internal fun TaskScreen(
         state.error?.let { Banner(it, error = true, onDismiss = vm::dismissError) }
         HorizontalDivider()
         Transcript(state.transcript, Modifier.weight(1f).fillMaxWidth())
+        Queue(state, vm)
         state.pending.forEach { RequestPanel(it, state.answers[it.id].orEmpty(), vm) }
         PromptBox(state, vm)
     }
@@ -167,6 +168,30 @@ private fun Entry(entry: TranscriptEntry) {
     }
 }
 
+/** Prompts waiting for the agent, each editable in place until it is sent. */
+@Composable
+private fun Queue(
+    state: TaskUiState,
+    vm: TaskViewModel,
+) {
+    val muted = MaterialTheme.colorScheme.onSurfaceVariant
+    state.queue.forEach { queued ->
+        val editing = state.editing?.takeIf { it.id == queued.id }
+        Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(Gap)) {
+            Text("Queued", color = muted, fontWeight = FontWeight.SemiBold)
+            if (editing == null) {
+                Text(queued.text, Modifier.weight(1f), color = muted, maxLines = 2)
+                TextButton(onClick = { vm.editQueued(queued) }) { Text("Edit") }
+            } else {
+                OutlinedTextField(editing.text, vm::editQueuedText, Modifier.weight(1f), maxLines = 4)
+                TextButton(onClick = vm::saveQueued, enabled = editing.text.isNotBlank()) { Text("Save") }
+                TextButton(onClick = vm::cancelQueuedEdit) { Text("Cancel") }
+            }
+            TextButton(onClick = { vm.removeQueued(queued.id) }) { Text("Remove") }
+        }
+    }
+}
+
 /** A one-line header; thoughts and tool output run to pages, so the body opens on a click. */
 @Composable
 private fun Collapsible(
@@ -211,7 +236,6 @@ private fun PromptBox(
     state: TaskUiState,
     vm: TaskViewModel,
 ) {
-    val idle = state.status == AgentStatus.Idle
     Row(verticalAlignment = Alignment.Bottom, horizontalArrangement = Arrangement.spacedBy(Gap)) {
         OutlinedTextField(
             value = state.draft,
@@ -223,7 +247,15 @@ private fun PromptBox(
                     if (send) vm.send()
                     send
                 },
-            placeholder = { Text(if (idle) "Prompt the agent (Ctrl/Cmd+Enter to send)" else "The agent is busy") },
+            placeholder = {
+                Text(
+                    if (state.busy) {
+                        "The agent is working: send to steer it or queue for later"
+                    } else {
+                        "Prompt the agent (Ctrl/Cmd+Enter to send)"
+                    },
+                )
+            },
             minLines = 2,
             maxLines = 8,
         )

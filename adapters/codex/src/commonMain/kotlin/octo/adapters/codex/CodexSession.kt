@@ -104,15 +104,7 @@ internal class CodexSession(
                 buildJsonObject {
                     put("threadId", thread)
                     switched?.let { put("model", it) }
-                    putJsonArray("input") {
-                        add(
-                            buildJsonObject {
-                                put("type", "text")
-                                put("text", text)
-                                putJsonArray("text_elements") {}
-                            },
-                        )
-                    }
+                    put("input", input(text))
                 },
             )
         response
@@ -124,6 +116,20 @@ internal class CodexSession(
 
     override suspend fun setModel(model: String) {
         lock.withLock { this.model = model }
+    }
+
+    // `expectedTurnId` makes Codex refuse a turn that already ended, so the core queues the text.
+    override suspend fun steer(text: String) {
+        val (thread, turn) = lock.withLock { threadId to turnId }
+        if (thread == null || turn == null) error("No Codex turn is running")
+        peer.request(
+            "turn/steer",
+            buildJsonObject {
+                put("threadId", thread)
+                put("input", input(text))
+                put("expectedTurnId", turn)
+            },
+        )
     }
 
     override suspend fun cancel() {
@@ -379,5 +385,16 @@ internal class CodexSession(
             }
 
         private fun requestId(element: JsonElement?): String? = (element as? JsonPrimitive)?.content
+
+        private fun input(text: String) =
+            buildJsonArray {
+                add(
+                    buildJsonObject {
+                        put("type", "text")
+                        put("text", text)
+                        putJsonArray("text_elements") {}
+                    },
+                )
+            }
     }
 }

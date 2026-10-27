@@ -37,6 +37,7 @@ import octo.core.agent.RequestResponse
 import octo.core.agent.Role
 import octo.core.agent.SessionSpec
 import octo.core.agent.SessionStats
+import octo.core.agent.StopReason
 import octo.core.git.TaskDiff
 import octo.core.git.Workspace
 import octo.core.handoff.Handoff
@@ -50,6 +51,7 @@ import octo.core.status.AgentStatus
 import octo.core.task.Layout
 import octo.core.task.NewTask
 import octo.core.task.OctoState
+import octo.core.task.QueuedPrompt
 import octo.core.task.Task
 import octo.core.task.TaskId
 import octo.core.task.TaskView
@@ -89,6 +91,7 @@ class Orchestrator private constructor(
     private class Runtime(
         val session: AgentSession,
         val agent: MutableStateFlow<AgentState>,
+        val capabilities: Set<Capability>,
         parent: CoroutineScope,
     ) {
         val supervisor = SupervisorJob(parent.coroutineContext[Job])
@@ -182,7 +185,7 @@ class Orchestrator private constructor(
                 TranscriptEntry.Notice("The first prompt was not sent because the agent did not start", error = true),
             )
         } else {
-            sendPrompt(id, prompt)
+            sendLocked(id, prompt)
         }
     }
 
@@ -190,18 +193,139 @@ class Orchestrator private constructor(
         taskId: TaskId,
         text: String,
     ) {
-        val runtime = running(taskId) ?: throw TaskNotRunningException(taskId)
-        // Built before the new message lands, so the handoff ends with it exactly once.
-        val from = view(taskId).task.handoffFrom
-        val sent = from?.let { Handoff.build(transcripts.value[taskId].orEmpty(), text, it) } ?: text
-        note(taskId, TranscriptEntry.Text(Role.User, text))
-        updateView(taskId) { it.copy(unseen = false) }
-        runtime.session.prompt(sent)
-        if (from != null) {
-            updateView(taskId) { it.copy(task = it.task.copy(handoffFrom = null)) }
-            note(taskId, TranscriptEntry.Notice("Handed the conversation over from $from"))
+        withTask(taskId) { sendLocked(taskId, text) }
+    }
+
+    private suspend fun sendLocked(
+        id: TaskId,
+        text: String,
+    ) {
+        val runtime = running(id) ?: throw TaskNotRunningException(id)
+        when (view(id).status) {
+            AgentStatus.Working, AgentStatus.Blocked -> if (!steer(id, runtime, text)) enqueue(id, text)
+            else -> prompt(id, runtime, text)
         }
     }
+
+    // Whatever the agent throws, the turn did not start and the caller hears why.
+    @Suppress("TooGenericExceptionCaught")
+    private suspend fun prompt(
+        id: TaskId,
+        runtime: Runtime,
+        text: String,
+    ) {
+        // Built before the new message lands, so the handoff ends with it exactly once.
+        val from = view(id).task.handoffFrom
+        val sent = from?.let { Handoff.build(transcripts.value[id].orEmpty(), text, it) } ?: text
+        note(id, TranscriptEntry.Text(Role.User, text))
+        // Working before the agent says so: a sender in between queues instead of starting a
+        // second turn the agent cannot take.
+        apply(id, runtime.agent, AgentEvent.TurnStarted)
+        try {
+            runtime.session.prompt(sent)
+        } catch (e: CancellationException) {
+            throw e
+        } catch (e: Exception) {
+            // Back to idle without going through apply, which would send the next queued prompt
+            // into the same failure.
+            val reduced = runtime.agent.updateAndGet { it.reduce(AgentEvent.TurnEnded(StopReason.Cancelled)) }
+            updateView(id) { it.copy(task = it.task.copy(lastStatus = reduced.status), status = reduced.status) }
+            throw e
+        }
+        if (from != null) {
+            updateView(id) { it.copy(task = it.task.copy(handoffFrom = null)) }
+            note(id, TranscriptEntry.Notice("Handed the conversation over from $from"))
+        }
+    }
+
+    // Any failure means the turn could not take the text, and the queue is the declared fallback.
+    @Suppress("TooGenericExceptionCaught", "SwallowedException")
+    private suspend fun steer(
+        id: TaskId,
+        runtime: Runtime,
+        text: String,
+    ): Boolean {
+        val steered =
+            Capability.Steer in runtime.capabilities &&
+                try {
+                    runtime.session.steer(text)
+                    true
+                } catch (e: CancellationException) {
+                    throw e
+                } catch (e: Exception) {
+                    false
+                }
+        if (steered) note(id, TranscriptEntry.Text(Role.User, text))
+        return steered
+    }
+
+    private fun enqueue(
+        id: TaskId,
+        text: String,
+    ) {
+        val queue = view(id).task.queue
+        check(queue.size < MAX_QUEUED) { "Task '${id.value}' already has $MAX_QUEUED messages waiting" }
+        val next = QueuedPrompt((queue.maxOfOrNull { it.id } ?: 0) + 1, text)
+        updateQueue(id) { it + next }
+    }
+
+    override suspend fun editQueued(
+        taskId: TaskId,
+        queuedId: Int,
+        text: String,
+    ) {
+        require(text.isNotBlank()) { "The message is empty" }
+        withTask(taskId) {
+            check(view(taskId).task.queue.any { it.id == queuedId }) { "That message was already sent" }
+            updateQueue(taskId) { queue -> queue.map { if (it.id == queuedId) it.copy(text = text) else it } }
+        }
+    }
+
+    override suspend fun removeQueued(
+        taskId: TaskId,
+        queuedId: Int,
+    ) {
+        withTask(taskId) { updateQueue(taskId) { queue -> queue.filterNot { it.id == queuedId } } }
+    }
+
+    private fun deliverQueued(
+        id: TaskId,
+        runtime: Runtime,
+    ) {
+        if (view(id).task.queue.isEmpty()) return
+        runtime.scope.launch { withTask(id) { sendQueued(id, runtime) } }
+    }
+
+    // The agent may have been stopped or prompted while this waited for the lock; then the next
+    // idle sends the head instead.
+    @Suppress("TooGenericExceptionCaught")
+    private suspend fun sendQueued(
+        id: TaskId,
+        runtime: Runtime,
+    ) {
+        if (running(id) !== runtime) return
+        val head =
+            view(id)
+                .takeIf { it.status == AgentStatus.Idle }
+                ?.task
+                ?.queue
+                ?.firstOrNull() ?: return
+        updateQueue(id) { queue -> queue.filterNot { it.id == head.id } }
+        try {
+            prompt(id, runtime, head.text)
+        } catch (e: CancellationException) {
+            throw e
+        } catch (e: Exception) {
+            // Kept, so the user can send it again or remove it.
+            updateQueue(id) { listOf(head) + it }
+            note(id, TranscriptEntry.Notice("A queued message was not sent: ${e.message}", error = true))
+        }
+    }
+
+    private fun updateQueue(
+        id: TaskId,
+        change: (List<QueuedPrompt>) -> List<QueuedPrompt>,
+    ) = updateView(id) { it.copy(task = it.task.copy(queue = change(it.task.queue))) }
 
     override suspend fun respond(
         taskId: TaskId,
@@ -378,7 +502,7 @@ class Orchestrator private constructor(
                 apply(id, agent, AgentEvent.Failed(e.message ?: "The agent did not start"))
                 return
             }
-        val runtime = Runtime(session, agent, scope)
+        val runtime = Runtime(session, agent, adapter.capabilities, scope)
         runtime.job = runtime.scope.launch { collect(id, runtime) }
         runtimes.update { it + (id to runtime) }
     }
@@ -390,7 +514,7 @@ class Orchestrator private constructor(
         runtime: Runtime,
     ) {
         try {
-            runtime.session.events.collect { apply(id, runtime.agent, it) }
+            runtime.session.events.collect { if (apply(id, runtime.agent, it)) deliverQueued(id, runtime) }
         } catch (e: CancellationException) {
             throw e
         } catch (e: Exception) {
@@ -415,14 +539,17 @@ class Orchestrator private constructor(
         }
     }
 
+    /** Applies [event]; true when it made the agent idle. */
     private fun apply(
         id: TaskId,
         agent: MutableStateFlow<AgentState>,
         event: AgentEvent,
-    ) {
+    ): Boolean {
+        val before = agent.value.status
         val reduced = agent.updateAndGet { it.reduce(event) }
         transcripts.update { it + (id to Transcript.reduce(it[id].orEmpty(), event)) }
         updateView(id) { it.next(event, reduced) }
+        return before != AgentStatus.Idle && reduced.status == AgentStatus.Idle
     }
 
     private fun running(id: TaskId): Runtime? = runtimes.value[id]?.takeIf { it.job.isActive }
@@ -504,6 +631,7 @@ class Orchestrator private constructor(
 
     companion object {
         const val BRANCH_PREFIX = "octo/"
+        const val MAX_QUEUED = 20
         private const val STOP_TIMEOUT_MS = 10_000L
         private const val PROCESS_SAMPLE_MS = 2_000L
         private const val SLUG_LENGTH = 32

@@ -111,6 +111,8 @@ class SwitchAgentTest {
             )
             assertTrue("Handed the conversation over from Fake" in s.notices(id))
 
+            session.emit(AgentEvent.TurnEnded(StopReason.EndTurn))
+            testScheduler.runCurrent()
             s.core.sendPrompt(id, "Thanks")
             assertEquals("Thanks", session.prompts.last(), "the handoff goes out once")
         }

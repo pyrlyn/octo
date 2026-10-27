@@ -37,6 +37,7 @@ class CodexAdapter(
             Capability.Plan,
             Capability.ModelSelection,
             Capability.Fork,
+            Capability.Steer,
         )
     override val binary = "codex"
     override val verifiedVersion = "0.162.1"
