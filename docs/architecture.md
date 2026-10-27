@@ -155,6 +155,7 @@ interface AgentSession {
     val events: Flow<AgentEvent>          // hot; completes when the process exits
     val processId: Long?                  // the agent's root process, for CPU and memory figures
     suspend fun prompt(text: String)
+    suspend fun steer(text: String)       // into the running turn; only with Capability.Steer
     suspend fun respond(requestId: String, response: RequestResponse)
     suspend fun cancel()                  // cancel the current turn
     suspend fun close()                   // end the process
@@ -255,7 +256,9 @@ interface OctoCore {
     val state: StateFlow<OctoState>                 // tasks, statuses, pending requests, layout
     fun transcript(taskId: TaskId): Flow<List<TranscriptEntry>>
     suspend fun createTask(request: NewTask): TaskId // repo, base ref, agent, title, first prompt
-    suspend fun sendPrompt(taskId: TaskId, text: String)
+    suspend fun sendPrompt(taskId: TaskId, text: String) // idle: send; busy: steer or queue
+    suspend fun editQueued(taskId: TaskId, queuedId: Int, text: String)
+    suspend fun removeQueued(taskId: TaskId, queuedId: Int)
     suspend fun respond(taskId: TaskId, requestId: String, response: RequestResponse)
     suspend fun cancel(taskId: TaskId)              // cancel the current turn
     suspend fun stop(taskId: TaskId)
@@ -281,6 +284,11 @@ agent and writes the state. `close()` belongs to `app`, so it is not on the inte
 - **Diff.** `git diff <merge-base(base, HEAD)>` in the worktree plus untracked files, parsed into
   files and hunks in common code.
 - **Restart.** The persisted `AgentSessionRef` goes into `SessionSpec.resume`.
+- **Prompts while busy.** `sendPrompt` runs under the task's lock. An idle agent gets the prompt
+  and reads as working at once, so a second sender never sees a stale idle. A busy agent is
+  steered when its adapter declares `Steer` and the steer succeeds; otherwise the text joins
+  `Task.queue` (at most 20, persisted with the task). Each time the agent turns idle the head of
+  the queue is sent; a send that fails puts it back with a notice.
 
 ## 8. Persistence
 

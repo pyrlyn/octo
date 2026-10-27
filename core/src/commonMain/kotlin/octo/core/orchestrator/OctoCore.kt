@@ -35,9 +35,27 @@ interface OctoCore {
         machine: String?,
     ): List<String>
 
+    /**
+     * Sends [text] to an idle agent. A busy agent is steered when its adapter can take the text
+     * into the running turn; otherwise the text waits in [octo.core.task.Task.queue] and is sent
+     * once the agent is idle.
+     */
     suspend fun sendPrompt(
         taskId: TaskId,
         text: String,
+    )
+
+    /** Replaces the text of a prompt that is still queued; throws when it was already sent. */
+    suspend fun editQueued(
+        taskId: TaskId,
+        queuedId: Int,
+        text: String,
+    )
+
+    /** Drops a queued prompt; one that was already sent is left alone. */
+    suspend fun removeQueued(
+        taskId: TaskId,
+        queuedId: Int,
     )
 
     suspend fun respond(
