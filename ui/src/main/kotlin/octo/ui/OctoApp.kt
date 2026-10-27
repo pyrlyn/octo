@@ -142,6 +142,7 @@ private fun TaskPane(
         onPublish = if (models.canPublish) ({ publishing = true }) else null,
         plugins = plugins,
         onSwitchAgent = if (models.canSwitchAgent) ({ switching = true }) else null,
+        onFork = if (models.canFork) ({ models.main.fork(id) }) else null,
     )
     if (switching) {
         val switch = remember(id) { models.switchAgent(id) } ?: return

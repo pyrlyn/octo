@@ -87,6 +87,42 @@ class GitWorkspaceTest {
         }
 
     @Test
+    fun aForkStartsFromTheWorktreeAsItIsAndLeavesItAlone() =
+        runBlocking {
+            val repo = repo()
+            val source = File(root, "worktrees/repo/task-1")
+            workspace.createWorktree(repo.path, source.path, "octo/task-1", "main")
+            File(source, "gone.txt").writeText("bye\n")
+            git.run(source.path, listOf("add", "gone.txt"))
+            git.run(source.path, listOf("commit", "-q", "-m", "gone"))
+            File(source, "a.txt").writeText("one\n2\n")
+            File(source, "gone.txt").delete()
+            File(source, "staged.txt").writeText("staged\n")
+            git.run(source.path, listOf("add", "staged.txt"))
+            File(source, "new file.txt").writeText("fresh\n")
+            val status = git.run(source.path, listOf("status", "--porcelain"))
+
+            val fork = File(root, "worktrees/repo/task-1-fork")
+            workspace.forkWorktree(repo.path, source.path, fork.path, "octo/task-1-fork")
+
+            assertEquals(status, git.run(source.path, listOf("status", "--porcelain")), "the source is untouched")
+            assertEquals("octo/task-1-fork", git.run(fork.path, listOf("branch", "--show-current")).trim())
+            assertEquals(
+                git.run(source.path, listOf("rev-parse", "HEAD")),
+                git.run(fork.path, listOf("rev-parse", "HEAD")),
+            )
+            assertEquals("one\n2\n", File(fork, "a.txt").readText())
+            assertFalse(File(fork, "gone.txt").exists())
+            assertEquals("staged\n", File(fork, "staged.txt").readText())
+            assertEquals("fresh\n", File(fork, "new file.txt").readText())
+            assertTrue(workspace.isDirty(fork.path), "the copy shows as uncommitted")
+
+            val clean = File(root, "worktrees/repo/clean")
+            workspace.forkWorktree(repo.path, repo.path, clean.path, "octo/clean")
+            assertFalse(workspace.isDirty(clean.path))
+        }
+
+    @Test
     fun branchesListLocalThenRemoteWithoutTheRemoteHead() =
         runBlocking {
             val repo = repo()

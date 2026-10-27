@@ -29,6 +29,9 @@ enum class Capability {
     Plan,
     ModelSelection,
 
+    /** Starts a copy of a session from [SessionSpec.resume] when [SessionSpec.fork] is set. */
+    Fork,
+
     /** Takes the MCP servers Octo offers in [SessionSpec.mcpServers], such as agent messaging. */
     Mcp,
 }
@@ -67,6 +70,8 @@ data class SessionSpec(
     val options: Map<String, String> = emptyMap(),
     /** Octo's own servers; only adapters with [Capability.Mcp] get any. */
     val mcpServers: List<McpServer> = emptyList(),
+    /** With [resume], continue a copy of that session and leave the original as it is. */
+    val fork: Boolean = false,
 )
 
 /** An MCP server Octo runs for the agent over streamable HTTP; [headers] carry its per-task token. */

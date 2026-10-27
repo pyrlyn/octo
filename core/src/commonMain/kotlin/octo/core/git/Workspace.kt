@@ -18,6 +18,17 @@ interface Workspace {
         baseRef: String,
     )
 
+    /**
+     * A new worktree at [path] on a new [branch] cut from [source]'s HEAD, with [source]'s
+     * uncommitted and untracked changes copied over as uncommitted changes. [source] is not touched.
+     */
+    suspend fun forkWorktree(
+        repo: String,
+        source: String,
+        path: String,
+        branch: String,
+    )
+
     /** Uncommitted or untracked changes in [worktree]. */
     suspend fun isDirty(worktree: String): Boolean
 
@@ -57,6 +68,26 @@ class GitWorkspace(
     ) {
         Path(path).parent?.let { dirs.create(it.toString()) }
         git.run(repo, listOf("worktree", "add", "-b", branch, path, baseRef))
+    }
+
+    // The snapshot goes through a separate index, so the source's own index and files stay as they
+    // are while the agent there keeps working.
+    override suspend fun forkWorktree(
+        repo: String,
+        source: String,
+        path: String,
+        branch: String,
+    ) {
+        val head = git.run(source, listOf("rev-parse", "HEAD")).trim()
+        createWorktree(repo, path, branch, head)
+        if (!isDirty(source)) return
+        val index = git.run(source, listOf("rev-parse", "--path-format=absolute", "--git-path", FORK_INDEX)).trim()
+        val env = mapOf("GIT_INDEX_FILE" to index)
+        git.run(source, listOf("read-tree", head), env = env)
+        git.run(source, listOf("add", "--all"), env = env)
+        val tree = git.run(source, listOf("write-tree"), env = env).trim()
+        // Only the files change, so the fork's index stays at HEAD and the copy shows as uncommitted.
+        git.run(path, listOf("restore", "--source=$tree", "--worktree", "--", "."))
     }
 
     // A worktree that no longer exists has nothing left to lose.
@@ -99,5 +130,10 @@ class GitWorkspace(
                 }
         val files = DiffParser.parse(tracked) + untracked.flatMap(DiffParser::parse)
         return TaskDiff(baseRef, mergeBase, files)
+    }
+
+    private companion object {
+        /** Reused by every fork of a worktree, so at most one is left in its git directory. */
+        const val FORK_INDEX = "octo-fork-index"
     }
 }

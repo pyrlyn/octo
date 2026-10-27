@@ -49,6 +49,7 @@ class ClaudeAdapter(
             Capability.Questions,
             Capability.Plan,
             Capability.ModelSelection,
+            Capability.Fork,
             Capability.Mcp,
         )
     override val binary = "claude"
@@ -73,7 +74,10 @@ class ClaudeAdapter(
             // The `--flag=value` form keeps a value that starts with a dash from being read as a flag.
             spec.options[OPTION_MODEL]?.let { add("--model=$it") }
             spec.options[OPTION_PERMISSION_MODE]?.let { add("--permission-mode=$it") }
-            add(spec.resume?.let { "--resume=${it.value}" } ?: "--session-id=${spec.options.getValue(SESSION_ID)}")
+            spec.resume?.let { add("--resume=${it.value}") }
+            // Claude takes a session id next to --resume only for a fork, which then gets that id.
+            if (spec.fork) add("--fork-session")
+            spec.options[SESSION_ID]?.let { add("--session-id=$it") }
             // Added next to the user's own servers, never instead of them (no --strict-mcp-config).
             if (spec.mcpServers.isNotEmpty()) add("--mcp-config=${mcpConfig(spec.mcpServers)}")
         }
@@ -101,12 +105,10 @@ class ClaudeAdapter(
             }
         }.toString()
 
-    // A new session gets its id from Octo, so the ref is known before Claude prints anything.
+    // A new or forked session gets its id from Octo, so the ref is known before Claude prints anything.
     override suspend fun start(spec: SessionSpec): AgentSession =
         super.start(
-            if (spec.resume ==
-                null
-            ) {
+            if (spec.resume == null || spec.fork) {
                 spec.copy(options = spec.options + (SESSION_ID to newSessionId()))
             } else {
                 spec
@@ -117,7 +119,7 @@ class ClaudeAdapter(
         process: RunningProcess,
         spec: SessionSpec,
     ): ProcessAgentSession =
-        ClaudeSession(process, context, spec.resume ?: AgentSessionRef(spec.options.getValue(SESSION_ID)))
+        ClaudeSession(process, context, spec.options[SESSION_ID]?.let(::AgentSessionRef) ?: requireNotNull(spec.resume))
 
     companion object {
         val ID = AgentId("claude")

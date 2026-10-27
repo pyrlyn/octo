@@ -88,6 +88,10 @@ worktree and branch. A model change stays in the running session when the agent 
 otherwise a fresh session starts, and your next prompt carries the conversation over from Octo's
 transcript (the original request and as many recent messages and command outcomes as fit).
 
+`"fork": true` adds Fork to each task: a new task on a new branch that starts from the task's
+worktree as it is, uncommitted files included, listed under it in the sidebar. Claude and Codex
+fork their own session; other agents get the conversation with your next prompt.
+
 `"plugins": true` loads WebAssembly plugins from the `plugins` folder in the Octo home. A plugin
 can add ACP agents and actions in a task's Plugins menu. A plugin cannot reach files, processes or
 the network. A broken one is skipped with a warning. See `docs/plugins.md` for the ABI.

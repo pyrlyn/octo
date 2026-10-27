@@ -12,4 +12,5 @@ object CoreFlags {
     val PLUGINS = FeatureFlag("plugins", "Load WebAssembly plugins that add agents and task actions")
     val HANDOFF =
         FeatureFlag("handoff", "Switch a task's agent or model and hand the conversation over to the new one")
+    val FORK = FeatureFlag("fork", "Fork a task into a new branch that starts from its current state")
 }

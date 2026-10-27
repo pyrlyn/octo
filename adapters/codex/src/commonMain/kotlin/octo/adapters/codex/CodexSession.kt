@@ -76,7 +76,13 @@ internal class CodexSession(
                         put("approvalPolicy", spec.options[CodexAdapter.OPTION_APPROVAL_POLICY] ?: "on-request")
                         put("sandbox", spec.options[CodexAdapter.OPTION_SANDBOX] ?: "workspace-write")
                     }
-                peer.request(if (resume != null) "thread/resume" else "thread/start", params)
+                val method =
+                    when {
+                        resume == null -> "thread/start"
+                        spec.fork -> "thread/fork"
+                        else -> "thread/resume"
+                    }
+                peer.request(method, params)
             }
         val id = thread.obj()?.obj("thread")?.string("id") ?: error("Codex returned no thread id")
         lock.withLock { threadId = id }

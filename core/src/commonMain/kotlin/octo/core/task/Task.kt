@@ -47,6 +47,8 @@ data class Task(
     val machine: String? = null,
     /** The agent this task was switched away from; the next prompt carries the conversation over. */
     val handoffFrom: String? = null,
+    /** The task this one was forked from. */
+    val parentId: TaskId? = null,
 )
 
 /** A request the agent is waiting on. */

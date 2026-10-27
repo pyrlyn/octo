@@ -55,6 +55,8 @@ class Octo private constructor(
     private val remote: RemoteMachines,
     /** Whether the `handoff` flag lets a task switch its agent or model. */
     val handoff: Boolean,
+    /** Whether the `fork` flag lets a task be forked. */
+    val fork: Boolean,
 ) {
     val core: OctoCore get() = orchestrator
 
@@ -128,6 +130,7 @@ class Octo private constructor(
                 plugins.loaded.plugins,
                 remote,
                 flags.isEnabled(CoreFlags.HANDOFF),
+                flags.isEnabled(CoreFlags.FORK),
             )
         }
 

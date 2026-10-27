@@ -10,6 +10,7 @@ import octo.core.orchestrator.OctoCore
 import octo.core.task.OctoState
 import octo.core.task.SidebarStatus
 import octo.core.task.TaskId
+import octo.core.task.TaskView
 import octo.core.task.rollup
 
 data class TaskRow(
@@ -18,6 +19,8 @@ data class TaskRow(
     val agent: AgentId,
     val branch: String,
     val status: SidebarStatus,
+    /** Generations of forks above this task in the list; 0 for a task that is not a fork. */
+    val depth: Int = 0,
 )
 
 data class RepoGroup(
@@ -98,6 +101,9 @@ class MainViewModel(
 
     fun closeNewTask() = mutable.update { it.copy(newTaskOpen = false) }
 
+    /** Forks [id] and opens the fork. */
+    fun fork(id: TaskId) = act { select(core.forkTask(id)) }
+
     /** Called once a task was created from the dialog. */
     fun created(id: TaskId) {
         closeNewTask()
@@ -129,13 +135,14 @@ private fun MainUiState.withCore(
                     name = repo.trimEnd('/', '\\').substringAfterLast('/').substringAfterLast('\\'),
                     status = views.rollup(),
                     tasks =
-                        views.map {
+                        lineage(views).map { (it, depth) ->
                             TaskRow(
                                 it.task.id,
                                 it.task.title,
                                 it.task.agent,
                                 it.task.branch,
                                 it.sidebarStatus,
+                                depth,
                             )
                         },
                 )
@@ -148,4 +155,27 @@ private fun MainUiState.withCore(
         diffOpen = layout.diffOpen,
         warnings = if (warningsDismissed) emptyList() else startupWarnings + state.warnings,
     )
+}
+
+/**
+ * Forks right under their parent, one generation deeper each; a fork whose parent is gone is
+ * listed as a task of its own.
+ */
+private fun lineage(views: List<TaskView>): List<Pair<TaskView, Int>> {
+    val ids = views.map { it.task.id }.toSet()
+    val children = views.groupBy { view -> view.task.parentId?.takeIf { it in ids } }
+
+    fun walk(
+        parent: TaskId?,
+        depth: Int,
+    ): List<Pair<TaskView, Int>> =
+        children[parent].orEmpty().flatMap {
+            listOf(it to depth) +
+                walk(it.task.id, depth + 1)
+        }
+
+    val placed = walk(null, 0)
+    // A parent loop in a hand-edited state file must not hide its tasks.
+    val seen = placed.map { it.first.task.id }.toSet()
+    return placed + views.filter { it.task.id !in seen }.map { it to 0 }
 }

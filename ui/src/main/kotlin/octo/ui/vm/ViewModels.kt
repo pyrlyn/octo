@@ -26,6 +26,8 @@ class ViewModels(
     private val plugins: List<Plugin> = emptyList(),
     /** False while the `handoff` flag is off, which hides switching a task's agent. */
     private val handoff: Boolean = false,
+    /** False while the `fork` flag is off, which hides forking a task. */
+    private val fork: Boolean = false,
 ) {
     val main = MainViewModel(core, scope, startupWarnings)
 
@@ -34,6 +36,8 @@ class ViewModels(
     val canPair: Boolean get() = devices != null && remoteUrl != null
 
     val canSwitchAgent: Boolean get() = handoff
+
+    val canFork: Boolean get() = fork
 
     fun task(id: TaskId) = TaskViewModel(core, id, scope)
 

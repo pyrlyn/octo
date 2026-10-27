@@ -71,7 +71,12 @@ private fun TaskRowItem(
             .fillMaxWidth()
             .background(background)
             .clickable(onClick = onClick)
-            .padding(start = LargeGap, end = Gap, top = SmallGap, bottom = SmallGap),
+            .padding(
+                start = LargeGap * (1 + row.depth.coerceAtMost(MAX_FORK_INDENT)),
+                end = Gap,
+                top = SmallGap,
+                bottom = SmallGap,
+            ),
         verticalAlignment = Alignment.CenterVertically,
     ) {
         StatusDot(row.status, Modifier.padding(end = Gap))
@@ -86,3 +91,6 @@ private fun TaskRowItem(
         }
     }
 }
+
+/** Deeper forks stop moving right, so a long chain still leaves room for the title. */
+private const val MAX_FORK_INDENT = 3
