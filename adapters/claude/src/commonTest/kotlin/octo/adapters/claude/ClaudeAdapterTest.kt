@@ -71,6 +71,13 @@ class ClaudeAdapterTest {
         }
 
     @Test
+    fun aRunningSessionSwitchesItsModel() =
+        runTest {
+            val (adapter, _) = fixture("model.transcript")
+            adapter.start(SessionSpec("/repo")).setModel("sonnet")
+        }
+
+    @Test
     fun mcpServersGoInAsConfigWithTheTokenInTheEnvironment() =
         runTest {
             val (adapter, launcher) = fixture("turn.transcript")

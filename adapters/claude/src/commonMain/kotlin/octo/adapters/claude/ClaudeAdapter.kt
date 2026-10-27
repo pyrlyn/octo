@@ -15,6 +15,7 @@ import octo.core.agent.AgentSession
 import octo.core.agent.AgentSessionRef
 import octo.core.agent.AuthState
 import octo.core.agent.Capability
+import octo.core.agent.MODEL_OPTION
 import octo.core.agent.McpServer
 import octo.core.agent.PermissionMode
 import octo.core.agent.SessionSpec
@@ -122,7 +123,7 @@ class ClaudeAdapter(
 
     companion object {
         val ID = AgentId("claude")
-        const val OPTION_MODEL = "model"
+        const val OPTION_MODEL = MODEL_OPTION
         private const val SESSION_ID = "octo.sessionId"
 
         /** Claude's name for [mode], for `--permission-mode` and `set_permission_mode`. */

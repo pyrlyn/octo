@@ -30,9 +30,11 @@ import octo.core.terms.TermsGate
 
 internal class FakeSession(
     override val processId: Long? = null,
+    private val refuseModel: Boolean = false,
 ) : AgentSession {
     val channel = Channel<AgentEvent>(Channel.UNLIMITED)
     val prompts = mutableListOf<String>()
+    val models = mutableListOf<String>()
     val steered = mutableListOf<String>()
     var refuseSteer = false
     val responses = mutableListOf<Pair<String, RequestResponse>>()
@@ -69,6 +71,11 @@ internal class FakeSession(
         cancelled++
     }
 
+    override suspend fun setModel(model: String) {
+        if (refuseModel) error("no live model switch")
+        models += model
+    }
+
     override suspend fun close() {
         channel.trySend(AgentEvent.Exited(0))
         channel.close()
@@ -81,10 +88,11 @@ internal class FakeAdapter(
     var failStart: Boolean = false,
     /** The process id each new session reports. */
     var pid: Long? = null,
+    override val id: AgentId = AgentId("fake"),
+    override val displayName: String = "Fake",
+    private val refuseModel: Boolean = false,
     override val permissionModes: Set<PermissionMode> = setOf(PermissionMode.Supervised),
 ) : AgentAdapter {
-    override val id = AgentId("fake")
-    override val displayName = "Fake"
     val specs = mutableListOf<SessionSpec>()
     val sessions = mutableListOf<FakeSession>()
 
@@ -93,7 +101,7 @@ internal class FakeAdapter(
     override suspend fun start(spec: SessionSpec): AgentSession {
         if (failStart) error("fake is not installed")
         specs += spec
-        return FakeSession(pid).also {
+        return FakeSession(pid, refuseModel).also {
             it.emit(AgentEvent.SessionReady(spec.resume ?: AgentSessionRef("s${sessions.size + 1}")))
             sessions += it
         }
@@ -149,11 +157,13 @@ internal suspend fun TestScope.setup(
     newId: () -> String = { "id1" },
     mcp: McpProvider? = null,
     processes: ProcessMonitor? = null,
+    /** More agents next to [adapter], for tests that switch between them. */
+    others: List<AgentAdapter> = emptyList(),
     defaultPermissionMode: PermissionMode = PermissionMode.Supervised,
 ): Setup {
     val core =
         Orchestrator.open(
-            registry = AdapterRegistry(listOf(adapter), FeatureFlags()),
+            registry = AdapterRegistry(listOf(adapter) + others, FeatureFlags()),
             workspace = workspace,
             store = StateStore(Path(home, "state.json")),
             terms = TermsGate(AtomicFile(Path(home, "acknowledgements.json"))),

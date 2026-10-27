@@ -39,6 +39,17 @@ class CodexAdapterTest {
     private fun TestScope.fixture(name: String) = adapter { replay(readFixture("src/commonTest/fixtures/$name")) }
 
     @Test
+    fun aModelSwitchGoesOutWithTheNextTurn() =
+        runTest {
+            val (adapter, _) = fixture("model.transcript")
+            val session = adapter.start(SessionSpec("/repo"))
+            session.setModel("gpt-5-codex")
+            session.prompt("Go")
+            val events = Events(backgroundScope, session).drain()
+            assertEquals(StopReason.EndTurn, events.filterIsInstance<AgentEvent.TurnEnded>().single().stopReason)
+        }
+
+    @Test
     fun permissionModesMapToThreadAndTurnSettings() =
         runTest {
             val (adapter, _) = fixture("permission-modes.transcript")

@@ -8,6 +8,7 @@ import octo.core.agent.AgentIcon
 import octo.core.agent.AgentId
 import octo.core.agent.AuthState
 import octo.core.agent.Capability
+import octo.core.agent.MODEL_OPTION
 import octo.core.agent.PermissionMode
 import octo.core.agent.SessionSpec
 import octo.core.process.ProcessLauncher
@@ -65,7 +66,7 @@ class CodexAdapter(
 
     companion object {
         val ID = AgentId("codex")
-        const val OPTION_MODEL = "model"
+        const val OPTION_MODEL = MODEL_OPTION
 
         private const val AUTH_TIMEOUT_MS = 10_000L
     }

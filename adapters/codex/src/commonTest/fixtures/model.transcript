@@ -1,0 +1,10 @@
+# A model switch goes out with the next turn (synthetic, codex-cli 0.162.1 app-server v2 schema).
+> {"id":1,"method":"initialize"}
+< {"id":1,"result":{}}
+> {"method":"initialized"}
+> {"id":2,"method":"thread/start","params":{"cwd":"/repo"}}
+< {"id":2,"result":{"thread":{"id":"thr-1"},"model":"gpt-5"}}
+> {"id":3,"method":"turn/start","params":{"threadId":"thr-1","model":"gpt-5-codex"}}
+< {"id":3,"result":{"turn":{"id":"turn-1","status":"inProgress"}}}
+< {"method":"turn/completed","params":{"threadId":"thr-1","turn":{"id":"turn-1","status":"completed"}}}
+x 0

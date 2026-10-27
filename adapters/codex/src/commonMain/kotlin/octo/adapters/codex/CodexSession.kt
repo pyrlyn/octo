@@ -51,6 +51,7 @@ internal class CodexSession(
     private var usage: Usage? = null
 
     /** Set by a live switch and sent with the next turn, which is where Codex takes it. */
+    private var model: String? = null
     private var permissions: CodexPermissions? = null
 
     override suspend fun initialize(spec: SessionSpec) {
@@ -86,10 +87,13 @@ internal class CodexSession(
 
     override suspend fun prompt(text: String) {
         val thread = lock.withLock { threadId } ?: error("No Codex thread")
-        val switched =
+        val (newModel, switched) =
             lock.withLock {
                 usage = null
-                permissions.also { permissions = null }
+                (model to permissions).also {
+                    model = null
+                    permissions = null
+                }
             }
         emit(AgentEvent.TurnStarted)
         val response =
@@ -97,6 +101,7 @@ internal class CodexSession(
                 "turn/start",
                 buildJsonObject {
                     put("threadId", thread)
+                    newModel?.let { put("model", it) }
                     switched?.putTurn(this)
                     put("input", input(text))
                 },
@@ -106,6 +111,10 @@ internal class CodexSession(
             ?.obj("turn")
             ?.string("id")
             ?.let { id -> lock.withLock { turnId = id } }
+    }
+
+    override suspend fun setModel(model: String) {
+        lock.withLock { this.model = model }
     }
 
     override suspend fun setPermissionMode(mode: PermissionMode) {

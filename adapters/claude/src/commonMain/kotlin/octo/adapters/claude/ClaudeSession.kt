@@ -125,6 +125,17 @@ internal class ClaudeSession(
         withTimeout(INTERRUPT_TIMEOUT_MS) { control(buildJsonObject { put("subtype", "interrupt") }) }
     }
 
+    override suspend fun setModel(model: String) {
+        withTimeout(INTERRUPT_TIMEOUT_MS) {
+            control(
+                buildJsonObject {
+                    put("subtype", "set_model")
+                    put("model", model)
+                },
+            )
+        }
+    }
+
     // Claude refuses a switch to bypassPermissions unless the session started able to; the core
     // then keeps the mode for the next start.
     override suspend fun setPermissionMode(mode: PermissionMode) {

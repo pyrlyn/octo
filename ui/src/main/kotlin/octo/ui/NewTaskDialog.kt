@@ -58,7 +58,7 @@ internal fun NewTaskDialog(
     var editing by remember { mutableStateOf(false) }
     val terms = state.terms
     when {
-        terms != null -> TermsDialog(terms, vm)
+        terms != null -> TermsDialog(terms, onAccept = vm::acceptTerms, onDecline = vm::declineTerms)
         editing && presets != null -> PresetsEditor(presets, onDone = { editing = false })
         else -> FormDialog(state, vm, onDismiss, onEditPresets = { editing = true })
     }
@@ -308,7 +308,7 @@ private fun MachineChoice(
 }
 
 @Composable
-private fun AgentChoice(
+internal fun AgentChoice(
     agent: AgentInfo,
     selected: Boolean,
     onSelect: () -> Unit,
@@ -332,13 +332,14 @@ private fun AgentChoice(
 
 /** Octo never decides this for the user: the vendor's own terms are linked and must be accepted here. */
 @Composable
-private fun TermsDialog(
+internal fun TermsDialog(
     notice: TermsNotice,
-    vm: NewTaskViewModel,
+    onAccept: () -> Unit,
+    onDecline: () -> Unit,
 ) {
     val uri = LocalUriHandler.current
     AlertDialog(
-        onDismissRequest = vm::declineTerms,
+        onDismissRequest = onDecline,
         modifier = Modifier.width(DialogWidth),
         title = { Text("${notice.agent.displayName}: vendor terms") },
         text = {
@@ -347,8 +348,8 @@ private fun TermsDialog(
                 TextButton(onClick = { uri.openUri(notice.terms.url) }) { Text("Read the terms") }
             }
         },
-        confirmButton = { Button(onClick = vm::acceptTerms) { Text("I understand, continue") } },
-        dismissButton = { TextButton(onClick = vm::declineTerms) { Text("Back") } },
+        confirmButton = { Button(onClick = onAccept) { Text("I understand, continue") } },
+        dismissButton = { TextButton(onClick = onDecline) { Text("Back") } },
     )
 }
 

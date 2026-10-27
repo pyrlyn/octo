@@ -24,12 +24,16 @@ class ViewModels(
     private val remoteUrl: String? = null,
     /** Empty while the `plugins` flag is off, which hides plugin actions. */
     private val plugins: List<Plugin> = emptyList(),
+    /** False while the `handoff` flag is off, which hides switching a task's agent. */
+    private val handoff: Boolean = false,
 ) {
     val main = MainViewModel(core, scope, startupWarnings)
 
     val canPublish: Boolean get() = publisher != null
 
     val canPair: Boolean get() = devices != null && remoteUrl != null
+
+    val canSwitchAgent: Boolean get() = handoff
 
     fun task(id: TaskId) = TaskViewModel(core, id, scope)
 
@@ -38,6 +42,9 @@ class ViewModels(
             .takeIf { all ->
                 all.any { it.manifest.actions.isNotEmpty() }
             }?.let { PluginActionsViewModel(it, core, id, scope) }
+
+    fun switchAgent(id: TaskId): SwitchAgentViewModel? =
+        if (handoff) SwitchAgentViewModel(core, catalog, id, scope) else null
 
     fun diff(id: TaskId) = DiffViewModel(core, id, scope)
 

@@ -59,12 +59,14 @@ internal fun TaskScreen(
     onPublish: (() -> Unit)? = null,
     /** Null without plugin actions, which hides the menu. */
     plugins: PluginActionsViewModel? = null,
+    /** Null while the `handoff` flag is off, which hides the action. */
+    onSwitchAgent: (() -> Unit)? = null,
 ) {
     val state by vm.state.collectAsState()
     val task = state.task ?: return
     Column(Modifier.fillMaxSize().padding(LargeGap), verticalArrangement = Arrangement.spacedBy(Gap)) {
         // Publishing runs this computer's git and gh, which cannot reach a remote worktree.
-        Header(state, vm, onDiff, onPublish.takeIf { task.machine == null }, plugins)
+        Header(state, vm, onDiff, onPublish.takeIf { task.machine == null }, plugins, onSwitchAgent)
         Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(Gap)) {
             Text(
                 task.machine?.let { "${task.branch} · on $it" } ?: task.branch,
@@ -92,6 +94,7 @@ private fun Header(
     onDiff: () -> Unit,
     onPublish: (() -> Unit)?,
     plugins: PluginActionsViewModel?,
+    onSwitchAgent: (() -> Unit)?,
 ) {
     val task = state.task ?: return
     val status = state.sidebarStatus
@@ -104,6 +107,8 @@ private fun Header(
         if (state.canCancel) OutlinedButton(onClick = vm::cancel) { Text("Cancel turn") }
         if (state.canStop) OutlinedButton(onClick = vm::stop) { Text("Stop") }
         if (state.canRestart) OutlinedButton(onClick = vm::restart) { Text("Restart") }
+        // A switch ends the running turn, so it waits until the agent is done.
+        onSwitchAgent?.let { OutlinedButton(onClick = it, enabled = !state.canCancel) { Text("Switch agent") } }
         OutlinedButton(onClick = onDiff) { Text("Diff") }
         // Publishing while the agent writes would push half a change.
         onPublish?.let { OutlinedButton(onClick = it, enabled = !state.canCancel) { Text("Publish") } }

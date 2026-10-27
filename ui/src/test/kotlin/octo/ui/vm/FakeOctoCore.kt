@@ -118,6 +118,14 @@ class FakeOctoCore : OctoCore {
         calls += "respond $requestId $response"
     }
 
+    override suspend fun switchAgent(
+        taskId: TaskId,
+        agent: AgentId,
+        model: String?,
+    ) {
+        calls += listOfNotNull("switch", agent.value, model).joinToString(" ")
+    }
+
     override suspend fun setPermissionMode(
         taskId: TaskId,
         mode: PermissionMode,

@@ -1,0 +1,6 @@
+# Switching the model of a running session (synthetic).
+> {"type":"control_request","request_id":"req_1","request":{"subtype":"initialize"}}
+< {"type":"control_response","response":{"subtype":"success","request_id":"req_1","response":{}}}
+> {"type":"control_request","request_id":"req_2","request":{"subtype":"set_model","model":"sonnet"}}
+< {"type":"control_response","response":{"subtype":"success","request_id":"req_2","response":{}}}
+x 0

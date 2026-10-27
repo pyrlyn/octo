@@ -18,6 +18,9 @@ value class AgentSessionRef(
     val value: String,
 )
 
+/** The option an adapter with [Capability.ModelSelection] reads its model from. */
+const val MODEL_OPTION = "model"
+
 enum class Capability {
     Resume,
     Cancel,
@@ -123,6 +126,13 @@ interface AgentSession {
         requestId: String,
         response: RequestResponse,
     )
+
+    /**
+     * Switches the running session to [model] for the turns that follow. Throws when the agent
+     * cannot switch in place; Octo then starts a fresh session with a handoff.
+     */
+    suspend fun setModel(model: String): Unit =
+        throw UnsupportedOperationException("This agent cannot change its model while it runs")
 
     /**
      * Switches the running session to [mode], one of [AgentAdapter.permissionModes]. Throws when

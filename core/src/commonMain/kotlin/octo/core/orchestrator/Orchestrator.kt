@@ -28,8 +28,10 @@ import kotlinx.io.IOException
 import kotlinx.io.files.Path
 import octo.core.agent.AdapterRegistry
 import octo.core.agent.AgentEvent
+import octo.core.agent.AgentId
 import octo.core.agent.AgentSession
 import octo.core.agent.Capability
+import octo.core.agent.MODEL_OPTION
 import octo.core.agent.PermissionMode
 import octo.core.agent.RequestResponse
 import octo.core.agent.Role
@@ -38,6 +40,7 @@ import octo.core.agent.SessionStats
 import octo.core.agent.StopReason
 import octo.core.git.TaskDiff
 import octo.core.git.Workspace
+import octo.core.handoff.Handoff
 import octo.core.messaging.McpProvider
 import octo.core.persist.PersistedState
 import octo.core.persist.StateStore
@@ -178,12 +181,15 @@ class Orchestrator private constructor(
         runtime: Runtime,
         text: String,
     ) {
+        // Built before the new message lands, so the handoff ends with it exactly once.
+        val from = view(id).task.handoffFrom
+        val sent = from?.let { Handoff.build(transcripts.value[id].orEmpty(), text, it) } ?: text
         note(id, TranscriptEntry.Text(Role.User, text))
         // Working before the agent says so: a sender in between queues instead of starting a
         // second turn the agent cannot take.
         apply(id, runtime.agent, AgentEvent.TurnStarted)
         try {
-            runtime.session.prompt(text)
+            runtime.session.prompt(sent)
         } catch (e: CancellationException) {
             throw e
         } catch (e: Exception) {
@@ -192,6 +198,10 @@ class Orchestrator private constructor(
             val reduced = runtime.agent.updateAndGet { it.reduce(AgentEvent.TurnEnded(StopReason.Cancelled)) }
             updateView(id) { it.copy(task = it.task.copy(lastStatus = reduced.status), status = reduced.status) }
             throw e
+        }
+        if (from != null) {
+            updateView(id) { it.copy(task = it.task.copy(handoffFrom = null)) }
+            note(id, TranscriptEntry.Notice("Handed the conversation over from $from"))
         }
     }
 
@@ -291,6 +301,53 @@ class Orchestrator private constructor(
     ) {
         (running(taskId) ?: throw TaskNotRunningException(taskId)).session.respond(requestId, response)
     }
+
+    override suspend fun switchAgent(
+        taskId: TaskId,
+        agent: AgentId,
+        model: String?,
+    ) {
+        withTask(taskId) {
+            val task = view(taskId).task
+            val registry = machines[task.machine].registry
+            val target = registry[agent] ?: throw UnknownAgentException(agent)
+            terms.requireAcknowledged(target)
+            // Another agent's model name means nothing to this one, so the old choice never carries over.
+            val options = task.options - MODEL_OPTION + listOfNotNull(model?.let { MODEL_OPTION to it })
+            val runtime = running(taskId)
+            val inPlace =
+                agent == task.agent && model != null && runtime != null &&
+                    Capability.ModelSelection in target.capabilities && switchModel(runtime, model)
+            if (inPlace) {
+                updateView(taskId) { it.copy(task = it.task.copy(options = options)) }
+                note(taskId, TranscriptEntry.Notice("Model: $model"))
+                return@withTask
+            }
+            stopLocked(taskId)
+            val from = task.handoffFrom ?: registry[task.agent]?.displayName ?: task.agent.value
+            updateView(taskId) {
+                it.copy(task = it.task.copy(agent = agent, options = options, sessionRef = null, handoffFrom = from))
+            }
+            val name = target.displayName + model?.let { " ($it)" }.orEmpty()
+            note(taskId, TranscriptEntry.Notice("Switched to $name; the next prompt carries the conversation over"))
+            startAgent(taskId, resume = false)
+        }
+    }
+
+    // Whatever the reason an agent refuses, the model still arrives through a fresh session.
+    @Suppress("TooGenericExceptionCaught", "SwallowedException")
+    private suspend fun switchModel(
+        runtime: Runtime,
+        model: String,
+    ): Boolean =
+        try {
+            runtime.session.setModel(model)
+            true
+        } catch (e: CancellationException) {
+            throw e
+        } catch (e: Exception) {
+            false
+        }
 
     // Unsupported operations, errors from the agent and a dead process all leave the same outcome:
     // the mode waits for the next start.

@@ -247,6 +247,7 @@ class FeatureFlags(config: Map<String, Boolean>) {
 | `presets` (teams of agents with roles and prompts, kept in `presets.json`) | T14 |
 | `remote-access` (a token-paired JSON API on `127.0.0.1`, reached through the user's tunnel) | T15 |
 | `plugins` (WebAssembly plugins that add ACP agents and task actions; see `docs/plugins.md`) | T16 |
+| `handoff` (switch a task's agent or model; a fresh session gets the conversation from the transcript) | T23 |
 | `pty-terminal` | Reserved |
 
 ## 7. Core API and orchestration
@@ -263,6 +264,7 @@ interface OctoCore {
     suspend fun editQueued(taskId: TaskId, queuedId: Int, text: String)
     suspend fun removeQueued(taskId: TaskId, queuedId: Int)
     suspend fun respond(taskId: TaskId, requestId: String, response: RequestResponse)
+    suspend fun switchAgent(taskId: TaskId, agent: AgentId, model: String?) // same worktree and branch
     suspend fun setPermissionMode(taskId: TaskId, mode: PermissionMode)
     suspend fun cancel(taskId: TaskId)              // cancel the current turn
     suspend fun stop(taskId: TaskId)
@@ -288,6 +290,14 @@ agent and writes the state. `close()` belongs to `app`, so it is not on the inte
 - **Diff.** `git diff <merge-base(base, HEAD)>` in the worktree plus untracked files, parsed into
   files and hunks in common code.
 - **Restart.** The persisted `AgentSessionRef` goes into `SessionSpec.resume`.
+- **Switching agents.** `switchAgent` keeps the worktree and branch. A new model for the same agent
+  goes to the running session through `AgentSession.setModel` when the adapter has
+  `ModelSelection` (Claude's `set_model` control request; Codex takes `model` on the next
+  `turn/start`). Anything else, or a refused switch, stops the agent and starts a fresh session;
+  the task remembers whom it came from, and the next prompt is wrapped in a handoff that
+  `Handoff.build` makes from Octo's transcript: the original request, then the newest messages
+  and command outcomes (each output's tail) that fit a token budget. The new request is never
+  cut. The handoff goes out once.
 - **Prompts while busy.** `sendPrompt` runs under the task's lock. An idle agent gets the prompt
   and reads as working at once, so a second sender never sees a stale idle. A busy agent is
   steered when its adapter declares `Steer` and the steer succeeds; otherwise the text joins
