@@ -13,6 +13,7 @@ import octo.core.agent.PlanEntry
 import octo.core.agent.RequestResponse
 import octo.core.agent.Role
 import octo.core.agent.SessionSpec
+import octo.core.agent.SessionStats
 import octo.core.agent.StopReason
 import octo.core.agent.ToolStatus
 import octo.testing.Events
@@ -72,6 +73,41 @@ class CursorAdapterTest {
             assertEquals(StopReason.EndTurn, (all[endIndex] as AgentEvent.TurnEnded).stopReason)
             assertTrue(all.indexOf(AgentEvent.Message(Role.Assistant, "Looking.")) < endIndex)
             assertEquals(AgentEvent.Exited(0), all.last())
+        }
+
+    @Test
+    fun modelContextAndTokenTotalsComeFromTheProtocol() =
+        runTest {
+            val (adapter, _) = fixture("stats.transcript")
+            val session = adapter.start(SessionSpec("/repo"))
+            val events = Events(backgroundScope, session)
+            session.prompt("One")
+            events.next<AgentEvent.TurnEnded>()
+            session.prompt("Two")
+            val stats = events.drain().filterIsInstance<AgentEvent.StatsUpdated>().map { it.stats }
+
+            assertEquals(
+                listOf(
+                    SessionStats(model = "Composer Fast"),
+                    SessionStats(contextUsed = 1200, contextWindow = 200_000),
+                    SessionStats(model = "Composer Max"),
+                    SessionStats(inputTokens = 100, outputTokens = 30, cacheReadTokens = 50),
+                    SessionStats(inputTokens = 115, outputTokens = 35, cacheReadTokens = 50),
+                ),
+                stats,
+            )
+        }
+
+    @Test
+    fun theOlderModelsStateNamesTheModel() =
+        runTest {
+            val (adapter, _) = fixture("models.transcript")
+            val session = adapter.start(SessionSpec("/repo"))
+
+            assertEquals(
+                SessionStats(model = "Model Two"),
+                Events(backgroundScope, session).next<AgentEvent.StatsUpdated>().stats,
+            )
         }
 
     @Test

@@ -47,6 +47,7 @@ internal fun TaskView.next(
         pending = opened.filter { it.id in reduced.pendingRequests },
         failure = reduced.failure,
         unseen = seen,
+        stats = (event as? AgentEvent.StatsUpdated)?.let { stats.merge(it.stats) } ?: stats,
     )
 }
 

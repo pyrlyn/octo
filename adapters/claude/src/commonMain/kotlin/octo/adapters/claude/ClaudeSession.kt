@@ -20,6 +20,7 @@ import octo.adapters.base.double
 import octo.adapters.base.long
 import octo.adapters.base.obj
 import octo.adapters.base.parseJsonObject
+import octo.adapters.base.plusTokens
 import octo.adapters.base.string
 import octo.core.agent.AgentEvent
 import octo.core.agent.AgentSessionRef
@@ -31,6 +32,7 @@ import octo.core.agent.Question
 import octo.core.agent.RequestResponse
 import octo.core.agent.Role
 import octo.core.agent.SessionSpec
+import octo.core.agent.SessionStats
 import octo.core.agent.StopReason
 import octo.core.agent.ToolStatus
 import octo.core.agent.Usage
@@ -57,6 +59,7 @@ internal class ClaudeSession(
     }
 
     private val lock = Mutex()
+    private var totals = SessionStats()
     private val outgoing = mutableMapOf<String, CompletableDeferred<JsonObject>>()
     private val pending = mutableMapOf<String, Pending>()
     private val tools = mutableMapOf<String, AgentEvent.ToolCall>()
@@ -149,6 +152,7 @@ internal class ClaudeSession(
     }
 
     private fun system(message: JsonObject) {
+        message.string("model")?.let { emit(AgentEvent.StatsUpdated(SessionStats(model = it))) }
         val id = message.string("session_id") ?: return
         // A resumed or forked session can come back under a new id; the core keeps the latest.
         if (id != ref.value) emit(AgentEvent.SessionReady(AgentSessionRef(id)))
@@ -162,6 +166,8 @@ internal class ClaudeSession(
     }
 
     private suspend fun assistant(message: JsonObject) {
+        // A subagent's messages carry its own context, not the session's.
+        if (message.string("parent_tool_use_id") == null) contextUsed(message.obj("message")?.obj("usage"))
         for (block in message.obj("message")?.array("content").orEmpty()) {
             val content = block.obj() ?: continue
             when (content.string("type")) {
@@ -182,6 +188,13 @@ internal class ClaudeSession(
                 }
             }
         }
+    }
+
+    // Every request resends the whole context, so the latest prompt size is what the window holds.
+    private fun contextUsed(usage: JsonObject?) {
+        val parts = listOf("input_tokens", "cache_read_input_tokens", "cache_creation_input_tokens")
+        val used = parts.mapNotNull { usage?.long(it) }.takeIf { it.isNotEmpty() }?.sum() ?: return
+        emit(AgentEvent.StatsUpdated(SessionStats(contextUsed = used)))
     }
 
     private suspend fun toolUse(content: JsonObject) {
@@ -234,6 +247,7 @@ internal class ClaudeSession(
                 else -> StopReason.EndTurn
             }
         val usage = message.obj("usage")
+        turnStats(usage, message.obj("modelUsage"))
         emit(
             AgentEvent.TurnEnded(
                 stopReason = reason,
@@ -246,6 +260,22 @@ internal class ClaudeSession(
                 message = if (reason == StopReason.Error) errorText(message) else null,
             ),
         )
+    }
+
+    private suspend fun turnStats(
+        usage: JsonObject?,
+        models: JsonObject?,
+    ) {
+        val turn =
+            SessionStats(
+                inputTokens = usage?.long("input_tokens"),
+                outputTokens = usage?.long("output_tokens"),
+                cacheReadTokens = usage?.long("cache_read_input_tokens"),
+                cacheWriteTokens = usage?.long("cache_creation_input_tokens"),
+            )
+        val window = models?.values?.mapNotNull { it.obj()?.long("contextWindow") }?.maxOrNull()
+        val stats = lock.withLock { totals.plusTokens(turn).also { totals = it } }
+        emit(AgentEvent.StatsUpdated(stats.copy(contextWindow = window)))
     }
 
     private suspend fun controlRequest(message: JsonObject) {

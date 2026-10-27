@@ -4,6 +4,7 @@ import kotlinx.coroutines.async
 import kotlinx.coroutines.awaitAll
 import kotlinx.coroutines.coroutineScope
 import octo.core.agent.AdapterRegistry
+import octo.core.agent.AgentIcon
 import octo.core.agent.AgentId
 import octo.core.agent.AgentProbe
 import octo.core.agent.Capability
@@ -15,6 +16,7 @@ data class AgentInfo(
     val displayName: String,
     val capabilities: Set<Capability>,
     val probe: AgentProbe,
+    val icon: AgentIcon? = null,
 )
 
 /** The agents the user can pick from, and their terms; the UI's only view of adapters. */
@@ -42,7 +44,15 @@ class RegistryAgentCatalog(
             val registry = if (machine == null) registry else remote[machine] ?: throw UnknownMachineException(machine)
             registry.adapters
                 .map { adapter ->
-                    async { AgentInfo(adapter.id, adapter.displayName, adapter.capabilities, adapter.probe()) }
+                    async {
+                        AgentInfo(
+                            adapter.id,
+                            adapter.displayName,
+                            adapter.capabilities,
+                            adapter.probe(),
+                            adapter.icon,
+                        )
+                    }
                 }.awaitAll()
         }
 

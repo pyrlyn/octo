@@ -4,6 +4,7 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withTimeoutOrNull
 import octo.adapters.base.BaseAgentAdapter
 import octo.adapters.base.ProcessAgentSession
+import octo.core.agent.AgentIcon
 import octo.core.agent.AgentId
 import octo.core.agent.AuthState
 import octo.core.agent.Capability
@@ -22,6 +23,10 @@ class CodexAdapter(
 ) : BaseAgentAdapter(launcher, context) {
     override val id = ID
     override val displayName = "Codex"
+    override val icon =
+        AgentIcon(
+            """<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><rect width="24" height="24" rx="6" fill="#10A37F"/><path d="M9 7l-5 5 5 5M15 7l5 5-5 5" fill="none" stroke="#fff" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/></svg>""",
+        )
     override val capabilities =
         setOf(
             Capability.Resume,

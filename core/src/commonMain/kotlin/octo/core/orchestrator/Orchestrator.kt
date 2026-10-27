@@ -5,6 +5,7 @@ import kotlinx.coroutines.Job
 import kotlinx.coroutines.NonCancellable
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.cancelAndJoin
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -13,6 +14,8 @@ import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.conflate
 import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.flow.drop
+import kotlinx.coroutines.flow.flow
+import kotlinx.coroutines.flow.flowOf
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.flow.updateAndGet
@@ -30,11 +33,14 @@ import octo.core.agent.Capability
 import octo.core.agent.RequestResponse
 import octo.core.agent.Role
 import octo.core.agent.SessionSpec
+import octo.core.agent.SessionStats
 import octo.core.git.TaskDiff
 import octo.core.git.Workspace
 import octo.core.messaging.McpProvider
 import octo.core.persist.PersistedState
 import octo.core.persist.StateStore
+import octo.core.process.ProcessMonitor
+import octo.core.process.ProcessUsage
 import octo.core.status.AgentState
 import octo.core.status.AgentStatus
 import octo.core.task.Layout
@@ -61,6 +67,7 @@ class Orchestrator private constructor(
     private val scope: CoroutineScope,
     private val newId: () -> String,
     private val mcp: McpProvider?,
+    private val processes: ProcessMonitor?,
 ) : OctoCore {
     private val mutableState = MutableStateFlow(OctoState())
     private val transcripts = MutableStateFlow<Map<TaskId, List<TranscriptEntry>>>(emptyMap())
@@ -201,6 +208,28 @@ class Orchestrator private constructor(
         updateView(taskId) { it.copy(unseen = false) }
     }
 
+    override val processUsage: Flow<Map<TaskId, ProcessUsage>> =
+        processes?.let { monitor ->
+            flow {
+                while (true) {
+                    // A remote task's local process is the ssh client, whose figures would mislead.
+                    val local =
+                        mutableState.value.tasks
+                            .filter { it.task.machine == null }
+                            .map { it.task.id }
+                            .toSet()
+                    val roots =
+                        runtimes.value
+                            .filterKeys { it in local }
+                            .mapNotNull { (id, runtime) -> runtime.session.processId?.let { id to it } }
+                            .toMap()
+                    val sampled = monitor.sample(roots.values.toSet())
+                    emit(roots.mapNotNull { (id, pid) -> sampled[pid]?.let { id to it } }.toMap())
+                    delay(PROCESS_SAMPLE_MS)
+                }
+            }
+        } ?: flowOf(emptyMap())
+
     /** Stops every agent and writes the state; owned by the app, not the UI, so it is not on [OctoCore]. */
     suspend fun close() {
         mutableState.value.tasks.forEach { stop(it.task.id) }
@@ -222,7 +251,9 @@ class Orchestrator private constructor(
             note(id, TranscriptEntry.Notice("${adapter.displayName} cannot resume a session; started a fresh one"))
         }
         val agent = MutableStateFlow(AgentState.Initial)
-        updateView(id) { it.copy(status = AgentStatus.Starting, pending = emptyList(), failure = null) }
+        updateView(id) {
+            it.copy(status = AgentStatus.Starting, pending = emptyList(), failure = null, stats = SessionStats())
+        }
         val session =
             try {
                 // Octo's MCP server listens on this machine's loopback, so a remote agent cannot reach it.
@@ -364,6 +395,7 @@ class Orchestrator private constructor(
     companion object {
         const val BRANCH_PREFIX = "octo/"
         private const val STOP_TIMEOUT_MS = 10_000L
+        private const val PROCESS_SAMPLE_MS = 2_000L
         private const val SLUG_LENGTH = 32
         private val NOT_SLUG = Regex("[^a-z0-9]+")
 
@@ -378,6 +410,7 @@ class Orchestrator private constructor(
             newId: () -> String = ::randomId,
             machines: Map<String, Machine> = emptyMap(),
             mcp: McpProvider? = null,
+            processes: ProcessMonitor? = null,
         ): Orchestrator =
             Orchestrator(
                 Machines(LocalMachine(registry, workspace, worktrees), machines),
@@ -386,6 +419,7 @@ class Orchestrator private constructor(
                 scope,
                 newId,
                 mcp,
+                processes,
             ).also {
                 it.begin()
             }

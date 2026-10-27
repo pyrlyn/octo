@@ -33,6 +33,8 @@ data class MainUiState(
     val sidebarWidth: Float = DEFAULT_SIDEBAR_WIDTH,
     val diffOpen: Boolean = false,
     val newTaskOpen: Boolean = false,
+    /** The running-agents screen replaces the selected task until a task is picked or it is closed. */
+    val agentsOpen: Boolean = false,
     val warnings: List<String> = emptyList(),
     val error: String? = null,
     val warningsDismissed: Boolean = false,
@@ -59,6 +61,7 @@ class MainViewModel(
     }
 
     fun select(id: TaskId) {
+        closeAgents()
         act {
             core.updateLayout(
                 core.state.value.layout
@@ -88,6 +91,10 @@ class MainViewModel(
     }
 
     fun openNewTask() = mutable.update { it.copy(newTaskOpen = true) }
+
+    fun openAgents() = mutable.update { it.copy(agentsOpen = true) }
+
+    fun closeAgents() = mutable.update { it.copy(agentsOpen = false) }
 
     fun closeNewTask() = mutable.update { it.copy(newTaskOpen = false) }
 

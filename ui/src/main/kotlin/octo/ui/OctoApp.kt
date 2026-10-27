@@ -107,6 +107,10 @@ private fun Content(
     state: MainUiState,
     models: ViewModels,
 ) {
+    if (state.agentsOpen) {
+        AgentsPane(models)
+        return
+    }
     val id = state.selected
     if (id == null) {
         Empty(models.main::openNewTask)
@@ -146,6 +150,13 @@ private fun TaskPane(
         DisposableEffect(publish) { onDispose { publish.close() } }
         PublishDialog(publish, onDismiss = { publishing = false })
     }
+}
+
+@Composable
+private fun AgentsPane(models: ViewModels) {
+    val vm = remember { models.agents() }
+    DisposableEffect(vm) { onDispose { vm.close() } }
+    AgentsScreen(vm, onClose = models.main::closeAgents)
 }
 
 @Composable

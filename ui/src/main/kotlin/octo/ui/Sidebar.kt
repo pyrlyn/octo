@@ -52,6 +52,9 @@ internal fun Sidebar(
                 }
             }
         }
+        TextButton(onClick = vm::openAgents, modifier = Modifier.fillMaxWidth().padding(horizontal = Gap)) {
+            Text("Agents")
+        }
         onDevices?.let { TextButton(onClick = it, modifier = Modifier.fillMaxWidth().padding(Gap)) { Text("Devices") } }
     }
 }

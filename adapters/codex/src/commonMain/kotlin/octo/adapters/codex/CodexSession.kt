@@ -28,6 +28,7 @@ import octo.core.agent.Question
 import octo.core.agent.RequestResponse
 import octo.core.agent.Role
 import octo.core.agent.SessionSpec
+import octo.core.agent.SessionStats
 import octo.core.agent.StopReason
 import octo.core.agent.ToolStatus
 import octo.core.agent.Usage
@@ -77,6 +78,7 @@ internal class CodexSession(
         val id = thread.obj()?.obj("thread")?.string("id") ?: error("Codex returned no thread id")
         lock.withLock { threadId = id }
         emit(AgentEvent.SessionReady(AgentSessionRef(id)))
+        thread.obj()?.string("model")?.let { emit(AgentEvent.StatsUpdated(SessionStats(model = it))) }
     }
 
     override suspend fun prompt(text: String) {
@@ -236,7 +238,21 @@ internal class CodexSession(
     }
 
     private suspend fun tokenUsage(p: JsonObject) {
-        val last = p.obj("tokenUsage")?.obj("last") ?: return
+        val tokens = p.obj("tokenUsage") ?: return
+        val total = tokens.obj("total")
+        emit(
+            AgentEvent.StatsUpdated(
+                SessionStats(
+                    contextUsed = tokens.obj("last")?.long("totalTokens"),
+                    contextWindow = tokens.long("modelContextWindow"),
+                    inputTokens = total?.long("inputTokens"),
+                    outputTokens = total?.long("outputTokens"),
+                    cacheReadTokens = total?.long("cachedInputTokens"),
+                    cacheWriteTokens = total?.long("cacheWriteInputTokens"),
+                ),
+            ),
+        )
+        val last = tokens.obj("last") ?: return
         lock.withLock {
             usage =
                 Usage(

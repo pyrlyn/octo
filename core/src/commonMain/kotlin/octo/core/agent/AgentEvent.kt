@@ -57,6 +57,11 @@ sealed interface AgentEvent {
         val message: String? = null,
     ) : AgentEvent
 
+    /** The agent's latest model, context and token figures; see [SessionStats.merge]. */
+    data class StatsUpdated(
+        val stats: SessionStats,
+    ) : AgentEvent
+
     data class Log(
         val stream: LogStream,
         val line: String,
@@ -112,6 +117,33 @@ data class Usage(
     val outputTokens: Long? = null,
     val costUsd: Double? = null,
 )
+
+/**
+ * What an agent says about its session so far. Token counts are totals for the session, not
+ * deltas, and a null field is one the agent did not report this time.
+ */
+data class SessionStats(
+    val model: String? = null,
+    /** Tokens currently in the context window. */
+    val contextUsed: Long? = null,
+    val contextWindow: Long? = null,
+    val inputTokens: Long? = null,
+    val outputTokens: Long? = null,
+    val cacheReadTokens: Long? = null,
+    val cacheWriteTokens: Long? = null,
+) {
+    /** Agents report figures piecemeal, so a field [next] leaves out keeps its last value. */
+    fun merge(next: SessionStats) =
+        SessionStats(
+            model = next.model ?: model,
+            contextUsed = next.contextUsed ?: contextUsed,
+            contextWindow = next.contextWindow ?: contextWindow,
+            inputTokens = next.inputTokens ?: inputTokens,
+            outputTokens = next.outputTokens ?: outputTokens,
+            cacheReadTokens = next.cacheReadTokens ?: cacheReadTokens,
+            cacheWriteTokens = next.cacheWriteTokens ?: cacheWriteTokens,
+        )
+}
 
 sealed interface RequestResponse {
     data class Option(

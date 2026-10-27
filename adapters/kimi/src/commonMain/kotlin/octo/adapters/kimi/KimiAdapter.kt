@@ -3,6 +3,7 @@ package octo.adapters.kimi
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withTimeoutOrNull
 import octo.adapters.base.AcpAgentAdapter
+import octo.core.agent.AgentIcon
 import octo.core.agent.AgentId
 import octo.core.agent.SessionSpec
 import octo.core.agent.WrongAgentBinaryException
@@ -18,6 +19,10 @@ class KimiAdapter(
 ) : AcpAgentAdapter(launcher, context) {
     override val id = ID
     override val displayName = "Kimi Code"
+    override val icon =
+        AgentIcon(
+            """<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><rect width="24" height="24" rx="6" fill="#7C3AED"/><path d="M15 5a7 7 0 1 0 4 12.5A6 6 0 0 1 15 5z" fill="#fff"/></svg>""",
+        )
     override val binary = "kimi"
     override val verifiedVersion = "0.39.1"
 
