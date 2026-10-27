@@ -34,6 +34,16 @@ the Octo home (`OCTO_HOME`, or the platform's app data folder):
 { "flags": { "demo-agent": true } }
 ```
 
+Each task runs in one of four permission modes: Supervised (the agent asks before commands and
+edits), Auto-accept edits, Auto (the agent's own review approves routine actions) and Full
+access. Pick one in the new-task dialog or change it on a running task. An agent without the
+chosen mode runs Supervised and says so in the transcript. Claude Code and Codex have all four;
+the ACP agents run Supervised. New tasks take `defaultPermissionMode` from `config.json`:
+
+```json
+{ "defaultPermissionMode": "AutoAcceptEdits" }
+```
+
 `"git-publish": true` adds a Publish action to each task: it commits the worktree, pushes the
 branch and opens a pull request with your own `git` and `gh` login.
 
@@ -78,7 +88,7 @@ the traffic. Pair a device from Devices in the sidebar: Octo shows a one-time co
 five minutes and five tries. `POST /api/v1/pair` with `{"code", "name"}` returns the device's
 token; every other call sends it as `Authorization: Bearer <token>`. The calls:
 
-- `GET /tasks`, `POST /tasks` with `{repo, baseRef, agent, title, prompt?, options?, machine?}`;
+- `GET /tasks`, `POST /tasks` with `{repo, baseRef, agent, title, prompt?, options?, machine?, permissionMode?}`;
 - `GET /tasks/{id}/transcript`;
 - `POST /tasks/{id}/prompt` with `{text}`, and `POST /tasks/{id}/respond` with `{requestId}` plus
   one of `optionId`, `answers` or `cancelled: true`;

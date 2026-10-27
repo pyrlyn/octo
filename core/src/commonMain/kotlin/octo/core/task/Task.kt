@@ -3,6 +3,7 @@ package octo.core.task
 import kotlinx.serialization.Serializable
 import octo.core.agent.AgentId
 import octo.core.agent.AgentSessionRef
+import octo.core.agent.PermissionMode
 import octo.core.agent.PermissionOption
 import octo.core.agent.Question
 import octo.core.agent.SessionStats
@@ -23,10 +24,12 @@ data class NewTask(
     val agent: AgentId,
     val title: String,
     val prompt: String? = null,
-    /** Adapter options such as the model or permission mode. */
+    /** Adapter options such as the model. */
     val options: Map<String, String> = emptyMap(),
     /** A machine id from the config; null runs the task on this computer. */
     val machine: String? = null,
+    /** Null takes the default from the config. */
+    val permissionMode: PermissionMode? = null,
 )
 
 /** One agent working in its own worktree; this part is persisted. */
@@ -47,6 +50,8 @@ data class Task(
     val machine: String? = null,
     /** The agent this task was switched away from; the next prompt carries the conversation over. */
     val handoffFrom: String? = null,
+    /** What the user chose; the agent runs it only if its adapter has it. */
+    val permissionMode: PermissionMode = PermissionMode.Supervised,
     /** Prompts waiting for the agent to be idle, oldest first; persisted so a restart keeps them. */
     val queue: List<QueuedPrompt> = emptyList(),
 )

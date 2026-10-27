@@ -7,6 +7,7 @@ import kotlinx.coroutines.test.runCurrent
 import kotlinx.coroutines.test.runTest
 import octo.core.agent.AgentId
 import octo.core.agent.PermissionKind
+import octo.core.agent.PermissionMode
 import octo.core.agent.PermissionOption
 import octo.core.agent.Question
 import octo.core.agent.Role
@@ -244,6 +245,38 @@ class ViewModelTest {
             assertEquals(listOf(AgentId("demo")), catalog.acknowledged)
             assertEquals(TaskId("t1"), vm.state.value.created)
             assertTrue("create Fix the build Fix the build\nand more" in core.calls)
+        }
+
+    @Test
+    fun newTaskOffersTheAgentsPermissionModes() =
+        runTest {
+            val vm = NewTaskViewModel(core, FakeCatalog(core), backgroundScope)
+            settle()
+            assertEquals(listOf(PermissionMode.Supervised, PermissionMode.Auto), vm.state.value.permissionModes)
+            assertNull(vm.state.value.chosenPermissionMode, "the config default until the user picks one")
+            vm.selectPermissionMode(PermissionMode.Auto)
+            vm.editRepo("/src/octo")
+            loadBranches()
+            vm.editPrompt("Go")
+            vm.create()
+            settle()
+            assertTrue("create Go Go as Auto" in core.calls)
+
+            vm.selectMachine("box")
+            settle()
+            assertEquals(listOf(PermissionMode.Supervised), vm.state.value.permissionModes)
+            assertNull(vm.state.value.chosenPermissionMode, "a mode the agent lacks falls back to the default")
+        }
+
+    @Test
+    fun aTaskChangesItsPermissionMode() =
+        runTest {
+            core.put(view("a", AgentStatus.Working))
+            val vm = TaskViewModel(core, TaskId("a"), backgroundScope)
+            vm.setPermissionMode(PermissionMode.FullAccess)
+            settle()
+            assertTrue("mode FullAccess" in core.calls)
+            vm.close()
         }
 
     @Test

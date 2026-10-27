@@ -9,6 +9,7 @@ import octo.core.agent.AuthState
 import octo.core.agent.LogStream
 import octo.core.agent.McpServer
 import octo.core.agent.PermissionKind
+import octo.core.agent.PermissionMode
 import octo.core.agent.PlanEntry
 import octo.core.agent.RequestResponse
 import octo.core.agent.Role
@@ -23,6 +24,7 @@ import octo.testing.readFixture
 import octo.testing.replay
 import kotlin.test.Test
 import kotlin.test.assertEquals
+import kotlin.test.assertFailsWith
 import kotlin.test.assertFalse
 import kotlin.test.assertTrue
 
@@ -47,7 +49,25 @@ class ClaudeAdapterTest {
             assertTrue(
                 spec.args.containsAll(listOf("-p", "--permission-prompt-tool", "stdio", "--include-partial-messages")),
             )
-            assertEquals(listOf("--model=opus", "--session-id=new-id"), spec.args.takeLast(2))
+            assertEquals(
+                listOf("--model=opus", "--permission-mode=default", "--session-id=new-id"),
+                spec.args.takeLast(3),
+            )
+        }
+
+    @Test
+    fun permissionModesMapToClaudesOwn() =
+        runTest {
+            val (adapter, launcher) = fixture("permission-mode.transcript")
+            assertEquals(PermissionMode.entries.toSet(), adapter.permissionModes)
+            assertEquals(
+                listOf("default", "acceptEdits", "auto", "bypassPermissions"),
+                PermissionMode.entries.map { ClaudeAdapter.nativeMode(it) },
+            )
+            val session = adapter.start(SessionSpec("/repo", permissionMode = PermissionMode.Auto))
+            assertTrue("--permission-mode=auto" in launcher.launched.single().args)
+            session.setPermissionMode(PermissionMode.AutoAcceptEdits)
+            assertFailsWith<IllegalStateException> { session.setPermissionMode(PermissionMode.FullAccess) }
         }
 
     @Test

@@ -3,6 +3,7 @@ package octo.core.config
 import kotlinx.serialization.Serializable
 import kotlinx.serialization.SerializationException
 import kotlinx.serialization.json.Json
+import octo.core.agent.PermissionMode
 import octo.core.flags.FeatureFlags
 import octo.core.remote.SshProcessLauncher
 
@@ -14,6 +15,8 @@ data class OctoConfig(
     val machines: List<MachineConfig> = emptyList(),
     /** Used only with the `remote-access` flag on. */
     val remoteAccess: RemoteAccessConfig = RemoteAccessConfig(),
+    /** For new tasks that do not choose one. */
+    val defaultPermissionMode: PermissionMode = PermissionMode.Supervised,
 ) {
     fun featureFlags(): FeatureFlags = FeatureFlags(flags)
 

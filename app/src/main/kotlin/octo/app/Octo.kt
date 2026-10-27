@@ -99,6 +99,7 @@ class Octo private constructor(
                     machines = remote.machines,
                     mcp = messaging,
                     processes = JvmProcessMonitor(launcher),
+                    defaultPermissionMode = config.defaultPermissionMode,
                 )
             messaging?.attach(orchestrator)
             val publisher =

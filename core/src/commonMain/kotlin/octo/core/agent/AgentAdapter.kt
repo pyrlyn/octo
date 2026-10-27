@@ -68,6 +68,8 @@ data class SessionSpec(
     val resume: AgentSessionRef? = null,
     val env: Map<String, String> = emptyMap(),
     val options: Map<String, String> = emptyMap(),
+    /** Already one of the adapter's [AgentAdapter.permissionModes]. */
+    val permissionMode: PermissionMode = PermissionMode.Supervised,
     /** Octo's own servers; only adapters with [Capability.Mcp] get any. */
     val mcpServers: List<McpServer> = emptyList(),
 )
@@ -96,6 +98,9 @@ interface AgentAdapter {
 
     /** Null shows a monogram of [displayName]. */
     val icon: AgentIcon? get() = null
+
+    /** The modes this agent can map; any other runs as [PermissionMode.Supervised]. */
+    val permissionModes: Set<PermissionMode> get() = setOf(PermissionMode.Supervised)
 
     suspend fun probe(): AgentProbe
 
@@ -128,6 +133,13 @@ interface AgentSession {
      */
     suspend fun setModel(model: String): Unit =
         throw UnsupportedOperationException("This agent cannot change its model while it runs")
+
+    /**
+     * Switches the running session to [mode], one of [AgentAdapter.permissionModes]. Throws when
+     * the agent cannot switch in place; the mode then applies from the next start.
+     */
+    suspend fun setPermissionMode(mode: PermissionMode): Unit =
+        throw UnsupportedOperationException("This agent cannot change its permission mode while it runs")
 
     /** Cancels the current turn; the session stays usable. */
     suspend fun cancel()

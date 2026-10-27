@@ -10,6 +10,7 @@ import kotlinx.serialization.json.jsonObject
 import kotlinx.serialization.json.jsonPrimitive
 import octo.core.agent.AgentEvent
 import octo.core.agent.PermissionKind
+import octo.core.agent.PermissionMode
 import octo.core.agent.PermissionOption
 import octo.core.agent.RequestResponse
 import octo.core.agent.StopReason
@@ -131,6 +132,22 @@ class RemoteApiTest {
                     .isNotEmpty(),
             )
             assertEquals(204, t.call("POST", "/tasks/$id/stop").status)
+        }
+
+    @Test
+    fun aDeviceChoosesThePermissionMode() =
+        runTest {
+            val t = api()
+            val bad = newTask.replace("}", ""","permissionMode":"Yolo"}""")
+            assertEquals(400, t.call("POST", "/tasks", bad).status)
+            val created = t.call("POST", "/tasks", newTask.replace("}", ""","permissionMode":"Auto"}"""))
+            assertEquals(201, created.status)
+            assertEquals(
+                PermissionMode.Auto,
+                t.s.core.state.value.tasks
+                    .single()
+                    .task.permissionMode,
+            )
         }
 
     @Test

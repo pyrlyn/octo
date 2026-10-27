@@ -36,6 +36,7 @@ import androidx.compose.ui.focus.onFocusChanged
 import androidx.compose.ui.platform.LocalUriHandler
 import androidx.compose.ui.text.input.ImeAction
 import octo.core.agent.AuthState
+import octo.core.agent.PermissionMode
 import octo.core.orchestrator.AgentInfo
 import octo.core.task.TaskId
 import octo.ui.vm.NewTaskUiState
@@ -229,6 +230,21 @@ private fun SingleAgent(
     Text("Agent", style = MaterialTheme.typography.titleSmall)
     if (state.loadingAgents) Text("Looking for installed agents…")
     state.agents.forEach { AgentChoice(it, selected = it.id == state.agent, onSelect = { vm.selectAgent(it.id) }) }
+    if (state.permissionModes.size > 1) PermissionChoice(state, vm)
+}
+
+@Composable
+private fun PermissionChoice(
+    state: NewTaskUiState,
+    vm: NewTaskViewModel,
+) {
+    Text("Permissions", style = MaterialTheme.typography.titleSmall)
+    (listOf<PermissionMode?>(null) + state.permissionModes).forEach { mode ->
+        Row(verticalAlignment = Alignment.CenterVertically) {
+            RadioButton(selected = state.chosenPermissionMode == mode, onClick = { vm.selectPermissionMode(mode) })
+            Text(mode?.label ?: "Default from the config")
+        }
+    }
 }
 
 @Composable
