@@ -10,6 +10,7 @@ import octo.core.paths.OctoPaths
 import octo.core.paths.currentHostOs
 import octo.core.process.JvmProcessLauncher
 import octo.ui.OctoApp
+import octo.ui.isPaletteShortcut
 import octo.ui.vm.ViewModels
 
 fun main() {
@@ -31,6 +32,7 @@ fun main() {
             octo.fork,
             octo.compare,
             octo.sections,
+            octo.palette,
         )
     application {
         Window(
@@ -39,6 +41,9 @@ fun main() {
                 exitApplication()
             },
             title = "Octo",
+            onPreviewKeyEvent = { event ->
+                (octo.palette && isPaletteShortcut(event)).also { if (it) models.main.togglePalette() }
+            },
         ) {
             OctoApp(models)
         }

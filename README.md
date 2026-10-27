@@ -128,6 +128,11 @@ settles it. A snoozed task comes back early when its agent blocks or fails. With
 as well, a task whose branch has a merged pull request is settled on its own; Octo asks `gh`
 every five minutes.
 
+`"palette": true` binds Cmd+K (Ctrl+K off macOS) to a command palette. It finds tasks by title
+and by the text of their messages, and runs actions: new task, diff, publish, switch agent, fork,
+stop, and the agents and devices screens. An action whose flag is off is not listed. Arrow keys
+move, Enter runs, Escape closes.
+
 `"plugins": true` loads WebAssembly plugins from the `plugins` folder in the Octo home. A plugin
 can add ACP agents and actions in a task's Plugins menu. A plugin cannot reach files, processes or
 the network. A broken one is skipped with a warning. See `docs/plugins.md` for the ABI.

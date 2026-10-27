@@ -130,6 +130,14 @@ as a mask; Octo has no secret to show), `OctoCore.processUsage` for CPU and memo
 task's `SessionStats` for model, context and tokens. A task on a remote machine shows "remote"
 instead of process figures, because its local process is only the ssh client.
 
+The command palette (`PaletteViewModel`) searches `OctoCore.state` and each task's transcript.
+`rank` lists tasks first, in this order: title prefix, then a title word that starts with the
+query, then a title that contains it, then a user or agent message that contains it, shown with
+a snippet. Commands whose label matches come after the tasks. A command only opens state in
+`MainViewModel` (`run`). The publish and switch-agent dialogs, and the devices dialog, live in
+`MainUiState`, so the palette and the buttons open the same dialogs. The window binds the
+shortcut.
+
 **`app`** holds `main()`, the adapter list, platform paths and the Compose Desktop packaging.
 
 ## 4. The adapter SPI (core)
@@ -251,6 +259,7 @@ class FeatureFlags(config: Map<String, Boolean>) {
 | `fork` (a new task on a new branch from a task's current worktree, linked to its parent) | T24 |
 | `compare` (one prompt to several agents or models, each in its own task, grouped in the sidebar) | T26 |
 | `sections` (pin, snooze and settle tasks; with `git-publish`, settle a task once its PR merges) | T28 |
+| `palette` (Cmd+K: find tasks by title or message text and run the app's actions) | T30 |
 | `pty-terminal` | Reserved |
 
 ## 7. Core API and orchestration

@@ -37,6 +37,8 @@ import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.unit.dp
 import octo.core.task.TaskId
 import octo.ui.vm.MainUiState
+import octo.ui.vm.PaletteItem
+import octo.ui.vm.TaskDialog
 import octo.ui.vm.ViewModels
 import java.awt.Cursor
 
@@ -44,7 +46,6 @@ import java.awt.Cursor
 fun OctoApp(models: ViewModels) {
     val main = models.main
     val state by main.state.collectAsState()
-    var devicesOpen by remember { mutableStateOf(false) }
     MaterialTheme(colorScheme = if (isSystemInDarkTheme()) darkColorScheme() else lightColorScheme()) {
         Surface(Modifier.fillMaxSize()) {
             Column(Modifier.fillMaxSize()) {
@@ -57,7 +58,7 @@ fun OctoApp(models: ViewModels) {
                         state,
                         main,
                         Modifier.width(width.dp).fillMaxHeight(),
-                        onDevices = if (models.canPair) ({ devicesOpen = true }) else null,
+                        onDevices = if (models.canPair) main::openDevices else null,
                     )
                     // Only the final width is persisted, not every frame of the drag.
                     SidebarHandle(
@@ -75,7 +76,8 @@ fun OctoApp(models: ViewModels) {
                 DisposableEffect(vm) { onDispose { vm.close() } }
                 NewTaskDialog(vm, onCreated = main::created, onDismiss = main::closeNewTask, presets = models::presets)
             }
-            if (devicesOpen) DevicesPane(models, onDismiss = { devicesOpen = false })
+            if (state.devicesOpen) DevicesPane(models, onDismiss = main::closeDevices)
+            if (state.paletteOpen) PalettePane(models)
         }
     }
 }
@@ -134,30 +136,47 @@ private fun TaskPane(
     DisposableEffect(vm) { onDispose { vm.close() } }
     val plugins = remember(id) { models.pluginActions(id) }
     DisposableEffect(plugins) { onDispose { plugins?.close() } }
-    var publishing by remember(id) { mutableStateOf(false) }
-    var switching by remember(id) { mutableStateOf(false) }
+    val main = models.main
+    val dialog =
+        main.state
+            .collectAsState()
+            .value.taskDialog
     TaskScreen(
         vm,
-        onDiff = { models.main.showDiff(true) },
-        onPublish = if (models.canPublish) ({ publishing = true }) else null,
+        onDiff = { main.showDiff(true) },
+        onPublish = if (models.canPublish) ({ main.openTaskDialog(TaskDialog.Publish) }) else null,
         plugins = plugins,
-        onSwitchAgent = if (models.canSwitchAgent) ({ switching = true }) else null,
+        onSwitchAgent = if (models.canSwitchAgent) ({ main.openTaskDialog(TaskDialog.SwitchAgent) }) else null,
         onFork = if (models.canFork) ({ models.main.fork(id) }) else null,
         places = models.main.takeIf { it.sections },
     )
-    if (switching) {
+    if (dialog == TaskDialog.SwitchAgent) {
         val switch = remember(id) { models.switchAgent(id) } ?: return
         DisposableEffect(switch) { onDispose { switch.close() } }
-        SwitchAgentDialog(switch, onDismiss = { switching = false })
+        SwitchAgentDialog(switch, onDismiss = main::closeTaskDialog)
     }
-    if (publishing) {
+    if (dialog == TaskDialog.Publish) {
         val title =
             vm.state.value.task
                 ?.title
                 .orEmpty()
         val publish = remember(id) { models.publish(id, title) } ?: return
         DisposableEffect(publish) { onDispose { publish.close() } }
-        PublishDialog(publish, onDismiss = { publishing = false })
+        PublishDialog(publish, onDismiss = main::closeTaskDialog)
+    }
+}
+
+@Composable
+private fun PalettePane(models: ViewModels) {
+    val vm = remember { models.palette() } ?: return
+    DisposableEffect(vm) { onDispose { vm.close() } }
+    val main = models.main
+    PaletteDialog(vm, onDismiss = main::closePalette) { item ->
+        main.closePalette()
+        when (item) {
+            is PaletteItem.Open -> main.select(item.id)
+            is PaletteItem.Run -> main.run(item.command)
+        }
     }
 }
 

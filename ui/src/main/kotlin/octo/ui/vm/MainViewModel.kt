@@ -57,6 +57,8 @@ data class RepoGroup(
     val tasks: List<TaskRow>,
 )
 
+enum class TaskDialog { Publish, SwitchAgent }
+
 data class MainUiState(
     val groups: List<RepoGroup> = emptyList(),
     val selected: TaskId? = null,
@@ -65,6 +67,10 @@ data class MainUiState(
     val newTaskOpen: Boolean = false,
     /** The running-agents screen replaces the selected task until a task is picked or it is closed. */
     val agentsOpen: Boolean = false,
+    /** A dialog over the selected task; picking another task closes it. */
+    val taskDialog: TaskDialog? = null,
+    val devicesOpen: Boolean = false,
+    val paletteOpen: Boolean = false,
     val warnings: List<String> = emptyList(),
     val error: String? = null,
     val warningsDismissed: Boolean = false,
@@ -95,6 +101,7 @@ class MainViewModel(
 
     fun select(id: TaskId) {
         closeAgents()
+        mutable.update { s -> s.copy(taskDialog = s.taskDialog.takeIf { id == s.selected }) }
         act {
             core.updateLayout(
                 core.state.value.layout
@@ -130,6 +137,35 @@ class MainViewModel(
     fun closeAgents() = mutable.update { it.copy(agentsOpen = false) }
 
     fun closeNewTask() = mutable.update { it.copy(newTaskOpen = false) }
+
+    fun openTaskDialog(dialog: TaskDialog) = mutable.update { it.copy(taskDialog = dialog) }
+
+    fun closeTaskDialog() = mutable.update { it.copy(taskDialog = null) }
+
+    fun openDevices() = mutable.update { it.copy(devicesOpen = true) }
+
+    fun closeDevices() = mutable.update { it.copy(devicesOpen = false) }
+
+    fun togglePalette() = mutable.update { it.copy(paletteOpen = !it.paletteOpen) }
+
+    fun closePalette() = mutable.update { it.copy(paletteOpen = false) }
+
+    fun stop(id: TaskId) = act { core.stop(id) }
+
+    /** Runs a palette [command]; one that needs a task does nothing while none is selected. */
+    fun run(command: Command) {
+        val selected = state.value.selected
+        when (command) {
+            Command.NewTask -> openNewTask()
+            Command.Agents -> openAgents()
+            Command.Devices -> openDevices()
+            Command.Diff -> selected?.let { showDiff(!state.value.diffOpen) }
+            Command.Publish -> selected?.let { openTaskDialog(TaskDialog.Publish) }
+            Command.SwitchAgent -> selected?.let { openTaskDialog(TaskDialog.SwitchAgent) }
+            Command.Fork -> selected?.let(::fork)
+            Command.Stop -> selected?.let(::stop)
+        }
+    }
 
     /** Forks [id] and opens the fork. */
     fun fork(id: TaskId) = act { select(core.forkTask(id)) }

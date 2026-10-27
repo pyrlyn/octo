@@ -32,6 +32,8 @@ class ViewModels(
     private val compare: Boolean = false,
     /** False while the `sections` flag is off, which keeps the sidebar one list. */
     sections: Boolean = false,
+    /** False while the `palette` flag is off, which leaves Cmd+K unbound. */
+    private val palette: Boolean = false,
 ) {
     val main = MainViewModel(core, scope, startupWarnings, sections)
 
@@ -55,6 +57,25 @@ class ViewModels(
         if (handoff) SwitchAgentViewModel(core, catalog, id, scope) else null
 
     fun diff(id: TaskId) = DiffViewModel(core, id, scope)
+
+    /** Null while the `palette` flag is off. Commands behind a flag that is off are left out. */
+    fun palette(): PaletteViewModel? {
+        if (!palette) return null
+        val commands =
+            Command.entries.filter {
+                when (it) {
+                    Command.Publish -> canPublish
+                    Command.SwitchAgent -> canSwitchAgent
+                    Command.Fork -> canFork
+                    Command.Devices -> canPair
+                    else -> true
+                }
+            }
+        val selected =
+            main.state.value.selected
+                ?.let { core.state.value[it]?.task }
+        return PaletteViewModel(core, scope, commands, selected)
+    }
 
     fun agents() = AgentsViewModel(core, catalog, scope)
 
