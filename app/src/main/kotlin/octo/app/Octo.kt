@@ -102,6 +102,7 @@ class Octo private constructor(
                     mcp = messaging,
                     processes = JvmProcessMonitor(launcher),
                     defaultPermissionMode = config.defaultPermissionMode,
+                    worktreeSetup = config.worktreeSetup,
                 )
             messaging?.attach(orchestrator)
             val publisher =

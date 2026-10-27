@@ -1,6 +1,9 @@
 package octo.core.git
 
 import kotlinx.io.files.Path
+import octo.core.process.ProcessResult
+import octo.core.process.ProcessSpec
+import octo.core.process.run
 
 /** The repository operations the orchestrator needs; an interface so it can be tested without git. */
 interface Workspace {
@@ -28,6 +31,12 @@ interface Workspace {
         path: String,
         branch: String,
     )
+
+    /** Runs [command] with `/bin/sh -c` in [worktree]; cancelling it kills the command. */
+    suspend fun runSetup(
+        worktree: String,
+        command: String,
+    ): ProcessResult
 
     /** Uncommitted or untracked changes in [worktree]. */
     suspend fun isDirty(worktree: String): Boolean
@@ -89,6 +98,12 @@ class GitWorkspace(
         // Only the files change, so the fork's index stays at HEAD and the copy shows as uncommitted.
         git.run(path, listOf("restore", "--source=$tree", "--worktree", "--", "."))
     }
+
+    // The same launcher as git, so on a remote machine the command runs there.
+    override suspend fun runSetup(
+        worktree: String,
+        command: String,
+    ): ProcessResult = git.launcher.run(ProcessSpec("/bin/sh", listOf("-c", command), workingDir = worktree))
 
     // A worktree that no longer exists has nothing left to lose.
     override suspend fun isDirty(worktree: String): Boolean =

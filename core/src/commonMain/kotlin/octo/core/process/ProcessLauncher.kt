@@ -1,5 +1,6 @@
 package octo.core.process
 
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.async
 import kotlinx.coroutines.coroutineScope
 import kotlinx.coroutines.flow.Flow
@@ -48,17 +49,22 @@ data class ProcessResult(
     val stderr: String,
 )
 
-/** Runs a short command to completion, collecting its output. */
+/** Runs a short command to completion, collecting its output; cancelling it kills the command. */
 suspend fun ProcessLauncher.run(
     spec: ProcessSpec,
     stdin: String? = null,
 ): ProcessResult =
     coroutineScope {
         val process = launch(spec)
-        val out = async { process.stdout.toList() }
-        val err = async { process.stderr.toList() }
-        stdin?.lineSequence()?.forEach { process.writeLine(it) }
-        process.closeStdin()
-        val code = process.awaitExit()
-        ProcessResult(code, out.await().joinToString("\n"), err.await().joinToString("\n"))
+        try {
+            val out = async { process.stdout.toList() }
+            val err = async { process.stderr.toList() }
+            stdin?.lineSequence()?.forEach { process.writeLine(it) }
+            process.closeStdin()
+            val code = process.awaitExit()
+            ProcessResult(code, out.await().joinToString("\n"), err.await().joinToString("\n"))
+        } catch (e: CancellationException) {
+            process.kill()
+            throw e
+        }
     }

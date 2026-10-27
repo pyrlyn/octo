@@ -25,6 +25,7 @@ import octo.core.io.AtomicFile
 import octo.core.messaging.McpProvider
 import octo.core.persist.StateStore
 import octo.core.process.ProcessMonitor
+import octo.core.process.ProcessResult
 import octo.core.tempDir
 import octo.core.terms.TermsGate
 
@@ -117,6 +118,12 @@ internal class FakeWorkspace : Workspace {
     val forks = mutableListOf<Pair<String, String>>()
     val dirty = mutableSetOf<String>()
 
+    /** Worktree and command of each setup run. */
+    val setups = mutableListOf<Pair<String, String>>()
+
+    /** What a setup run returns; one that never returns stands in for a hung command. */
+    var setupResult: suspend () -> ProcessResult = { ProcessResult(0, "installed", "") }
+
     override suspend fun repoRoot(dir: String) = "/src/app"
 
     override suspend fun branches(repo: String) = listOf("main")
@@ -138,6 +145,14 @@ internal class FakeWorkspace : Workspace {
     ) {
         forks += source to path
         worktrees[path] = branch
+    }
+
+    override suspend fun runSetup(
+        worktree: String,
+        command: String,
+    ): ProcessResult {
+        setups += worktree to command
+        return setupResult()
     }
 
     override suspend fun isDirty(worktree: String) = worktree in dirty
@@ -174,6 +189,7 @@ internal suspend fun TestScope.setup(
     /** More agents next to [adapter], for tests that switch between them. */
     others: List<AgentAdapter> = emptyList(),
     defaultPermissionMode: PermissionMode = PermissionMode.Supervised,
+    worktreeSetup: Map<String, String> = emptyMap(),
 ): Setup {
     val core =
         Orchestrator.open(
@@ -188,6 +204,7 @@ internal suspend fun TestScope.setup(
             mcp = mcp,
             processes = processes,
             defaultPermissionMode = defaultPermissionMode,
+            worktreeSetup = worktreeSetup,
         )
     return Setup(core, adapter, workspace, home)
 }

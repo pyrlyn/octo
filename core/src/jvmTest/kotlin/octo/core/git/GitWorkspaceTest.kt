@@ -123,6 +123,18 @@ class GitWorkspaceTest {
         }
 
     @Test
+    fun setupRunsInTheWorktreeWithAShell() =
+        runBlocking {
+            val repo = repo()
+            val ok = workspace.runSetup(repo.path, "pwd && echo oops >&2 && touch ready")
+            assertEquals(0, ok.exitCode)
+            assertEquals(repo.path, ok.stdout.trim())
+            assertEquals("oops", ok.stderr.trim())
+            assertTrue(File(repo, "ready").exists())
+            assertEquals(3, workspace.runSetup(repo.path, "exit 3").exitCode)
+        }
+
+    @Test
     fun branchesListLocalThenRemoteWithoutTheRemoteHead() =
         runBlocking {
             val repo = repo()

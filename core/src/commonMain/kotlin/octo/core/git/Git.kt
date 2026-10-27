@@ -7,7 +7,7 @@ import octo.core.process.run
 
 /** The `git` CLI. There is no git library with worktree support for every target (architecture §2). */
 class Git(
-    private val launcher: ProcessLauncher,
+    internal val launcher: ProcessLauncher,
     command: String = "git",
 ) {
     private val path = CommandPath(launcher, command) { GitNotFoundException() }
