@@ -47,6 +47,15 @@ data class Task(
     val machine: String? = null,
     /** The agent this task was switched away from; the next prompt carries the conversation over. */
     val handoffFrom: String? = null,
+    /** Prompts waiting for the agent to be idle, oldest first; persisted so a restart keeps them. */
+    val queue: List<QueuedPrompt> = emptyList(),
+)
+
+/** A prompt the user sent while the agent was busy and could not take it into the turn. */
+@Serializable
+data class QueuedPrompt(
+    val id: Int,
+    val text: String,
 )
 
 /** A request the agent is waiting on. */

@@ -34,6 +34,8 @@ internal class FakeSession(
     val channel = Channel<AgentEvent>(Channel.UNLIMITED)
     val prompts = mutableListOf<String>()
     val models = mutableListOf<String>()
+    val steered = mutableListOf<String>()
+    var refuseSteer = false
     val responses = mutableListOf<Pair<String, RequestResponse>>()
     var cancelled = 0
 
@@ -43,6 +45,11 @@ internal class FakeSession(
 
     override suspend fun prompt(text: String) {
         prompts += text
+    }
+
+    override suspend fun steer(text: String) {
+        check(!refuseSteer) { "the turn ended" }
+        steered += text
     }
 
     override suspend fun respond(

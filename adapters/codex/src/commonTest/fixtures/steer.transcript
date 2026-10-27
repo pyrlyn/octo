@@ -1,0 +1,12 @@
+# Steer a running turn, then a steer after the turn ended is refused (synthetic).
+> {"id":1,"method":"initialize"}
+< {"id":1,"result":{}}
+> {"method":"initialized"}
+> {"id":2,"method":"thread/start","params":{"cwd":"/repo"}}
+< {"id":2,"result":{"thread":{"id":"thr-1"}}}
+> {"id":3,"method":"turn/start","params":{"threadId":"thr-1"}}
+< {"id":3,"result":{"turn":{"id":"turn-1","status":"inProgress"}}}
+> {"id":4,"method":"turn/steer","params":{"threadId":"thr-1","input":[{"type":"text","text":"Use tabs","text_elements":[]}],"expectedTurnId":"turn-1"}}
+< {"id":4,"result":{"turnId":"turn-1"}}
+< {"method":"turn/completed","params":{"threadId":"thr-1","turn":{"id":"turn-1","status":"completed"}}}
+x 0

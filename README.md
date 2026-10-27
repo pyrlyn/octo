@@ -23,6 +23,10 @@ Agents in the sidebar lists every running agent: its icon, whether it is signed 
 login itself), the CPU and memory of its own processes, its model, how much of its context
 window is used and its session's token totals. Each row has a stop button.
 
+You can write to an agent while it works. Codex takes the message into the running turn. Other
+agents get it once they are idle: it waits under the transcript as queued, where you can edit or
+remove it, and the queue is kept across restarts.
+
 To try Octo without installing an agent, turn on the built-in demo agent in `config.json` in
 the Octo home (`OCTO_HOME`, or the platform's app data folder):
 
