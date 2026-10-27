@@ -16,6 +16,7 @@ import octo.core.git.TaskDiff
 import octo.core.orchestrator.AgentCatalog
 import octo.core.orchestrator.AgentInfo
 import octo.core.orchestrator.OctoCore
+import octo.core.orchestrator.TaskNotRunningException
 import octo.core.orchestrator.WorktreeDirtyException
 import octo.core.process.ProcessUsage
 import octo.core.status.AgentStatus
@@ -74,10 +75,14 @@ class FakeOctoCore : OctoCore {
         return branches
     }
 
+    /** Tasks whose agent is not running, so a prompt fails until a restart. */
+    val notRunning = mutableSetOf<TaskId>()
+
     override suspend fun sendPrompt(
         taskId: TaskId,
         text: String,
     ) {
+        if (taskId in notRunning) throw TaskNotRunningException(taskId)
         calls += "prompt $text"
     }
 
@@ -162,6 +167,7 @@ class FakeOctoCore : OctoCore {
 
     override suspend fun restart(taskId: TaskId) {
         calls += "restart"
+        notRunning -= taskId
     }
 
     override suspend fun removeTask(

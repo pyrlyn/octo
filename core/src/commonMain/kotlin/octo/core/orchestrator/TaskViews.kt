@@ -12,6 +12,7 @@ import octo.core.task.TaskId
 import octo.core.task.TaskView
 import octo.core.task.Transcript
 import octo.core.task.TranscriptEntry
+import octo.core.task.UsageLimit
 
 /** The view after [event], given the reducer's state [reduced] after the same event. */
 internal fun TaskView.next(
@@ -48,6 +49,12 @@ internal fun TaskView.next(
         failure = reduced.failure,
         unseen = seen,
         stats = (event as? AgentEvent.StatsUpdated)?.let { stats.merge(it.stats) } ?: stats,
+        limit =
+            when (event) {
+                is AgentEvent.RateLimited -> UsageLimit(event.resetsAtMs)
+                AgentEvent.TurnStarted -> null
+                else -> limit
+            },
     )
 }
 

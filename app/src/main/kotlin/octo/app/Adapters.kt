@@ -1,5 +1,6 @@
 package octo.app
 
+import kotlinx.io.files.Path
 import octo.adapters.antigravity.AntigravityAdapter
 import octo.adapters.claude.ClaudeAdapter
 import octo.adapters.codex.CodexAdapter
@@ -17,14 +18,32 @@ import octo.core.paths.currentHostOs
 import octo.core.plugins.PluginManifest
 import octo.core.process.ProcessLauncher
 
+/** Where agents keep the history Octo reads for usage figures; null reads none, as in tests. */
+data class AgentHomes(
+    val claude: Path? = null,
+    val codex: Path? = null,
+) {
+    companion object {
+        /** The agents' own defaults and the variables that move them, as each documents. */
+        fun resolve(
+            env: Map<String, String>,
+            userHome: String,
+        ) = AgentHomes(
+            claude = env["CLAUDE_CONFIG_DIR"]?.takeIf { it.isNotBlank() }?.let(::Path) ?: Path(userHome, ".claude"),
+            codex = env["CODEX_HOME"]?.takeIf { it.isNotBlank() }?.let(::Path) ?: Path(userHome, ".codex"),
+        )
+    }
+}
+
 /** Every adapter Octo ships; the registry drops the ones whose feature flag is off. */
 fun builtInAdapters(
     launcher: ProcessLauncher,
     os: HostOs = currentHostOs(),
+    homes: AgentHomes = AgentHomes(),
 ): List<AgentAdapter> =
     listOf(
-        ClaudeAdapter(launcher),
-        CodexAdapter(launcher),
+        ClaudeAdapter(launcher, configDir = homes.claude),
+        CodexAdapter(launcher, home = homes.codex),
         CursorAdapter(launcher),
         GrokAdapter(launcher),
         KimiAdapter(launcher),
@@ -37,7 +56,8 @@ fun adapterRegistry(
     flags: FeatureFlags,
     /** Plugin agents, from [pluginAdapters]. */
     extra: List<AgentAdapter> = emptyList(),
-): AdapterRegistry = AdapterRegistry(builtInAdapters(launcher) + extra, flags)
+    homes: AgentHomes = AgentHomes(),
+): AdapterRegistry = AdapterRegistry(builtInAdapters(launcher, homes = homes) + extra, flags)
 
 /** The agents plugins declare, and a warning for each one that could not be added. */
 data class PluginAdapters(

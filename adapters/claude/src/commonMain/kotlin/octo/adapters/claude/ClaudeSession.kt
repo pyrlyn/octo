@@ -17,6 +17,7 @@ import octo.adapters.base.ProcessAgentSession
 import octo.adapters.base.array
 import octo.adapters.base.bool
 import octo.adapters.base.double
+import octo.adapters.base.epochMillis
 import octo.adapters.base.long
 import octo.adapters.base.obj
 import octo.adapters.base.parseJsonObject
@@ -173,7 +174,14 @@ internal class ClaudeSession(
             "control_request" -> controlRequest(message)
             "control_cancel_request" -> controlCancel(message)
             "control_response" -> controlResponse(message)
+            "rate_limit_event" -> rateLimit(message)
         }
+    }
+
+    // "allowed_warning" only says the limit is near; the turn goes on.
+    private fun rateLimit(message: JsonObject) {
+        val info = message.obj("rate_limit_info")?.takeIf { it.string("status") == "rejected" } ?: return
+        emit(AgentEvent.RateLimited(info.double("resetsAt")?.toLong()?.let(::epochMillis)))
     }
 
     private fun system(message: JsonObject) {

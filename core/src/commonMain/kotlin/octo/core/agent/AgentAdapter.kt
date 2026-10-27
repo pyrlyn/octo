@@ -3,6 +3,7 @@ package octo.core.agent
 import kotlinx.coroutines.flow.Flow
 import kotlinx.serialization.Serializable
 import octo.core.flags.FeatureFlag
+import octo.core.usage.UsageHistory
 import kotlin.jvm.JvmInline
 
 @Serializable
@@ -106,6 +107,9 @@ interface AgentAdapter {
 
     /** The modes this agent can map; any other runs as [PermissionMode.Supervised]. */
     val permissionModes: Set<PermissionMode> get() = setOf(PermissionMode.Supervised)
+
+    /** The agent's own record of the tokens it used, where it keeps one Octo can read; never credentials. */
+    val usageHistory: UsageHistory? get() = null
 
     suspend fun probe(): AgentProbe
 

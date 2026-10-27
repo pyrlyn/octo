@@ -1,0 +1,6 @@
+{"type":"user","timestamp":"2026-10-01T10:00:00.000Z","sessionId":"sess-1","message":{"role":"user","content":"Go"}}
+{"type":"assistant","timestamp":"2026-10-01T10:00:02.000Z","sessionId":"sess-1","requestId":"req-1","message":{"id":"msg-1","model":"claude-opus-5-5","content":[{"type":"text","text":"Looking."}],"usage":{"input_tokens":10,"cache_creation_input_tokens":100,"cache_read_input_tokens":0,"output_tokens":5}}}
+{"type":"assistant","timestamp":"2026-10-01T10:00:03.000Z","sessionId":"sess-1","requestId":"req-1","message":{"id":"msg-1","model":"claude-opus-5-5","content":[{"type":"tool_use","id":"t1","name":"Bash","input":{"command":"ls"}}],"usage":{"input_tokens":10,"cache_creation_input_tokens":100,"cache_read_input_tokens":0,"output_tokens":5}}}
+not json at all, "usage"
+{"type":"assistant","timestamp":"2026-10-02T09:00:00.000Z","sessionId":"sess-1","requestId":"req-2","message":{"id":"msg-2","model":"claude-opus-5-5","content":[{"type":"text","text":"Done."}],"usage":{"input_tokens":2,"cache_creation_input_tokens":0,"cache_read_input_tokens":110,"output_tokens":40}}}
+{"type":"assistant","timestamp":"2026-10-02T09:00:01.000Z","sessionId":"sess-1","message":{"id":"msg-x","model":"<synthetic>","content":[{"type":"text","text":"No response requested."}],"usage":{"input_tokens":0,"output_tokens":0}}}

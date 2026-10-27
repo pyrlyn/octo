@@ -27,6 +27,8 @@ data class TaskRow(
     val place: TaskPlace = TaskPlace.Active,
     /** Set on the first row of each section, while a repository's tasks sit in more than one. */
     val sectionTitle: String? = null,
+    /** The agent hit its usage limit; never set while the `usage` flag is off. */
+    val limited: Boolean = false,
 )
 
 /** Sidebar sections, in the order they are listed. */
@@ -67,6 +69,8 @@ data class MainUiState(
     val newTaskOpen: Boolean = false,
     /** The running-agents screen replaces the selected task until a task is picked or it is closed. */
     val agentsOpen: Boolean = false,
+    /** The usage screen, shown in the same place as the agents screen. */
+    val usageOpen: Boolean = false,
     /** A dialog over the selected task; picking another task closes it. */
     val taskDialog: TaskDialog? = null,
     val devicesOpen: Boolean = false,
@@ -91,16 +95,19 @@ class MainViewModel(
     /** False while the `sections` flag is off: one flat list, and places cannot be changed. */
     val sections: Boolean = false,
     private val now: () -> Long = System::currentTimeMillis,
+    /** False while the `usage` flag is off: no task shows as limited. */
+    private val limits: Boolean = false,
 ) {
-    private val mutable = MutableStateFlow(MainUiState().withCore(core.state.value, startupWarnings, sections))
+    private val mutable = MutableStateFlow(MainUiState().withCore(core.state.value, startupWarnings, sections, limits))
     val state: StateFlow<MainUiState> = mutable.asStateFlow()
 
     init {
-        act { core.state.collect { octo -> mutable.update { it.withCore(octo, startupWarnings, sections) } } }
+        act { core.state.collect { octo -> mutable.update { it.withCore(octo, startupWarnings, sections, limits) } } }
     }
 
     fun select(id: TaskId) {
         closeAgents()
+        closeUsage()
         mutable.update { s -> s.copy(taskDialog = s.taskDialog.takeIf { id == s.selected }) }
         act {
             core.updateLayout(
@@ -132,7 +139,11 @@ class MainViewModel(
 
     fun openNewTask() = mutable.update { it.copy(newTaskOpen = true) }
 
-    fun openAgents() = mutable.update { it.copy(agentsOpen = true) }
+    fun openAgents() = mutable.update { it.copy(agentsOpen = true, usageOpen = false) }
+
+    fun openUsage() = mutable.update { it.copy(usageOpen = true, agentsOpen = false) }
+
+    fun closeUsage() = mutable.update { it.copy(usageOpen = false) }
 
     fun closeAgents() = mutable.update { it.copy(agentsOpen = false) }
 
@@ -158,6 +169,7 @@ class MainViewModel(
         when (command) {
             Command.NewTask -> openNewTask()
             Command.Agents -> openAgents()
+            Command.Usage -> openUsage()
             Command.Devices -> openDevices()
             Command.Diff -> selected?.let { showDiff(!state.value.diffOpen) }
             Command.Publish -> selected?.let { openTaskDialog(TaskDialog.Publish) }
@@ -203,6 +215,7 @@ private fun MainUiState.withCore(
     state: OctoState,
     startupWarnings: List<String>,
     sections: Boolean,
+    limits: Boolean,
 ): MainUiState {
     val groups =
         state.tasks
@@ -224,6 +237,7 @@ private fun MainUiState.withCore(
                                     depth,
                                     groupTitle,
                                     it.task.place,
+                                    limited = limits && it.limit != null,
                                 )
                             }.let { if (sections) sectioned(it) else it },
                 )

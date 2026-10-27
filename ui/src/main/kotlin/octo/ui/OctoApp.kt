@@ -59,6 +59,7 @@ fun OctoApp(models: ViewModels) {
                         main,
                         Modifier.width(width.dp).fillMaxHeight(),
                         onDevices = if (models.canPair) main::openDevices else null,
+                        onUsage = if (models.canShowUsage) main::openUsage else null,
                     )
                     // Only the final width is persisted, not every frame of the drag.
                     SidebarHandle(
@@ -109,17 +110,23 @@ private fun Content(
     state: MainUiState,
     models: ViewModels,
 ) {
-    if (state.agentsOpen) {
-        AgentsPane(models)
-        return
-    }
     val id = state.selected
-    if (id == null) {
-        Empty(models.main::openNewTask)
-        return
+    when {
+        state.agentsOpen -> AgentsPane(models)
+        state.usageOpen -> UsagePane(models)
+        id == null -> Empty(models.main::openNewTask)
+        else -> TaskOrDiff(id, state.diffOpen, models)
     }
-    key(id, state.diffOpen) {
-        if (state.diffOpen) {
+}
+
+@Composable
+private fun TaskOrDiff(
+    id: TaskId,
+    diffOpen: Boolean,
+    models: ViewModels,
+) {
+    key(id, diffOpen) {
+        if (diffOpen) {
             DiffPane(id, models)
         } else {
             TaskPane(id, models)
@@ -185,6 +192,13 @@ private fun AgentsPane(models: ViewModels) {
     val vm = remember { models.agents() }
     DisposableEffect(vm) { onDispose { vm.close() } }
     AgentsScreen(vm, onClose = models.main::closeAgents)
+}
+
+@Composable
+private fun UsagePane(models: ViewModels) {
+    val vm = remember { models.usage() } ?: return
+    DisposableEffect(vm) { onDispose { vm.close() } }
+    UsageScreen(vm, onClose = models.main::closeUsage)
 }
 
 @Composable

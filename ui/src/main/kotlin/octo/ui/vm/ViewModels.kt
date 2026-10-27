@@ -8,6 +8,7 @@ import octo.core.plugins.Plugin
 import octo.core.preset.PresetLibrary
 import octo.core.publish.TaskPublisher
 import octo.core.task.TaskId
+import octo.core.usage.UsageReport
 
 /** Builds the screens' view models, so composables never hold a reference to core. */
 class ViewModels(
@@ -34,8 +35,12 @@ class ViewModels(
     sections: Boolean = false,
     /** False while the `palette` flag is off, which leaves Cmd+K unbound. */
     private val palette: Boolean = false,
+    /** Null while the `usage` flag is off, which hides usage and limits. */
+    private val usage: UsageReport? = null,
 ) {
-    val main = MainViewModel(core, scope, startupWarnings, sections)
+    val main = MainViewModel(core, scope, startupWarnings, sections, limits = usage != null)
+
+    val canShowUsage: Boolean get() = usage != null
 
     val canPublish: Boolean get() = publisher != null
 
@@ -45,7 +50,7 @@ class ViewModels(
 
     val canFork: Boolean get() = fork
 
-    fun task(id: TaskId) = TaskViewModel(core, id, scope)
+    fun task(id: TaskId) = TaskViewModel(core, id, scope, limits = usage != null)
 
     fun pluginActions(id: TaskId): PluginActionsViewModel? =
         plugins
@@ -68,6 +73,7 @@ class ViewModels(
                     Command.SwitchAgent -> canSwitchAgent
                     Command.Fork -> canFork
                     Command.Devices -> canPair
+                    Command.Usage -> canShowUsage
                     else -> true
                 }
             }
@@ -78,6 +84,8 @@ class ViewModels(
     }
 
     fun agents() = AgentsViewModel(core, catalog, scope)
+
+    fun usage(): UsageViewModel? = usage?.let { UsageViewModel(it, catalog, scope) }
 
     fun newTask() = NewTaskViewModel(core, catalog, scope, presets, compare)
 

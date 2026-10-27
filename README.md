@@ -133,6 +133,13 @@ and by the text of their messages, and runs actions: new task, diff, publish, sw
 stop, and the agents and devices screens. An action whose flag is off is not listed. Arrow keys
 move, Enter runs, Escape closes.
 
+`"usage": true` adds a Usage screen with token use per agent and model for today, 7 days, 30
+days or all time. Claude Code and Codex are counted from their own local session logs
+(`$CLAUDE_CONFIG_DIR` or `~/.claude`, `$CODEX_HOME` or `~/.codex`), so work outside Octo counts
+too; other agents are counted from what Octo saw in its own runs. Octo reads only token counts,
+never credentials. When an agent hits its usage limit the task says "Limited until HH:MM" and
+offers Resume, which sends "Continue"; Octo never resumes on its own.
+
 `"plugins": true` loads WebAssembly plugins from the `plugins` folder in the Octo home. A plugin
 can add ACP agents and actions in a task's Plugins menu. A plugin cannot reach files, processes or
 the network. A broken one is skipped with a warning. See `docs/plugins.md` for the ABI.

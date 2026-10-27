@@ -29,6 +29,7 @@ enum class Command(
     Fork("Fork", onTask = true),
     Stop("Stop agent", onTask = true),
     Agents("Open agents"),
+    Usage("Open usage"),
     Devices("Open devices"),
 }
 

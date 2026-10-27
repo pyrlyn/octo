@@ -138,6 +138,12 @@ a snippet. Commands whose label matches come after the tasks. A command only ope
 `MainUiState`, so the palette and the buttons open the same dialogs. The window binds the
 shortcut.
 
+The usage screen (`UsageViewModel`) asks `UsageReport.totals` for a period. An agent whose
+adapter has a `UsageHistory` (Claude's `projects/*.jsonl`, Codex's rollout files) is counted only
+from it, so nothing is counted twice; every other agent is counted from `UsageLog`
+(`usage.json`), which records the growth of each task's `SessionStats` when a turn ends. A history
+that cannot be read becomes a warning on the screen.
+
 **`app`** holds `main()`, the adapter list, platform paths and the Compose Desktop packaging.
 
 ## 4. The adapter SPI (core)
@@ -260,6 +266,7 @@ class FeatureFlags(config: Map<String, Boolean>) {
 | `compare` (one prompt to several agents or models, each in its own task, grouped in the sidebar) | T26 |
 | `sections` (pin, snooze and settle tasks; with `git-publish`, settle a task once its PR merges) | T28 |
 | `palette` (Cmd+K: find tasks by title or message text and run the app's actions) | T30 |
+| `usage` (token use per agent and model; a usage limit shows when it lifts, with Resume) | T29 |
 | `pty-terminal` | Reserved |
 
 ## 7. Core API and orchestration
@@ -336,6 +343,10 @@ agent and writes the state. `close()` belongs to `app`, so it is not on the inte
   `MergedBranches` (the user's `gh pr list --state=merged`, once per repository every five
   minutes) and settles a local task whose branch merged, once per run, so a task the user moves
   back stays put. A repository `gh` cannot answer is skipped.
+- **Usage limits.** An adapter emits `AgentEvent.RateLimited` when the provider refuses work
+  (Claude's rejected `rate_limit_event`, Codex's `account/rateLimits/updated` with a reached
+  limit). `TaskView.limit` holds it until the next turn starts. Resume is the user's: the UI
+  sends "Continue", restarting the agent first if it stopped.
 - **Prompts while busy.** `sendPrompt` runs under the task's lock. An idle agent gets the prompt
   and reads as working at once, so a second sender never sees a stale idle. A busy agent is
   steered when its adapter declares `Steer` and the steer succeeds; otherwise the text joins

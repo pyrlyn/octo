@@ -28,6 +28,8 @@ internal fun Sidebar(
     modifier: Modifier = Modifier,
     /** Null hides the action, while remote access is off. */
     onDevices: (() -> Unit)? = null,
+    /** Null hides the action, while the `usage` flag is off. */
+    onUsage: (() -> Unit)? = null,
 ) {
     Column(modifier.background(MaterialTheme.colorScheme.surfaceContainer)) {
         Button(onClick = vm::openNewTask, modifier = Modifier.fillMaxWidth().padding(Gap)) { Text("New task") }
@@ -75,6 +77,9 @@ internal fun Sidebar(
         TextButton(onClick = vm::openAgents, modifier = Modifier.fillMaxWidth().padding(horizontal = Gap)) {
             Text("Agents")
         }
+        onUsage?.let {
+            TextButton(onClick = it, modifier = Modifier.fillMaxWidth().padding(horizontal = Gap)) { Text("Usage") }
+        }
         onDevices?.let { TextButton(onClick = it, modifier = Modifier.fillMaxWidth().padding(Gap)) { Text("Devices") } }
     }
 }
@@ -103,7 +108,7 @@ private fun TaskRowItem(
         Column(Modifier.weight(1f)) {
             Text(row.title, maxLines = 1, overflow = TextOverflow.Ellipsis)
             Text(
-                "${row.agent.value} · ${row.status.label}",
+                "${row.agent.value} · ${if (row.limited) "Limited" else row.status.label}",
                 style = MaterialTheme.typography.bodySmall,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
                 maxLines = 1,

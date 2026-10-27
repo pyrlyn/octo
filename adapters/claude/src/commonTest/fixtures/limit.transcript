@@ -1,0 +1,8 @@
+# A turn refused for the usage limit (synthetic; the event follows SDKRateLimitEvent in @anthropic-ai/claude-agent-sdk's sdk.d.ts).
+> {"type":"control_request","request_id":"req_1","request":{"subtype":"initialize"}}
+< {"type":"control_response","response":{"subtype":"success","request_id":"req_1","response":{}}}
+> {"type":"user"}
+< {"type":"rate_limit_event","rate_limit_info":{"status":"allowed_warning","resetsAt":1790000000,"rateLimitType":"five_hour","utilization":0.9},"uuid":"u1","session_id":"sess-1"}
+< {"type":"rate_limit_event","rate_limit_info":{"status":"rejected","resetsAt":1790000000,"rateLimitType":"five_hour"},"uuid":"u2","session_id":"sess-1"}
+< {"type":"result","subtype":"success","is_error":true,"duration_ms":1,"duration_api_ms":1,"num_turns":1,"result":"Claude AI usage limit reached","session_id":"sess-1"}
+x 0

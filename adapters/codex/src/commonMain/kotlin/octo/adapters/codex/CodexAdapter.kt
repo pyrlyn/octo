@@ -2,6 +2,7 @@ package octo.adapters.codex
 
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withTimeoutOrNull
+import kotlinx.io.files.Path
 import octo.adapters.base.BaseAgentAdapter
 import octo.adapters.base.ProcessAgentSession
 import octo.core.agent.AgentIcon
@@ -22,6 +23,8 @@ class CodexAdapter(
     launcher: ProcessLauncher,
     context: CoroutineContext = Dispatchers.Default,
     private val clientVersion: String = "0.1.0",
+    /** Codex's home (`CODEX_HOME`, else `~/.codex`); null reads no history. */
+    home: Path? = null,
 ) : BaseAgentAdapter(launcher, context) {
     override val id = ID
     override val displayName = "Codex"
@@ -41,6 +44,7 @@ class CodexAdapter(
             Capability.Steer,
         )
     override val permissionModes = PermissionMode.entries.toSet()
+    override val usageHistory = home?.let(::codexHistory)
     override val binary = "codex"
     override val verifiedVersion = "0.162.1"
 
