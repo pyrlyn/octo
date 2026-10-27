@@ -12,6 +12,8 @@ import kotlinx.coroutines.launch
 import octo.core.agent.AgentId
 import octo.core.agent.PermissionMode
 import octo.core.agent.VendorTerms
+import octo.core.compare.AgentPick
+import octo.core.compare.compare
 import octo.core.orchestrator.AgentCatalog
 import octo.core.orchestrator.AgentInfo
 import octo.core.orchestrator.OctoCore
@@ -58,6 +60,12 @@ data class NewTaskUiState(
     val team: Boolean = false,
     val presets: List<Preset> = emptyList(),
     val preset: String? = null,
+    /** Whether a prompt can go to several agents at once; false while the `compare` flag is off. */
+    val compareEnabled: Boolean = false,
+    /** Send the prompt to several agents, each in its own task, instead of one. */
+    val compare: Boolean = false,
+    /** Agents chosen for the comparison, each with its models as typed: comma-separated, empty for the default. */
+    val compared: Map<AgentId, String> = emptyMap(),
 ) {
     val selectedAgent: AgentInfo? get() = agents.firstOrNull { it.id == agent }
 
@@ -80,6 +88,20 @@ data class NewTaskUiState(
                 ?.filter { id -> agents.none { it.id == id && it.probe.installed } }
                 .orEmpty()
 
+    /** One pick per chosen agent and model, in the order the agents are listed. */
+    val picks: List<AgentPick>
+        get() =
+            agents.filter { it.id in compared }.flatMap { agent ->
+                compared
+                    .getValue(agent.id)
+                    .split(',')
+                    .map(String::trim)
+                    .filter(String::isNotEmpty)
+                    .distinct()
+                    .ifEmpty { listOf(null) }
+                    .map { AgentPick(agent.id, it) }
+            }
+
     /** The title, or the prompt's first line when the title is left empty. */
     val effectiveTitle: String get() =
         title.trim().ifEmpty {
@@ -94,15 +116,27 @@ data class NewTaskUiState(
     val canCreate: Boolean
         get() =
             !creating && repo.isNotBlank() && baseRef in branches &&
-                if (team) {
-                    selectedPreset != null && !loadingAgents && missingAgents.isEmpty()
-                } else {
-                    effectiveTitle.isNotEmpty() && selectedAgent?.probe?.installed == true
+                when {
+                    team -> {
+                        selectedPreset != null && !loadingAgents && missingAgents.isEmpty()
+                    }
+
+                    compare -> {
+                        effectiveTitle.isNotEmpty() && prompt.isNotBlank() && picks.size >= MIN_PICKS &&
+                            agents.filter { it.id in compared }.all { it.probe.installed }
+                    }
+
+                    else -> {
+                        effectiveTitle.isNotEmpty() && selectedAgent?.probe?.installed == true
+                    }
                 }
 
     companion object {
         const val DEFAULT_BASE_REF = "main"
         const val TITLE_LENGTH = 60
+
+        /** A comparison needs something to compare against. */
+        const val MIN_PICKS = 2
 
         /** How long typing in the repository field must pause before git is asked for its branches. */
         const val BRANCH_LOOKUP_DELAY_MS = 300L
@@ -116,10 +150,14 @@ class NewTaskViewModel(
     parent: CoroutineScope,
     /** Null while the `presets` flag is off. */
     library: PresetLibrary? = null,
+    /** False while the `compare` flag is off. */
+    compare: Boolean = false,
 ) {
     private val scope = parent.childScope()
     private val mutable =
-        MutableStateFlow(NewTaskUiState(machines = catalog.machines, presetsEnabled = library != null))
+        MutableStateFlow(
+            NewTaskUiState(machines = catalog.machines, presetsEnabled = library != null, compareEnabled = compare),
+        )
     val state: StateFlow<NewTaskUiState> = mutable.asStateFlow()
     private var branchLookup: Job? = null
 
@@ -136,14 +174,35 @@ class NewTaskViewModel(
         }
     }
 
-    fun useTeam(on: Boolean) = mutable.update { it.copy(team = on && it.presetsEnabled, error = null) }
+    fun useTeam(on: Boolean) = mutable.update { it.copy(team = on && it.presetsEnabled, compare = false, error = null) }
+
+    fun useCompare(on: Boolean) =
+        mutable.update { it.copy(compare = on && it.compareEnabled, team = false, error = null) }
+
+    fun toggleCompared(id: AgentId) =
+        mutable.update { it.copy(compared = if (id in it.compared) it.compared - id else it.compared + (id to "")) }
+
+    /** Comma-separated models for [id]; one task each. */
+    fun editComparedModels(
+        id: AgentId,
+        models: String,
+    ) = mutable.update { if (id in it.compared) it.copy(compared = it.compared + (id to models)) else it }
 
     fun selectPreset(name: String) = mutable.update { it.copy(preset = name) }
 
     /** Agents are probed on the chosen machine, so the list is reloaded whenever it changes. */
     fun selectMachine(id: String?) {
         if (id == state.value.machine) return
-        mutable.update { it.copy(machine = id, agents = emptyList(), agent = null, loadingAgents = true, error = null) }
+        mutable.update {
+            it.copy(
+                machine = id,
+                agents = emptyList(),
+                agent = null,
+                compared = emptyMap(),
+                loadingAgents = true,
+                error = null,
+            )
+        }
         loadAgents(id)
         loadBranches()
     }
@@ -227,7 +286,47 @@ class NewTaskViewModel(
 
     fun create() {
         val s = state.value.takeIf { it.canCreate } ?: return
-        if (s.team) createTeam(s) else createOne(s)
+        when {
+            s.team -> createTeam(s)
+            s.compare -> createComparison(s)
+            else -> createOne(s)
+        }
+    }
+
+    // As with a team, every agent's vendor terms are settled before the first task starts. A pick
+    // that still fails keeps the form open with what did not start; the others are already running.
+    private fun createComparison(s: NewTaskUiState) {
+        val picks = s.picks
+        mutable.update { it.copy(creating = true, error = null) }
+        scope.action(::fail) {
+            for (id in picks.map { it.agent }.distinct()) {
+                val terms = catalog.pendingTerms(id) ?: continue
+                val agent = s.agents.first { it.id == id }
+                mutable.update { it.copy(creating = false, terms = TermsNotice(agent, terms)) }
+                return@action
+            }
+            val request =
+                NewTask(
+                    repo = s.repo.trim(),
+                    baseRef = s.baseRef.trim(),
+                    agent = picks.first().agent,
+                    title = s.effectiveTitle,
+                    prompt = s.prompt.trim(),
+                    machine = s.machine,
+                )
+            val result = core.compare(request, picks)
+            val failed = result.failures.joinToString("; ") { (pick, why) -> "${pick.label}: $why" }
+            mutable.update {
+                if (failed.isEmpty()) {
+                    it.copy(creating = false, created = result.tasks.firstOrNull())
+                } else {
+                    it.copy(
+                        creating = false,
+                        error = "Started ${result.tasks.size} of ${picks.size}. Not started: $failed",
+                    )
+                }
+            }
+        }
     }
 
     // Every member's vendor terms are settled before the first task starts, so a team never

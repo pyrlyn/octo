@@ -57,6 +57,8 @@ class Octo private constructor(
     val handoff: Boolean,
     /** Whether the `fork` flag lets a task be forked. */
     val fork: Boolean,
+    /** Whether the `compare` flag lets one prompt go to several agents. */
+    val compare: Boolean,
 ) {
     val core: OctoCore get() = orchestrator
 
@@ -133,6 +135,7 @@ class Octo private constructor(
                 remote,
                 flags.isEnabled(CoreFlags.HANDOFF),
                 flags.isEnabled(CoreFlags.FORK),
+                flags.isEnabled(CoreFlags.COMPARE),
             )
         }
 

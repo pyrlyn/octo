@@ -249,6 +249,7 @@ class FeatureFlags(config: Map<String, Boolean>) {
 | `plugins` (WebAssembly plugins that add ACP agents and task actions; see `docs/plugins.md`) | T16 |
 | `handoff` (switch a task's agent or model; a fresh session gets the conversation from the transcript) | T23 |
 | `fork` (a new task on a new branch from a task's current worktree, linked to its parent) | T24 |
+| `compare` (one prompt to several agents or models, each in its own task, grouped in the sidebar) | T26 |
 | `pty-terminal` | Reserved |
 
 ## 7. Core API and orchestration
@@ -314,6 +315,10 @@ agent and writes the state. `close()` belongs to `app`, so it is not on the inte
   (`SessionSpec.fork`: Claude's `--resume --fork-session` with an Octo-chosen `--session-id`,
   Codex's `thread/fork`); any other agent starts fresh and gets the T23 handoff with the next
   prompt.
+- **Comparisons.** `OctoCore.compare` (an extension over `createTask`) starts one task per
+  `AgentPick` (an agent and an optional model) with the same prompt, all sharing one
+  `Task.group`. A pick that fails is reported in `Comparison.failures` and the others still run.
+  The sidebar gathers a group's tasks, forks included, under the group's title.
 - **Prompts while busy.** `sendPrompt` runs under the task's lock. An idle agent gets the prompt
   and reads as working at once, so a second sender never sees a stale idle. A busy agent is
   steered when its adapter declares `Steer` and the steer succeeds; otherwise the text joins

@@ -48,7 +48,19 @@ internal fun Sidebar(
                     }
                 }
                 items(group.tasks, key = { it.id.value }) { row ->
-                    TaskRowItem(row, selected = row.id == state.selected, onClick = { vm.select(row.id) })
+                    Column {
+                        row.groupTitle?.let {
+                            Text(
+                                it,
+                                Modifier.padding(start = LargeGap, end = Gap, top = SmallGap),
+                                style = MaterialTheme.typography.labelMedium,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                maxLines = 1,
+                                overflow = TextOverflow.Ellipsis,
+                            )
+                        }
+                        TaskRowItem(row, selected = row.id == state.selected, onClick = { vm.select(row.id) })
+                    }
                 }
             }
         }

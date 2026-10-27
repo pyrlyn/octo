@@ -8,6 +8,7 @@ import kotlinx.coroutines.flow.update
 import octo.core.agent.AgentId
 import octo.core.agent.AgentProbe
 import octo.core.agent.AuthState
+import octo.core.agent.MODEL_OPTION
 import octo.core.agent.PermissionMode
 import octo.core.agent.RequestResponse
 import octo.core.agent.VendorTerms
@@ -35,6 +36,9 @@ class FakeOctoCore : OctoCore {
     val calls = mutableListOf<String>()
     var termsPending: VendorTerms? = null
     var dirty = false
+
+    /** Models whose tasks fail to start. */
+    val failingModels = mutableSetOf<String>()
     var diffResult = TaskDiff("main", "abc", emptyList())
     var branches = listOf("main", "dev", "origin/main")
     val usage = MutableStateFlow<Map<TaskId, ProcessUsage>>(emptyMap())
@@ -47,6 +51,7 @@ class FakeOctoCore : OctoCore {
 
     override suspend fun createTask(request: NewTask): TaskId {
         termsPending?.let { throw TermsNotAcknowledgedException(request.agent, it) }
+        request.options[MODEL_OPTION]?.takeIf { it in failingModels }?.let { error("No such model") }
         calls +=
             listOfNotNull(
                 "create",
@@ -56,7 +61,7 @@ class FakeOctoCore : OctoCore {
                 request.permissionMode?.let { "as ${it.name}" },
             ).joinToString(" ")
         val id = TaskId("t${++next}")
-        put(TaskView(task(id, request.repo, request.title), AgentStatus.Starting))
+        put(TaskView(task(id, request.repo, request.title).copy(group = request.group), AgentStatus.Starting))
         return id
     }
 

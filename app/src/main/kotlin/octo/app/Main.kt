@@ -29,6 +29,7 @@ fun main() {
             octo.plugins,
             octo.handoff,
             octo.fork,
+            octo.compare,
         )
     application {
         Window(

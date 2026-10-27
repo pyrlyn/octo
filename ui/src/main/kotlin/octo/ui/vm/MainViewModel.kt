@@ -21,6 +21,8 @@ data class TaskRow(
     val status: SidebarStatus,
     /** Generations of forks above this task in the list; 0 for a task that is not a fork. */
     val depth: Int = 0,
+    /** Set on the first row of a comparison: the tasks below it, one level deeper, share one prompt. */
+    val groupTitle: String? = null,
 )
 
 data class RepoGroup(
@@ -135,7 +137,7 @@ private fun MainUiState.withCore(
                     name = repo.trimEnd('/', '\\').substringAfterLast('/').substringAfterLast('\\'),
                     status = views.rollup(),
                     tasks =
-                        lineage(views).map { (it, depth) ->
+                        grouped(lineage(views)).map { (it, depth, groupTitle) ->
                             TaskRow(
                                 it.task.id,
                                 it.task.title,
@@ -143,6 +145,7 @@ private fun MainUiState.withCore(
                                 it.task.branch,
                                 it.sidebarStatus,
                                 depth,
+                                groupTitle,
                             )
                         },
                 )
@@ -178,4 +181,45 @@ private fun lineage(views: List<TaskView>): List<Pair<TaskView, Int>> {
     // A parent loop in a hand-edited state file must not hide its tasks.
     val seen = placed.map { it.first.task.id }.toSet()
     return placed + views.filter { it.task.id !in seen }.map { it to 0 }
+}
+
+/**
+ * Tasks of one comparison, each with its forks, gathered where the first of them is listed and
+ * one level deeper, under the group's title.
+ */
+private fun grouped(rows: List<Pair<TaskView, Int>>): List<Triple<TaskView, Int, String?>> {
+    val blocks =
+        rows.fold(mutableListOf<MutableList<Pair<TaskView, Int>>>()) { acc, row ->
+            if (row.second == 0 || acc.isEmpty()) acc += mutableListOf(row) else acc.last() += row
+            acc
+        }
+    val byGroup =
+        blocks.groupBy {
+            it
+                .first()
+                .first.task.group
+                ?.id
+        }
+    val placed = mutableSetOf<String>()
+    return blocks.flatMap { block ->
+        val group =
+            block
+                .first()
+                .first.task.group
+        when {
+            group == null -> {
+                block.map { (view, depth) -> Triple(view, depth, null) }
+            }
+
+            !placed.add(group.id) -> {
+                emptyList()
+            }
+
+            else -> {
+                byGroup.getValue(group.id).flatten().mapIndexed { i, (view, depth) ->
+                    Triple(view, depth + 1, group.title.takeIf { i == 0 })
+                }
+            }
+        }
+    }
 }

@@ -28,6 +28,8 @@ class ViewModels(
     private val handoff: Boolean = false,
     /** False while the `fork` flag is off, which hides forking a task. */
     private val fork: Boolean = false,
+    /** False while the `compare` flag is off, which hides comparing agents. */
+    private val compare: Boolean = false,
 ) {
     val main = MainViewModel(core, scope, startupWarnings)
 
@@ -54,7 +56,7 @@ class ViewModels(
 
     fun agents() = AgentsViewModel(core, catalog, scope)
 
-    fun newTask() = NewTaskViewModel(core, catalog, scope, presets)
+    fun newTask() = NewTaskViewModel(core, catalog, scope, presets, compare)
 
     fun presets(): PresetsViewModel? = presets?.let { PresetsViewModel(it, catalog, scope) }
 
