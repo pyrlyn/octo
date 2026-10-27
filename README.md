@@ -44,6 +44,18 @@ the ACP agents run Supervised. New tasks take `defaultPermissionMode` from `conf
 { "defaultPermissionMode": "AutoAcceptEdits" }
 ```
 
+A fresh worktree has no installed dependencies or `.env` files. `worktreeSetup` in `config.json`
+names a command per repository (its top-level path) that Octo runs with `/bin/sh` in each new
+worktree, forks included, before the agent starts:
+
+```json
+{ "worktreeSetup": { "/Users/me/src/app": "npm ci && cp ../app/.env ." } }
+```
+
+Its output shows in the task. If it fails or runs for more than 30 minutes, the task is marked
+failed and the agent does not start. On a remote machine the command runs there, and the path is
+the repository's path on that machine.
+
 `"git-publish": true` adds a Publish action to each task: it commits the worktree, pushes the
 branch and opens a pull request with your own `git` and `gh` login.
 

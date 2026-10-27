@@ -17,6 +17,11 @@ data class OctoConfig(
     val remoteAccess: RemoteAccessConfig = RemoteAccessConfig(),
     /** For new tasks that do not choose one. */
     val defaultPermissionMode: PermissionMode = PermissionMode.Supervised,
+    /**
+     * A repository's top-level path to the shell command that prepares each new worktree of it
+     * (installing dependencies, copying `.env` files) before the agent starts.
+     */
+    val worktreeSetup: Map<String, String> = emptyMap(),
 ) {
     fun featureFlags(): FeatureFlags = FeatureFlags(flags)
 

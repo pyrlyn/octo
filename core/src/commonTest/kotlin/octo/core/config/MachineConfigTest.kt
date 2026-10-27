@@ -19,6 +19,13 @@ class MachineConfigTest {
     }
 
     @Test
+    fun worktreeSetupLoadsFromConfig() {
+        val parsed = OctoConfig.parse("""{"worktreeSetup":{"/src/app":"npm ci && cp ../.env ."}}""")
+        assertEquals(mapOf("/src/app" to "npm ci && cp ../.env ."), parsed.config.worktreeSetup)
+        assertEquals(emptyMap(), OctoConfig.parse("""{"flags":{}}""").config.worktreeSetup)
+    }
+
+    @Test
     fun badEntriesAreCaughtBeforeTheyReachSsh() {
         assertNull(MachineConfig("box-2", "box", worktrees = "/srv/octo").problem())
         assertNotNull(MachineConfig("Box", "box").problem())

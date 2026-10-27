@@ -39,6 +39,7 @@ import octo.core.agent.Role
 import octo.core.agent.SessionSpec
 import octo.core.agent.SessionStats
 import octo.core.agent.StopReason
+import octo.core.agent.ToolStatus
 import octo.core.git.TaskDiff
 import octo.core.git.Workspace
 import octo.core.handoff.Handoff
@@ -46,6 +47,7 @@ import octo.core.messaging.McpProvider
 import octo.core.persist.PersistedState
 import octo.core.persist.StateStore
 import octo.core.process.ProcessMonitor
+import octo.core.process.ProcessResult
 import octo.core.process.ProcessUsage
 import octo.core.status.AgentState
 import octo.core.status.AgentStatus
@@ -80,6 +82,7 @@ class Orchestrator private constructor(
     private val mcp: McpProvider?,
     private val processes: ProcessMonitor?,
     private val defaultPermissionMode: PermissionMode,
+    private val worktreeSetup: Map<String, String>,
 ) : OctoCore {
     private val mutableState = MutableStateFlow(OctoState())
     private val transcripts = MutableStateFlow<Map<TaskId, List<TranscriptEntry>>>(emptyMap())
@@ -132,7 +135,7 @@ class Orchestrator private constructor(
             )
         mutableState.update { it.copy(tasks = it.tasks + TaskView(task, AgentStatus.Starting)) }
         withTask(id) {
-            startAgent(id, resume = false)
+            if (setUp(id)) startAgent(id, resume = false)
             request.prompt?.let { prompt -> firstPrompt(id, prompt) }
         }
         return id
@@ -175,8 +178,53 @@ class Orchestrator private constructor(
         transcripts.update { it + (id to it[taskId].orEmpty()) }
         val how = if (native) "" else "; the next prompt carries the conversation over"
         note(id, TranscriptEntry.Notice("Forked from \"${parent.title}\"$how"))
-        withTask(id) { startAgent(id, resume = false, forkFrom = forkFrom) }
+        withTask(id) { if (setUp(id)) startAgent(id, resume = false, forkFrom = forkFrom) }
         return id
+    }
+
+    // Runs the repository's setup command in the task's new worktree. False, with the task Failed,
+    // when it does not succeed, so the agent never starts on a half-prepared worktree; whatever the
+    // command or the machine throws counts as that failure.
+    @Suppress("TooGenericExceptionCaught")
+    private suspend fun setUp(id: TaskId): Boolean {
+        val task = view(id).task
+        val command = worktreeSetup[task.repo.trimEnd('/')] ?: return true
+        val title = "Setup: $command"
+        setupEntry(id, title, ToolStatus.InProgress)
+        val result =
+            try {
+                withTimeoutOrNull(
+                    SETUP_TIMEOUT_MS,
+                ) { machines[task.machine].workspace.runSetup(task.worktree, command) }
+            } catch (e: CancellationException) {
+                throw e
+            } catch (e: Exception) {
+                ProcessResult(-1, "", e.message ?: "The setup command did not run")
+            }
+        val output = result?.let { listOf(it.stdout, it.stderr).filter(String::isNotBlank).joinToString("\n") }
+        val detail = output?.takeLast(MAX_SETUP_OUTPUT)?.ifBlank { null }
+        val ok = result?.exitCode == 0
+        setupEntry(id, title, if (ok) ToolStatus.Completed else ToolStatus.Failed, detail)
+        if (!ok) {
+            val why = result?.let { "exited with code ${it.exitCode}" } ?: "timed out"
+            // The output is already in the setup entry right above the notice.
+            apply(
+                id,
+                MutableStateFlow(AgentState.Initial),
+                AgentEvent.Failed("The setup command $why; the agent was not started"),
+            )
+        }
+        return ok
+    }
+
+    private fun setupEntry(
+        id: TaskId,
+        title: String,
+        status: ToolStatus,
+        detail: String? = null,
+    ) {
+        val event = AgentEvent.ToolCall(SETUP_TOOL_ID, title, "execute", status, detail)
+        transcripts.update { it + (id to Transcript.reduce(it[id].orEmpty(), event)) }
     }
 
     private suspend fun firstPrompt(
@@ -680,6 +728,9 @@ class Orchestrator private constructor(
     companion object {
         const val BRANCH_PREFIX = "octo/"
         const val MAX_QUEUED = 20
+        private const val SETUP_TIMEOUT_MS = 30 * 60_000L
+        private const val MAX_SETUP_OUTPUT = 4_000
+        private const val SETUP_TOOL_ID = "octo.setup"
         private const val STOP_TIMEOUT_MS = 10_000L
         private const val PROCESS_SAMPLE_MS = 2_000L
         private const val SLUG_LENGTH = 32
@@ -698,6 +749,8 @@ class Orchestrator private constructor(
             mcp: McpProvider? = null,
             processes: ProcessMonitor? = null,
             defaultPermissionMode: PermissionMode = PermissionMode.Supervised,
+            /** A repository's top-level path to the command that prepares its new worktrees. */
+            worktreeSetup: Map<String, String> = emptyMap(),
         ): Orchestrator =
             Orchestrator(
                 Machines(LocalMachine(registry, workspace, worktrees), machines),
@@ -708,6 +761,7 @@ class Orchestrator private constructor(
                 mcp,
                 processes,
                 defaultPermissionMode,
+                worktreeSetup.mapKeys { it.key.trimEnd('/') },
             ).also {
                 it.begin()
             }

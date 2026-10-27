@@ -287,6 +287,13 @@ agent and writes the state. `close()` belongs to `app`, so it is not on the inte
 - **Tasks and worktrees.** Each task gets a worktree at `<octo home>/worktrees/<repo>/<task-slug>`
   on a new branch `octo/<task-slug>` cut from the chosen base ref. Removing a task never deletes
   the branch, and a dirty worktree needs explicit confirmation (herdr).
+- **Worktree setup.** `worktreeSetup` in `config.json` maps a repository's top-level path to a
+  shell command. After a task's or a fork's worktree is created, `Workspace.runSetup` runs it with
+  `/bin/sh -c` in the worktree through that machine's own launcher, so remote tasks run it over
+  ssh. It shows in the transcript as a tool entry with the output's tail. A non-zero exit, an
+  error or the 30-minute timeout (which kills the command) marks the task Failed, and the agent
+  is not started. Only the user's config names the command, never the repository, so a cloned
+  repository cannot run anything on its own.
 - **Concurrency.** One `SupervisorJob` scope per task, so a crash in one agent never takes down
   another.
 - **Diff.** `git diff <merge-base(base, HEAD)>` in the worktree plus untracked files, parsed into
