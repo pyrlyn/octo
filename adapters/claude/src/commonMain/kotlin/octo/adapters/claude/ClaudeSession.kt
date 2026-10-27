@@ -124,6 +124,17 @@ internal class ClaudeSession(
         withTimeout(INTERRUPT_TIMEOUT_MS) { control(buildJsonObject { put("subtype", "interrupt") }) }
     }
 
+    override suspend fun setModel(model: String) {
+        withTimeout(INTERRUPT_TIMEOUT_MS) {
+            control(
+                buildJsonObject {
+                    put("subtype", "set_model")
+                    put("model", model)
+                },
+            )
+        }
+    }
+
     override suspend fun readOutput(lines: Flow<String>) {
         lines.collect { line ->
             if (line.isBlank()) return@collect

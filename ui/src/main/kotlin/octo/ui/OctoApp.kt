@@ -135,12 +135,19 @@ private fun TaskPane(
     val plugins = remember(id) { models.pluginActions(id) }
     DisposableEffect(plugins) { onDispose { plugins?.close() } }
     var publishing by remember(id) { mutableStateOf(false) }
+    var switching by remember(id) { mutableStateOf(false) }
     TaskScreen(
         vm,
         onDiff = { models.main.showDiff(true) },
         onPublish = if (models.canPublish) ({ publishing = true }) else null,
         plugins = plugins,
+        onSwitchAgent = if (models.canSwitchAgent) ({ switching = true }) else null,
     )
+    if (switching) {
+        val switch = remember(id) { models.switchAgent(id) } ?: return
+        DisposableEffect(switch) { onDispose { switch.close() } }
+        SwitchAgentDialog(switch, onDismiss = { switching = false })
+    }
     if (publishing) {
         val title =
             vm.state.value.task

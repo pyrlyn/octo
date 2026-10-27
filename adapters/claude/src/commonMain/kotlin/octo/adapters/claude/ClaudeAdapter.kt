@@ -15,6 +15,7 @@ import octo.core.agent.AgentSession
 import octo.core.agent.AgentSessionRef
 import octo.core.agent.AuthState
 import octo.core.agent.Capability
+import octo.core.agent.MODEL_OPTION
 import octo.core.agent.McpServer
 import octo.core.agent.SessionSpec
 import octo.core.process.ProcessLauncher
@@ -120,7 +121,7 @@ class ClaudeAdapter(
 
     companion object {
         val ID = AgentId("claude")
-        const val OPTION_MODEL = "model"
+        const val OPTION_MODEL = MODEL_OPTION
         const val OPTION_PERMISSION_MODE = "permissionMode"
         private const val SESSION_ID = "octo.sessionId"
 

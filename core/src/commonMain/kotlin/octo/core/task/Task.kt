@@ -45,6 +45,8 @@ data class Task(
     val lastStatus: AgentStatus = AgentStatus.Stopped,
     /** Null for this computer; optional so state files from before remote machines still load. */
     val machine: String? = null,
+    /** The agent this task was switched away from; the next prompt carries the conversation over. */
+    val handoffFrom: String? = null,
 )
 
 /** A request the agent is waiting on. */

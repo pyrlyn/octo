@@ -10,4 +10,6 @@ object CoreFlags {
     val REMOTE_ACCESS =
         FeatureFlag("remote-access", "Let paired devices use Octo through a tunnel to its loopback API")
     val PLUGINS = FeatureFlag("plugins", "Load WebAssembly plugins that add agents and task actions")
+    val HANDOFF =
+        FeatureFlag("handoff", "Switch a task's agent or model and hand the conversation over to the new one")
 }

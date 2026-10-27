@@ -49,6 +49,9 @@ internal class CodexSession(
     private var turnId: String? = null
     private var usage: Usage? = null
 
+    /** Set by a live switch and sent with the next turn, which is where Codex takes it. */
+    private var model: String? = null
+
     override suspend fun initialize(spec: SessionSpec) {
         val thread =
             withTimeout(HANDSHAKE_TIMEOUT_MS) {
@@ -83,13 +86,18 @@ internal class CodexSession(
 
     override suspend fun prompt(text: String) {
         val thread = lock.withLock { threadId } ?: error("No Codex thread")
-        lock.withLock { usage = null }
+        val switched =
+            lock.withLock {
+                usage = null
+                model.also { model = null }
+            }
         emit(AgentEvent.TurnStarted)
         val response =
             peer.request(
                 "turn/start",
                 buildJsonObject {
                     put("threadId", thread)
+                    switched?.let { put("model", it) }
                     putJsonArray("input") {
                         add(
                             buildJsonObject {
@@ -106,6 +114,10 @@ internal class CodexSession(
             ?.obj("turn")
             ?.string("id")
             ?.let { id -> lock.withLock { turnId = id } }
+    }
+
+    override suspend fun setModel(model: String) {
+        lock.withLock { this.model = model }
     }
 
     override suspend fun cancel() {

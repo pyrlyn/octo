@@ -46,6 +46,17 @@ interface OctoCore {
         response: RequestResponse,
     )
 
+    /**
+     * Moves the task to [agent], optionally on [model]; the worktree and branch stay. The same
+     * agent switches its model in place when it can. Otherwise a fresh session starts and the
+     * next prompt goes out with a handoff built from the transcript.
+     */
+    suspend fun switchAgent(
+        taskId: TaskId,
+        agent: AgentId,
+        model: String?,
+    )
+
     /** Cancels the current turn; the agent keeps running. */
     suspend fun cancel(taskId: TaskId)
 

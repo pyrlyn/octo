@@ -27,6 +27,7 @@ fun main() {
             octo.devices,
             octo.remoteUrl,
             octo.plugins,
+            octo.handoff,
         )
     application {
         Window(
