@@ -11,8 +11,11 @@ import kotlinx.serialization.json.JsonNull
 import kotlinx.serialization.json.JsonObject
 import kotlinx.serialization.json.JsonObjectBuilder
 import kotlinx.serialization.json.JsonPrimitive
+import kotlinx.serialization.json.addJsonObject
+import kotlinx.serialization.json.buildJsonArray
 import kotlinx.serialization.json.buildJsonObject
 import kotlinx.serialization.json.put
+import kotlinx.serialization.json.putJsonObject
 import octo.adapters.base.ProcessAgentSession
 import octo.adapters.base.array
 import octo.adapters.base.bool
@@ -38,8 +41,10 @@ import octo.core.agent.SessionStats
 import octo.core.agent.StopReason
 import octo.core.agent.ToolStatus
 import octo.core.agent.Usage
+import octo.core.attachments.PromptImage
 import octo.core.process.RunningProcess
 import kotlin.coroutines.CoroutineContext
+import kotlin.io.encoding.Base64
 
 /** Maps Claude's stream-json messages and control requests to [AgentEvent]s. */
 internal class ClaudeSession(
@@ -83,7 +88,12 @@ internal class ClaudeSession(
         emit(AgentEvent.SessionReady(ref))
     }
 
-    override suspend fun prompt(text: String) {
+    override suspend fun prompt(text: String) = prompt(text, emptyList())
+
+    override suspend fun prompt(
+        text: String,
+        images: List<PromptImage>,
+    ) {
         lock.withLock { cancelling = false }
         emit(AgentEvent.TurnStarted)
         send {
@@ -93,7 +103,7 @@ internal class ClaudeSession(
                 "message",
                 buildJsonObject {
                     put("role", "user")
-                    put("content", text)
+                    put("content", if (images.isEmpty()) JsonPrimitive(text) else content(text, images))
                 },
             )
             put("parent_tool_use_id", JsonNull)
@@ -472,6 +482,30 @@ internal class ClaudeSession(
                 } else {
                     put("behavior", "deny")
                     put("message", "The user dismissed the question")
+                }
+            }
+
+        /** Images first, as Claude's docs advise, then the text. */
+        fun content(
+            text: String,
+            images: List<PromptImage>,
+        ): JsonArray =
+            buildJsonArray {
+                images.forEach { image ->
+                    addJsonObject {
+                        put("type", "image")
+                        putJsonObject("source") {
+                            put("type", "base64")
+                            put("media_type", image.mimeType)
+                            put("data", Base64.encode(image.data))
+                        }
+                    }
+                }
+                if (text.isNotBlank()) {
+                    addJsonObject {
+                        put("type", "text")
+                        put("text", text)
+                    }
                 }
             }
 

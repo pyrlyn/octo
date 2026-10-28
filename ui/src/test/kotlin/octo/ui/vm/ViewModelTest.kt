@@ -12,6 +12,7 @@ import octo.core.agent.PermissionOption
 import octo.core.agent.Question
 import octo.core.agent.Role
 import octo.core.agent.VendorTerms
+import octo.core.attachments.FileUpload
 import octo.core.git.FileChange
 import octo.core.git.FileDiff
 import octo.core.git.TaskDiff
@@ -222,6 +223,7 @@ class ViewModelTest {
                     override suspend fun sendPrompt(
                         taskId: TaskId,
                         text: String,
+                        files: List<FileUpload>,
                     ): Unit = error("agent went away")
                 }
             core.put(view("a", AgentStatus.Idle))

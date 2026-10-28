@@ -1,0 +1,8 @@
+# An agent that takes images gets them as image content before the text (synthetic).
+> {"jsonrpc":"2.0","id":1,"method":"initialize","params":{"protocolVersion":1}}
+< {"jsonrpc":"2.0","id":1,"result":{"protocolVersion":1,"agentCapabilities":{"loadSession":true,"promptCapabilities":{"image":true},"sessionCapabilities":{"resume":{}}}}}
+> {"jsonrpc":"2.0","id":2,"method":"session/resume","params":{"sessionId":"old","cwd":"/repo","mcpServers":[]}}
+< {"jsonrpc":"2.0","id":2,"result":{}}
+> {"jsonrpc":"2.0","id":3,"method":"session/prompt","params":{"sessionId":"old","prompt":[{"type":"image","mimeType":"image/png","data":"AQID"},{"type":"text","text":"What is on it?"}]}}
+< {"jsonrpc":"2.0","id":3,"result":{"stopReason":"end_turn"}}
+x 0

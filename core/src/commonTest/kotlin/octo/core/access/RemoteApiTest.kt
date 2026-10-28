@@ -42,10 +42,13 @@ class RemoteApiTest {
         ) = api.handle(ApiRequest(method, "/api/v1$path", token?.let { "Bearer $it" }, body))
     }
 
-    private suspend fun TestScope.api(adapter: FakeAdapter = FakeAdapter()): Api {
+    private suspend fun TestScope.api(
+        adapter: FakeAdapter = FakeAdapter(),
+        attachments: Boolean = false,
+    ): Api {
         val s = setup(adapter)
         val devices = Devices.open(AtomicFile(Path(s.home, "devices.json")), FakeSecrets())
-        val api = RemoteApi(s.core, devices)
+        val api = RemoteApi(s.core, devices, attachments = attachments)
         val code = devices.startPairing().code
         val paired = api.handle(ApiRequest("POST", "/api/v1/pair", null, """{"code":"$code","name":"Phone"}"""))
         assertEquals(200, paired.status)
@@ -136,6 +139,28 @@ class RemoteApiTest {
                     .isNotEmpty(),
             )
             assertEquals(204, t.call("POST", "/tasks/$id/stop").status)
+        }
+
+    @Test
+    fun aDeviceSendsFilesOnlyWithTheFlag() =
+        runTest {
+            // "boom" in base64.
+            val file = """{"name":"app.log","data":"Ym9vbQ=="}"""
+            val body = """{"repo":"/src/app","baseRef":"main","agent":"fake","title":"Look","attachments":[$file]}"""
+            val refused = api().call("POST", "/tasks", body)
+            assertEquals(400, refused.status)
+            assertTrue("attachments flag" in refused.body!!.jsonObject.error)
+
+            val t = api(attachments = true)
+            val created = t.call("POST", "/tasks", body)
+            assertEquals(201, created.status)
+            testScheduler.runCurrent()
+            val session =
+                t.s.adapter.sessions
+                    .single()
+            val path = session.prompts.single().substringAfter("- ")
+            assertEquals("Attached files:\n- $path", session.prompts.single())
+            assertTrue(path.endsWith("/app.log"))
         }
 
     @Test

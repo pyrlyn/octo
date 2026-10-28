@@ -9,6 +9,7 @@ import kotlinx.serialization.json.buildJsonObject
 import kotlinx.serialization.json.put
 import octo.core.agent.AgentId
 import octo.core.agent.RequestResponse
+import octo.core.attachments.FileUpload
 import octo.core.http.bearerToken
 import octo.core.orchestrator.OctoCore
 import octo.core.orchestrator.UnknownTaskException
@@ -52,6 +53,8 @@ class RemoteApi(
     private val hooks: Webhooks? = null,
     /** Null while the `guest-share` flag is off. */
     private val shares: Shares? = null,
+    /** Whether the `attachments` flag lets messages carry files. */
+    private val attachments: Boolean = false,
 ) {
     @Suppress("TooGenericExceptionCaught")
     suspend fun handle(request: ApiRequest): ApiResponse =
@@ -216,13 +219,19 @@ class RemoteApi(
                     baseRef = body.baseRef,
                     agent = AgentId(body.agent),
                     title = body.title.trim(),
-                    prompt = body.prompt?.takeIf { it.isNotBlank() },
+                    prompt = body.prompt.orEmpty().takeIf { it.isNotBlank() || body.attachments.isNotEmpty() },
+                    files = uploads(body.attachments),
                     options = body.options,
                     machine = body.machine,
                     permissionMode = body.permissionMode,
                 ),
             )
         return ApiResponse(CREATED, ApiJson.encodeToJsonElement(CreatedBody.serializer(), CreatedBody(id)))
+    }
+
+    private fun uploads(files: List<FileBody>): List<FileUpload> {
+        require(attachments || files.isEmpty()) { "Attachments need the attachments flag, which is off" }
+        return files.map { it.upload() }
     }
 
     private suspend fun task(
@@ -242,8 +251,8 @@ class RemoteApi(
 
             "prompt" -> {
                 post(request, PromptBody.serializer()) {
-                    require(it.text.isNotBlank()) { "text is required" }
-                    core.sendPrompt(id, it.text)
+                    require(it.text.isNotBlank() || it.attachments.isNotEmpty()) { "text is required" }
+                    core.sendPrompt(id, it.text, uploads(it.attachments))
                     ApiResponse(NO_CONTENT)
                 }
             }

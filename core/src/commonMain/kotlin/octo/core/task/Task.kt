@@ -8,6 +8,8 @@ import octo.core.agent.PermissionMode
 import octo.core.agent.PermissionOption
 import octo.core.agent.Question
 import octo.core.agent.SessionStats
+import octo.core.attachments.Attachment
+import octo.core.attachments.FileUpload
 import octo.core.status.AgentStatus
 import kotlin.jvm.JvmInline
 
@@ -25,6 +27,8 @@ data class NewTask(
     val agent: AgentId,
     val title: String,
     val prompt: String? = null,
+    /** Files for the first prompt; dropped without one. */
+    val files: List<FileUpload> = emptyList(),
     /** Adapter options such as the model. */
     val options: Map<String, String> = emptyMap(),
     /** A machine id from the config; null runs the task on this computer. */
@@ -119,6 +123,8 @@ data class TaskGroup(
 data class QueuedPrompt(
     val id: Int,
     val text: String,
+    /** Saved when the message was queued, so a restart keeps them too. */
+    val attachments: List<Attachment> = emptyList(),
 )
 
 /** A request the agent is waiting on. */

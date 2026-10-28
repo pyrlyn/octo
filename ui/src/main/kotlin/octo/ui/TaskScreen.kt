@@ -204,10 +204,7 @@ private fun Entry(entry: TranscriptEntry) {
     val muted = MaterialTheme.colorScheme.onSurfaceVariant
     when (entry) {
         is TranscriptEntry.Text -> {
-            Column(Modifier.alpha(if (entry.partial) PARTIAL_ALPHA else 1f)) {
-                Text(if (entry.role == Role.User) "You" else "Agent", fontWeight = FontWeight.SemiBold)
-                Text(entry.text)
-            }
+            TextEntry(entry)
         }
 
         is TranscriptEntry.Thought -> {
@@ -236,6 +233,15 @@ private fun Entry(entry: TranscriptEntry) {
         is TranscriptEntry.Checkpoint -> {
             Text("Checkpoint ${entry.id}", color = muted)
         }
+    }
+}
+
+@Composable
+private fun TextEntry(entry: TranscriptEntry.Text) {
+    Column(Modifier.alpha(if (entry.partial) PARTIAL_ALPHA else 1f)) {
+        Text(if (entry.role == Role.User) "You" else "Agent", fontWeight = FontWeight.SemiBold)
+        if (entry.text.isNotEmpty()) Text(entry.text)
+        AttachedFiles(entry.attachments)
     }
 }
 
@@ -285,7 +291,10 @@ private fun Queue(
         Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(Gap)) {
             Text("Queued", color = muted, fontWeight = FontWeight.SemiBold)
             if (editing == null) {
-                Text(queued.text, Modifier.weight(1f), color = muted, maxLines = 2)
+                Column(Modifier.weight(1f)) {
+                    Text(queued.text, color = muted, maxLines = 2)
+                    AttachedFiles(queued.attachments)
+                }
                 TextButton(onClick = { vm.editQueued(queued) }) { Text("Edit") }
             } else {
                 OutlinedTextField(editing.text, vm::editQueuedText, Modifier.weight(1f), maxLines = 4)
@@ -341,31 +350,48 @@ private fun PromptBox(
     state: TaskUiState,
     vm: TaskViewModel,
 ) {
-    Row(verticalAlignment = Alignment.Bottom, horizontalArrangement = Arrangement.spacedBy(Gap)) {
-        OutlinedTextField(
-            value = state.draft,
-            onValueChange = vm::editDraft,
-            modifier =
-                Modifier.weight(1f).onPreviewKeyEvent {
-                    val send =
-                        it.type == KeyEventType.KeyDown && it.key == Key.Enter && (it.isMetaPressed || it.isCtrlPressed)
-                    if (send) vm.send()
-                    send
-                },
-            placeholder = {
-                Text(
-                    if (state.busy) {
-                        "The agent is working: send to steer it or queue for later"
-                    } else {
-                        "Prompt the agent (Ctrl/Cmd+Enter to send)"
-                    },
-                )
-            },
-            minLines = 2,
-            maxLines = 8,
-        )
-        Button(onClick = vm::send, enabled = state.canSend) { Text("Send") }
+    val attach = vm.canAttach
+    Column(
+        if (attach) Modifier.dropFiles(vm.files) else Modifier,
+        verticalArrangement = Arrangement.spacedBy(Gap),
+    ) {
+        PickedFiles(state.files, vm.files)
+        Row(verticalAlignment = Alignment.Bottom, horizontalArrangement = Arrangement.spacedBy(Gap)) {
+            PromptField(state, vm, Modifier.weight(1f))
+            if (attach) AttachButton(vm.files)
+            Button(onClick = vm::send, enabled = state.canSend) { Text("Send") }
+        }
     }
+}
+
+@Composable
+private fun PromptField(
+    state: TaskUiState,
+    vm: TaskViewModel,
+    modifier: Modifier,
+) {
+    OutlinedTextField(
+        value = state.draft,
+        onValueChange = vm::editDraft,
+        modifier =
+            modifier.onPreviewKeyEvent {
+                val send =
+                    it.type == KeyEventType.KeyDown && it.key == Key.Enter && (it.isMetaPressed || it.isCtrlPressed)
+                if (send) vm.send()
+                send || (vm.canAttach && pasteFiles(it, vm.files))
+            },
+        placeholder = {
+            Text(
+                if (state.busy) {
+                    "The agent is working: send to steer it or queue for later"
+                } else {
+                    "Prompt the agent (Ctrl/Cmd+Enter to send)"
+                },
+            )
+        },
+        minLines = 2,
+        maxLines = 8,
+    )
 }
 
 @Composable

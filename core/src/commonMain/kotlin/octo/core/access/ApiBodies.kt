@@ -5,10 +5,12 @@ import kotlinx.serialization.json.Json
 import octo.core.agent.PermissionMode
 import octo.core.agent.PermissionOption
 import octo.core.agent.Question
+import octo.core.attachments.FileUpload
 import octo.core.status.AgentStatus
 import octo.core.task.SidebarStatus
 import octo.core.task.TaskId
 import octo.core.task.TranscriptEntry
+import kotlin.io.encoding.Base64
 
 // The bodies of [RemoteApi]'s calls, shared with its clients so both ends read the same shapes.
 
@@ -39,6 +41,8 @@ data class NewTaskBody(
     val agent: String,
     val title: String,
     val prompt: String? = null,
+    /** Files for the first prompt. */
+    val attachments: List<FileBody> = emptyList(),
     val options: Map<String, String> = emptyMap(),
     val machine: String? = null,
     /** One of [PermissionMode]'s names; left out, the config default. */
@@ -52,8 +56,21 @@ data class CreatedBody(
 
 @Serializable
 data class PromptBody(
+    /** May be empty when [attachments] are not. */
     val text: String,
+    val attachments: List<FileBody> = emptyList(),
 )
+
+/** A file sent with a message; the API takes it only while the `attachments` flag is on. */
+@Serializable
+data class FileBody(
+    val name: String,
+    /** The file's bytes in base64. */
+    val data: String,
+) {
+    /** Throws [IllegalArgumentException], a bad request, when [data] is not base64. */
+    fun upload(): FileUpload = FileUpload(name, Base64.decode(data))
+}
 
 @Serializable
 data class TaskListBody(

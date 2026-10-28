@@ -35,6 +35,7 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.focus.onFocusChanged
+import androidx.compose.ui.input.key.onPreviewKeyEvent
 import androidx.compose.ui.platform.LocalUriHandler
 import androidx.compose.ui.text.input.ImeAction
 import octo.core.agent.AuthState
@@ -271,13 +272,29 @@ private fun TitleAndPrompt(
         placeholder = { Text(state.effectiveTitle.ifEmpty { "Taken from the prompt when empty" }) },
         singleLine = true,
     )
-    OutlinedTextField(
-        state.prompt,
-        vm::editPrompt,
-        Modifier.fillMaxWidth(),
-        label = { Text("First prompt") },
-        minLines = 3,
-    )
+    if (!state.canAttach) {
+        OutlinedTextField(
+            state.prompt,
+            vm::editPrompt,
+            Modifier.fillMaxWidth(),
+            label = { Text("First prompt") },
+            minLines = 3,
+        )
+        return
+    }
+    Column(Modifier.dropFiles(vm.files), verticalArrangement = Arrangement.spacedBy(Gap)) {
+        OutlinedTextField(
+            state.prompt,
+            vm::editPrompt,
+            Modifier.fillMaxWidth().onPreviewKeyEvent { pasteFiles(it, vm.files) },
+            label = { Text("First prompt") },
+            minLines = 3,
+        )
+        Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(Gap)) {
+            AttachButton(vm.files)
+            PickedFiles(state.files, vm.files)
+        }
+    }
 }
 
 @Composable

@@ -25,9 +25,12 @@ import octo.core.agent.SessionSpec
 import octo.core.agent.SessionStats
 import octo.core.agent.StopReason
 import octo.core.agent.ToolStatus
+import octo.core.attachments.Attachments
+import octo.core.attachments.PromptImage
 import octo.core.process.RunningProcess
 import kotlin.coroutines.CoroutineContext
 import kotlin.coroutines.cancellation.CancellationException
+import kotlin.io.encoding.Base64
 
 /**
  * An Agent Client Protocol v1 client session (schema `schema-v1.26.0`). Octo offers no file system
@@ -41,6 +44,7 @@ open class AcpSession(
 ) : JsonRpcAgentSession(process, context) {
     private val lock = Mutex()
     private var sessionId: String? = null
+    private var takesImages = false
     private var replaying = false
     private var turn: Job? = null
     private val tools = mutableMapOf<String, AgentEvent.ToolCall>()
@@ -51,9 +55,11 @@ open class AcpSession(
     protected suspend fun sessionId(): String = lock.withLock { sessionId } ?: error("No ACP session")
 
     override suspend fun initialize(spec: SessionSpec) {
+        var images = false
         val id =
             withTimeout(HANDSHAKE_TIMEOUT_MS) {
                 val init = peer.request("initialize", initializeParams()).obj() ?: JsonObject(emptyMap())
+                images = init.obj("agentCapabilities")?.obj("promptCapabilities")?.bool("image") == true
                 val methods = init.array("authMethods").mapNotNull { it.obj()?.string("id") }
                 val login = config.loginMethods.firstOrNull { it in methods }
                 try {
@@ -65,7 +71,10 @@ open class AcpSession(
                     openSession(spec, init)
                 }
             }
-        lock.withLock { sessionId = id }
+        lock.withLock {
+            sessionId = id
+            takesImages = images
+        }
         spec.options[OPTION_MODE]?.let { mode ->
             peer.request(
                 "session/set_mode",
@@ -168,22 +177,15 @@ open class AcpSession(
             ?.string("name") ?: current
     }
 
-    private fun httpServer(server: McpServer) =
-        buildJsonObject {
-            put("type", "http")
-            put("name", server.name)
-            put("url", server.url)
-            putJsonArray("headers") {
-                server.headers.forEach { (name, value) ->
-                    addJsonObject {
-                        put("name", name)
-                        put("value", value)
-                    }
-                }
-            }
-        }
+    override suspend fun prompt(text: String) = prompt(text, emptyList())
 
-    override suspend fun prompt(text: String) {
+    /** An agent that did not offer `promptCapabilities.image` reads the images' paths instead. */
+    override suspend fun prompt(
+        text: String,
+        images: List<PromptImage>,
+    ) {
+        val sent = if (lock.withLock { takesImages }) images else emptyList()
+        val described = if (sent.isEmpty()) Attachments.withPaths(text, images.map { it.path }) else text
         val id = sessionId()
         emit(AgentEvent.TurnStarted)
         // `session/prompt` answers only when the turn ends, so the turn runs in the background.
@@ -193,12 +195,23 @@ open class AcpSession(
                     buildJsonObject {
                         put("sessionId", id)
                         putJsonArray("prompt") {
-                            add(
-                                buildJsonObject {
-                                    put("type", "text")
-                                    put("text", text)
-                                },
-                            )
+                            sent.forEach { image ->
+                                add(
+                                    buildJsonObject {
+                                        put("type", "image")
+                                        put("mimeType", image.mimeType)
+                                        put("data", Base64.encode(image.data))
+                                    },
+                                )
+                            }
+                            if (described.isNotBlank() || sent.isEmpty()) {
+                                add(
+                                    buildJsonObject {
+                                        put("type", "text")
+                                        put("text", described)
+                                    },
+                                )
+                            }
                         }
                     }
                 val end =
@@ -380,6 +393,21 @@ open class AcpSession(
                 "reject_once" to PermissionKind.RejectOnce,
                 "reject_always" to PermissionKind.RejectAlways,
             )
+
+        private fun httpServer(server: McpServer) =
+            buildJsonObject {
+                put("type", "http")
+                put("name", server.name)
+                put("url", server.url)
+                putJsonArray("headers") {
+                    server.headers.forEach { (name, value) ->
+                        addJsonObject {
+                            put("name", name)
+                            put("value", value)
+                        }
+                    }
+                }
+            }
 
         private fun permissionOption(o: JsonObject?): PermissionOption? {
             val id = o?.string("optionId")

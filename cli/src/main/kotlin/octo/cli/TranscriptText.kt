@@ -7,7 +7,8 @@ object TranscriptText {
     fun line(entry: TranscriptEntry): String =
         when (entry) {
             is TranscriptEntry.Text -> {
-                "${entry.role.name.lowercase()}: ${entry.text}"
+                "${entry.role.name.lowercase()}: ${entry.text}" +
+                    entry.attachments.joinToString("") { " [${it.name}${if (it.removed) ", removed" else ""}]" }
             }
 
             is TranscriptEntry.Thought -> {

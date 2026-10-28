@@ -17,7 +17,7 @@ class RemoteHttpServer(
     private val guestPage: Boolean = false,
 ) : AutoCloseable {
     private val server =
-        LoopbackHttpServer(port, publicOrigin = publicOrigin) { request ->
+        LoopbackHttpServer(port, MAX_BODY, publicOrigin) { request ->
             if (guestPage && request.path == Shares.SHARE_PATH) return@LoopbackHttpServer page(request.method)
             val body = request.body.takeIf { it.isNotEmpty() }?.decodeToString()
             val response =
@@ -48,6 +48,9 @@ class RemoteHttpServer(
     companion object {
         private const val OK = 200
         private const val METHOD_NOT_ALLOWED = 405
+
+        // A message's files travel in its body as base64: one 20 MB file, with room to spare.
+        internal const val MAX_BODY = 32 shl 20
 
         private val PAGE: String by lazy {
             checkNotNull(RemoteHttpServer::class.java.getResource("share.html")) { "share.html is missing" }.readText()

@@ -12,6 +12,7 @@ import kotlinx.coroutines.launch
 import octo.core.agent.AgentId
 import octo.core.agent.PermissionMode
 import octo.core.agent.VendorTerms
+import octo.core.attachments.FileUpload
 import octo.core.compare.AgentPick
 import octo.core.compare.compare
 import octo.core.orchestrator.AgentCatalog
@@ -40,6 +41,10 @@ data class NewTaskUiState(
     val branchesError: String? = null,
     val title: String = "",
     val prompt: String = "",
+    /** Files for the first prompt; a team's prompts come from its preset, so it takes none. */
+    val files: List<FileUpload> = emptyList(),
+    /** Whether files can be attached; false while the `attachments` flag is off. */
+    val canAttach: Boolean = false,
     /** Remote machines; the choice is shown only when there are some. */
     val machines: List<String> = emptyList(),
     /** Null runs the task on this computer. */
@@ -152,11 +157,18 @@ class NewTaskViewModel(
     library: PresetLibrary? = null,
     /** False while the `compare` flag is off. */
     compare: Boolean = false,
+    /** False while the `attachments` flag is off. */
+    attachments: Boolean = false,
 ) {
     private val scope = parent.childScope()
     private val mutable =
         MutableStateFlow(
-            NewTaskUiState(machines = catalog.machines, presetsEnabled = library != null, compareEnabled = compare),
+            NewTaskUiState(
+                machines = catalog.machines,
+                presetsEnabled = library != null,
+                compareEnabled = compare,
+                canAttach = attachments,
+            ),
         )
     val state: StateFlow<NewTaskUiState> = mutable.asStateFlow()
     private var branchLookup: Job? = null
@@ -279,6 +291,8 @@ class NewTaskViewModel(
 
     fun editPrompt(value: String) = mutable.update { it.copy(prompt = value) }
 
+    val files = FilePicker({ edit -> mutable.update { it.copy(files = edit(it.files)) } }, ::showError)
+
     fun selectAgent(id: AgentId) = mutable.update { it.copy(agent = id) }
 
     /** Null goes back to the config default. */
@@ -312,6 +326,7 @@ class NewTaskViewModel(
                     agent = picks.first().agent,
                     title = s.effectiveTitle,
                     prompt = s.prompt.trim(),
+                    files = s.files,
                     machine = s.machine,
                 )
             val result = core.compare(request, picks)
@@ -358,7 +373,8 @@ class NewTaskViewModel(
                             baseRef = s.baseRef.trim(),
                             agent = agent.id,
                             title = s.effectiveTitle,
-                            prompt = s.prompt.trim().ifEmpty { null },
+                            prompt = s.prompt.trim().takeIf { it.isNotEmpty() || s.files.isNotEmpty() },
+                            files = s.files,
                             machine = s.machine,
                             permissionMode = s.chosenPermissionMode,
                         ),
@@ -383,6 +399,8 @@ class NewTaskViewModel(
     fun declineTerms() = mutable.update { it.copy(terms = null) }
 
     fun dismissError() = mutable.update { it.copy(error = null) }
+
+    private fun showError(reason: String) = mutable.update { it.copy(error = reason) }
 
     fun close() = scope.cancel()
 

@@ -7,6 +7,7 @@ import kotlinx.coroutines.test.runTest
 import kotlinx.io.files.Path
 import octo.core.access.JvmSecrets
 import octo.core.access.Shares
+import octo.core.attachments.FileUpload
 import octo.core.io.AtomicFile
 import octo.core.task.TaskId
 import octo.testing.FakeOctoCore
@@ -60,6 +61,7 @@ class ShareViewModelTest {
                     override suspend fun sendPrompt(
                         taskId: TaskId,
                         text: String,
+                        files: List<FileUpload>,
                     ): Unit = error("agent went away")
                 }
             val shares = Shares.open(AtomicFile(file), JvmSecrets, failing)

@@ -1,0 +1,10 @@
+# A prompt with an image goes as content blocks: the image first, then the text.
+> {"type":"control_request","request_id":"req_1","request":{"subtype":"initialize"}}
+< {"type":"control_response","response":{"subtype":"success","request_id":"req_1","response":{"commands":[]}}}
+> {"type":"user","message":{"role":"user","content":[{"type":"image","source":{"type":"base64","media_type":"image/png","data":"AQID"}},{"type":"text","text":"What is on it?"}]}}
+< {"type":"system","subtype":"init","session_id":"sess-1","model":"claude-opus-5-5","tools":[]}
+< {"type":"result","subtype":"success","is_error":false,"result":"A cat.","session_id":"sess-1","usage":{"input_tokens":6,"output_tokens":3}}
+# Only an image, with no text.
+> {"type":"user","message":{"role":"user","content":[{"type":"image","source":{"type":"base64","media_type":"image/jpeg","data":"BAU="}}]}}
+< {"type":"result","subtype":"success","is_error":false,"result":"A dog.","session_id":"sess-1","usage":{"input_tokens":6,"output_tokens":3}}
+x 0

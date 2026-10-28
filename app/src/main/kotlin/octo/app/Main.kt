@@ -42,6 +42,7 @@ fun main() {
             if (octo.previews) FilePreviewer(launcher) else null,
             octo.shares,
             octo.shareBase,
+            octo.attachments,
         )
     application {
         Window(

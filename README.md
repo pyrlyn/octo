@@ -124,8 +124,8 @@ The `octo` command drives the same API from a terminal or a script. Build it wit
 the token is sent only to the Octo it was paired with.
 
 - `octo task list`;
-- `octo task start --base main --agent claude --title "Fix the build" [--repo .] [--prompt …] [--mode auto] [--machine …] [--option key=value]`, which prints the new id;
-- `octo task send <id> <message>`;
+- `octo task start --base main --agent claude --title "Fix the build" [--repo .] [--prompt …] [--mode auto] [--machine …] [--option key=value] [--attach FILE]…`, which prints the new id;
+- `octo task send <id> <message> [--attach FILE]…`, with `--attach` repeated per file (the `attachments` flag);
 - `octo task read <id>`, which prints the transcript one entry per line;
 - `octo task wait <id> [--timeout seconds]`, which returns when the turn ends: exit 0 when the task
   is idle, 1 when it failed or stopped, 2 when it waits for an answer, 124 on timeout.
@@ -169,6 +169,16 @@ checkpoint in the transcript offers "Revert to here", which brings the files bac
 (after a confirmation) and drops the later checkpoints. Codex also drops the reverted turns from
 its conversation; other agents are told what was reverted with their next prompt. The refs are
 deleted with the task.
+
+`"attachments": true` adds an Attach button to the message box, the answer fields and the New
+task dialog; files can also be dropped on them or pasted (an image on the clipboard becomes
+`pasted-image.png`). A message takes up to 10 files of up to 20 MB each. Octo copies them into
+`attachments/<task>/` in its home folder on the task's machine (`~/.octo/attachments` on a remote
+one, over ssh) and deletes them with the task. Claude Code, Cursor and ACP agents that accept
+images get PNG, JPEG, GIF and WebP images of up to 5 MB as images; every other file, and every
+file for other agents, goes as a list of paths under the message. A revert deletes the files of
+the messages after that checkpoint and leaves their names, marked removed, in the transcript.
+The remote-access API and `octo task start|send --attach` take files too.
 
 `"triggers": true` starts the tasks listed under `triggers` in `config.json` on their own. A
 trigger has an `id`, a `task` (`repo`, `baseRef`, `agent`, `title`, and optionally `prompt`,

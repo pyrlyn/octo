@@ -10,6 +10,8 @@ import kotlinx.coroutines.flow.onStart
 import kotlinx.coroutines.flow.update
 import octo.core.agent.PermissionMode
 import octo.core.agent.RequestResponse
+import octo.core.attachments.Attachments
+import octo.core.attachments.FileUpload
 import octo.core.orchestrator.OctoCore
 import octo.core.orchestrator.TaskNotRunningException
 import octo.core.orchestrator.WorktreeDirtyException
@@ -40,12 +42,16 @@ data class TaskUiState(
     val transcript: List<TranscriptEntry> = emptyList(),
     val pending: List<PendingRequest> = emptyList(),
     val draft: String = "",
+    /** Files picked for the next prompt. */
+    val files: List<FileUpload> = emptyList(),
     /** Prompts waiting for the agent, oldest first. */
     val queue: List<QueuedPrompt> = emptyList(),
     /** A queued prompt being rewritten; its text is the edit in progress. */
     val editing: QueuedPrompt? = null,
     /** Answers being filled in, by request id and then question id. */
     val answers: Map<String, Map<String, List<String>>> = emptyMap(),
+    /** Files picked for free-text answers, by request id and then question id. */
+    val answerFiles: Map<String, Map<String, List<FileUpload>>> = emptyMap(),
     val remove: RemoveStep? = null,
     val error: String? = null,
     /** The agent hit its usage limit; always null while the `usage` flag is off. */
@@ -62,7 +68,7 @@ data class TaskUiState(
     val sidebarStatus: SidebarStatus get() = task?.let { TaskView(it, status).sidebarStatus } ?: SidebarStatus.Stopped
 
     /** A busy or queued agent still takes text: the core steers the turn or queues it. */
-    val canSend: Boolean get() = status in LIVE && draft.isNotBlank()
+    val canSend: Boolean get() = status in LIVE && (draft.isNotBlank() || files.isNotEmpty())
 
     val busy: Boolean get() = status == AgentStatus.Working || status == AgentStatus.Blocked
     val canCancel: Boolean get() = status == AgentStatus.Working || status == AgentStatus.Blocked
@@ -90,6 +96,8 @@ class TaskViewModel(
     private val limits: Boolean = false,
     /** False while the `checkpoints` flag is off, which hides reverting. */
     private val checkpoints: Boolean = false,
+    /** False while the `attachments` flag is off, which hides attaching files. */
+    val canAttach: Boolean = false,
 ) {
     private val flags = Shown(limits, checkpoints)
     private val scope = parent.childScope()
@@ -110,14 +118,14 @@ class TaskViewModel(
 
     fun editDraft(text: String) = mutable.update { it.copy(draft = text) }
 
+    val files = FilePicker({ edit -> mutable.update { it.copy(files = edit(it.files)) } }, ::showError)
+
     fun send() {
-        val text =
-            state.value
-                .takeIf { it.canSend }
-                ?.draft
-                ?.trim() ?: return
-        mutable.update { it.copy(draft = "") }
-        act({ mutable.update { it.copy(draft = text) } }) { core.sendPrompt(taskId, text) }
+        val ready = state.value.takeIf { it.canSend } ?: return
+        val text = ready.draft.trim()
+        val files = ready.files
+        mutable.update { it.copy(draft = "", files = emptyList()) }
+        act({ mutable.update { it.copy(draft = text, files = files) } }) { core.sendPrompt(taskId, text, files) }
     }
 
     fun editQueued(prompt: QueuedPrompt) = mutable.update { it.copy(editing = prompt) }
@@ -163,14 +171,38 @@ class TaskViewModel(
         l.copy(answers = l.answers + (requestId to request + (questionId to next)))
     }
 
+    /** The files picked for one free-text answer. */
+    fun answerFiles(
+        requestId: String,
+        questionId: String,
+    ) = FilePicker({ edit ->
+        mutable.update { s ->
+            val request = s.answerFiles[requestId].orEmpty()
+            s.copy(
+                answerFiles =
+                    s.answerFiles + (requestId to request + (questionId to edit(request[questionId].orEmpty()))),
+            )
+        }
+    }, ::showError)
+
+    /** Answers carry no files, so an answer's files are saved first and the answer names their paths. */
     fun submitAnswers(requestId: String) {
         val answers =
             state.value.answers[requestId]
                 .orEmpty()
                 .mapValues { (_, values) -> values.joinToString(RequestResponse.Answers.SEPARATOR) }
+        val files =
+            state.value.answerFiles[requestId]
+                .orEmpty()
+                .filterValues { it.isNotEmpty() }
         act {
-            core.respond(taskId, requestId, RequestResponse.Answers(answers))
-            mutable.update { it.copy(answers = it.answers - requestId) }
+            val withFiles =
+                answers +
+                    files.mapValues { (question, picked) ->
+                        Attachments.withPaths(answers[question].orEmpty(), core.attach(taskId, picked).map { it.path })
+                    }
+            core.respond(taskId, requestId, RequestResponse.Answers(withFiles))
+            mutable.update { it.copy(answers = it.answers - requestId, answerFiles = it.answerFiles - requestId) }
         }
     }
 
@@ -228,6 +260,8 @@ class TaskViewModel(
         }
 
     fun dismissError() = mutable.update { it.copy(error = null) }
+
+    private fun showError(reason: String) = mutable.update { it.copy(error = reason) }
 
     fun close() = scope.cancel()
 

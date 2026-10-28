@@ -7,6 +7,7 @@ import octo.core.agent.PlanEntry
 import octo.core.agent.Role
 import octo.core.agent.StopReason
 import octo.core.agent.ToolStatus
+import octo.core.attachments.Attachment
 
 /** One line of a task's history as the UI shows it. */
 @Serializable
@@ -18,6 +19,8 @@ sealed interface TranscriptEntry {
         val text: String,
         /** Still streaming; never persisted. */
         val partial: Boolean = false,
+        /** Files the user attached to this message. */
+        val attachments: List<Attachment> = emptyList(),
     ) : TranscriptEntry
 
     @Serializable

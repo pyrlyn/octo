@@ -6,6 +6,7 @@ import kotlinx.coroutines.test.runTest
 import octo.core.agent.AgentEvent
 import octo.core.agent.AgentSessionRef
 import octo.core.agent.AuthState
+import octo.core.agent.Capability
 import octo.core.agent.LogStream
 import octo.core.agent.McpServer
 import octo.core.agent.PermissionKind
@@ -17,6 +18,7 @@ import octo.core.agent.SessionSpec
 import octo.core.agent.SessionStats
 import octo.core.agent.StopReason
 import octo.core.agent.ToolStatus
+import octo.core.attachments.PromptImage
 import octo.testing.Events
 import octo.testing.FakeProcess
 import octo.testing.FakeProcessLauncher
@@ -197,6 +199,19 @@ class ClaudeAdapterTest {
                 events.filterIsInstance<AgentEvent.StatsUpdated>().mapNotNull { it.stats.promptCacheTtlMs },
             )
             assertEquals(2, events.filterIsInstance<AgentEvent.TurnEnded>().size)
+        }
+
+    @Test
+    fun imagesGoAsContentBlocks() =
+        runTest {
+            val (adapter, _) = fixture("image.transcript")
+            assertTrue(Capability.Images in adapter.capabilities)
+            val session = adapter.start(SessionSpec("/repo"))
+            session.prompt("What is on it?", listOf(PromptImage("/a.png", "image/png", byteArrayOf(1, 2, 3))))
+            session.prompt("", listOf(PromptImage("/b.jpg", "image/jpeg", byteArrayOf(4, 5))))
+
+            // The fixture fails the session on any prompt other than the one it expects.
+            assertEquals(2, Events(backgroundScope, session).drain().filterIsInstance<AgentEvent.TurnEnded>().size)
         }
 
     @Test

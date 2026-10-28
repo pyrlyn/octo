@@ -1,0 +1,8 @@
+# An agent that did not offer images reads their paths instead (synthetic).
+> {"jsonrpc":"2.0","id":1,"method":"initialize","params":{"protocolVersion":1}}
+< {"jsonrpc":"2.0","id":1,"result":{"protocolVersion":1,"agentCapabilities":{"loadSession":true,"promptCapabilities":{"image":false},"sessionCapabilities":{"resume":{}}}}}
+> {"jsonrpc":"2.0","id":2,"method":"session/resume","params":{"sessionId":"old","cwd":"/repo","mcpServers":[]}}
+< {"jsonrpc":"2.0","id":2,"result":{}}
+> {"jsonrpc":"2.0","id":3,"method":"session/prompt","params":{"sessionId":"old","prompt":[{"type":"text","text":"What is on it?\n\nAttached files:\n- /a.png"}]}}
+< {"jsonrpc":"2.0","id":3,"result":{"stopReason":"end_turn"}}
+x 0

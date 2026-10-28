@@ -10,12 +10,14 @@ import com.github.ajalt.clikt.parameters.arguments.multiple
 import com.github.ajalt.clikt.parameters.options.associate
 import com.github.ajalt.clikt.parameters.options.default
 import com.github.ajalt.clikt.parameters.options.flag
+import com.github.ajalt.clikt.parameters.options.multiple
 import com.github.ajalt.clikt.parameters.options.option
 import com.github.ajalt.clikt.parameters.options.required
 import com.github.ajalt.clikt.parameters.types.double
 import com.github.ajalt.clikt.parameters.types.enum
 import octo.core.access.ApiJson
 import octo.core.access.CreatedBody
+import octo.core.access.FileBody
 import octo.core.access.NewTaskBody
 import octo.core.access.PairBody
 import octo.core.access.PairedBody
@@ -26,6 +28,7 @@ import octo.core.access.TranscriptBody
 import octo.core.agent.PermissionMode
 import octo.core.status.AgentStatus
 import java.io.File
+import kotlin.io.encoding.Base64
 
 class PairCommand(
     private val octo: Octo,
@@ -78,6 +81,7 @@ class TaskStartCommand(
     private val agent by option("--agent", help = "The agent's id, e.g. claude").required()
     private val title by option("--title").required()
     private val prompt by option("--prompt", help = "The first message")
+    private val attach by attachOption()
     private val mode by option("--mode", help = "The permission mode").enum<PermissionMode>(ignoreCase = true)
     private val machine by option("--machine", help = "A machine from Octo's config instead of this one")
     private val options by option("--option", help = "An agent option, as key=value").associate()
@@ -95,6 +99,7 @@ class TaskStartCommand(
                 agent = agent,
                 title = title,
                 prompt = prompt,
+                attachments = octo.files(attach),
                 options = options,
                 machine = machine,
                 permissionMode = mode,
@@ -109,11 +114,13 @@ class TaskSendCommand(
 ) : CliktCommand(name = "send") {
     private val id by argument(help = "The task's id")
     private val text by argument(help = "The message; several words are joined with spaces").multiple(required = true)
+    private val attach by attachOption()
 
     override fun help(context: Context) = "Send a message; Octo queues it while the agent works"
 
     override fun run() {
-        octo.client().post("/tasks/$id/prompt", PromptBody.serializer(), PromptBody(text.joinToString(" ")))
+        val body = PromptBody(text.joinToString(" "), octo.files(attach))
+        octo.client().post("/tasks/$id/prompt", PromptBody.serializer(), body)
     }
 }
 
@@ -188,3 +195,14 @@ private fun CliktCommand.jsonFlag() = option("--json", help = "Print Octo's JSON
 
 // Mordant, behind echo, turns tabs into spaces; scripts split these lines on tabs.
 private fun CliktCommand.line(text: String) = currentContext.terminal.rawPrint("$text\n")
+
+private fun CliktCommand.attachOption() =
+    option("--attach", help = "A file to attach; repeat for more. Needs Octo's attachments flag").multiple()
+
+/** The [paths], relative to the caller's directory, read and encoded for the API. */
+private fun Octo.files(paths: List<String>): List<FileBody> =
+    paths.map { path ->
+        val file = File(cwd).resolve(path)
+        if (!file.isFile) throw CliktError("No file at $path")
+        FileBody(file.name, Base64.encode(file.readBytes()))
+    }

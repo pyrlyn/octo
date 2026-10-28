@@ -19,6 +19,7 @@ import octo.core.agent.PermissionMode
 import octo.core.agent.RequestResponse
 import octo.core.agent.SessionSpec
 import octo.core.agent.VendorTerms
+import octo.core.attachments.PromptImage
 import octo.core.flags.FeatureFlags
 import octo.core.git.GitRemote
 import octo.core.git.RefTransfer
@@ -53,6 +54,7 @@ internal class FakeSession(
     val rollbacks = mutableListOf<Int>()
     var refuseRollback = false
     var compactions = 0
+    val images = mutableListOf<PromptImage>()
 
     override val events: Flow<AgentEvent> = channel.receiveAsFlow()
 
@@ -60,6 +62,14 @@ internal class FakeSession(
 
     override suspend fun prompt(text: String) {
         prompts += text
+    }
+
+    override suspend fun prompt(
+        text: String,
+        images: List<PromptImage>,
+    ) {
+        prompts += text
+        this.images += images
     }
 
     override suspend fun steer(text: String) {

@@ -2,6 +2,7 @@ package octo.core.orchestrator
 
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.update
+import octo.core.attachments.Attachment
 import octo.core.task.OctoState
 import octo.core.task.QueuedPrompt
 import octo.core.task.TaskId
@@ -14,10 +15,11 @@ internal class PromptQueues(
     fun add(
         id: TaskId,
         text: String,
+        attachments: List<Attachment> = emptyList(),
     ) {
         val queue = queue(id)
         check(queue.size < limit) { "Task '${id.value}' already has $limit messages waiting" }
-        val next = QueuedPrompt((queue.maxOfOrNull { it.id } ?: 0) + 1, text)
+        val next = QueuedPrompt((queue.maxOfOrNull { it.id } ?: 0) + 1, text, attachments)
         change(id) { it + next }
     }
 
@@ -30,10 +32,14 @@ internal class PromptQueues(
         change(id) { queue -> queue.map { if (it.id == queuedId) it.copy(text = text) else it } }
     }
 
+    /** Returns the removed message, or null when it is no longer queued. */
     fun remove(
         id: TaskId,
         queuedId: Int,
-    ) = change(id) { queue -> queue.filterNot { it.id == queuedId } }
+    ): QueuedPrompt? =
+        queue(id).firstOrNull { it.id == queuedId }?.also { removed ->
+            change(id) { queue -> queue.filterNot { it.id == removed.id } }
+        }
 
     /** Puts [prompt] back at the head, for one that could not be sent. */
     fun putBack(

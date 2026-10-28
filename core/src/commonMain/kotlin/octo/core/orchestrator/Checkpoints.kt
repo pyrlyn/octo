@@ -24,6 +24,7 @@ internal class Checkpoints(
     private val enabled: Boolean,
     private val state: MutableStateFlow<OctoState>,
     private val transcripts: MutableStateFlow<Map<TaskId, List<TranscriptEntry>>>,
+    private val files: PromptFiles,
     private val workspace: (Task) -> Workspace,
 ) {
     // A snapshot that fails costs that checkpoint only; the agent's turn goes on.
@@ -50,9 +51,9 @@ internal class Checkpoints(
     }
 
     /**
-     * Restores the files of [ref] and drops the later checkpoints. [session], the agent's live
-     * session of [run], is asked to drop its turns since, but only when all of them ran in it;
-     * otherwise, or when it cannot, the next prompt carries a note.
+     * Restores the files of [ref] and drops the later checkpoints and the files attached since.
+     * [session], the agent's live session of [run], is asked to drop its turns since, but only
+     * when all of them ran in it; otherwise, or when it cannot, the next prompt carries a note.
      */
     suspend fun revert(
         view: TaskView,
@@ -92,8 +93,39 @@ internal class Checkpoints(
                 turns == 0 -> ""
                 else -> " and the agent's conversation"
             }
+        dropAttachments(task, target)
         note(id, TranscriptEntry.Notice("Reverted the files to checkpoint ${target.id}$how"))
         later.forEach { forget(task, it.ref) }
+    }
+
+    /** Deletes the files of the messages after [target]; the messages stay, their files marked removed. */
+    private suspend fun dropAttachments(
+        task: Task,
+        target: Checkpoint,
+    ) {
+        fun after(entries: List<TranscriptEntry>) =
+            entries.indexOfFirst { it is TranscriptEntry.Checkpoint && it.ref == target.ref }
+        val entries = transcripts.value[task.id].orEmpty()
+        val at = after(entries).takeIf { it >= 0 } ?: return
+        val dropped = entries.drop(at + 1).filterIsInstance<TranscriptEntry.Text>().flatMap { it.attachments }
+        if (dropped.none { !it.removed }) return
+        files.discard(task, dropped)
+        transcripts.update { all ->
+            val current = all[task.id].orEmpty()
+            // Found again: the agent may have added entries while the files were deleted.
+            val from = after(current)
+            if (from < 0) return@update all
+            all + (
+                task.id to
+                    current.mapIndexed { i, entry ->
+                        if (i > from && entry is TranscriptEntry.Text && entry.attachments.isNotEmpty()) {
+                            entry.copy(attachments = entry.attachments.map { it.copy(removed = true) })
+                        } else {
+                            entry
+                        }
+                    }
+            )
+        }
     }
 
     // Whatever stops the agent from rolling back, the note in the next prompt covers it.

@@ -9,6 +9,7 @@ import octo.core.agent.Role
 import octo.core.agent.SessionSpec
 import octo.core.agent.StopReason
 import octo.core.agent.WrongAgentBinaryException
+import octo.core.attachments.PromptImage
 import octo.testing.Events
 import octo.testing.FakeProcessLauncher
 import octo.testing.readFixture
@@ -19,13 +20,16 @@ import kotlin.test.assertFailsWith
 import kotlin.test.assertNull
 
 class GrokAdapterTest {
-    private fun TestScope.adapter(version: String): Pair<GrokAdapter, FakeProcessLauncher> {
+    private fun TestScope.adapter(
+        version: String,
+        fixture: String = "turn.transcript",
+    ): Pair<GrokAdapter, FakeProcessLauncher> {
         val launcher =
             FakeProcessLauncher(backgroundScope, mapOf("grok" to "/bin/grok")) {
                 if (spec.args == listOf("--version")) {
                     emit(version)
                 } else {
-                    replay(readFixture("src/commonTest/fixtures/turn.transcript"))
+                    replay(readFixture("src/commonTest/fixtures/$fixture"))
                 }
             }
         return GrokAdapter(launcher, StandardTestDispatcher(testScheduler)) to launcher
@@ -48,6 +52,37 @@ class GrokAdapterTest {
             )
             assertEquals(StopReason.EndTurn, all.filterIsInstance<AgentEvent.TurnEnded>().single().stopReason)
             assertEquals(AgentEvent.Exited(0), all.last())
+        }
+
+    /** The fixture fails the turn when the prompt is not the one it expects. */
+    private suspend fun TestScope.promptWithImage(fixture: String): StopReason {
+        val (adapter, _) = adapter("grok 1.0.67 (2fe064390d07) [stable]", fixture)
+        val session = adapter.start(SessionSpec("/repo", resume = AgentSessionRef("old")))
+        val events = Events(backgroundScope, session)
+        session.prompt("What is on it?", listOf(PromptImage("/a.png", "image/png", byteArrayOf(1, 2, 3))))
+        return events
+            .drain()
+            .filterIsInstance<AgentEvent.TurnEnded>()
+            .single()
+            .stopReason
+    }
+
+    @Test
+    fun anImageGoesAsImageContent() =
+        runTest {
+            assertEquals(
+                StopReason.EndTurn,
+                promptWithImage("image.transcript"),
+            )
+        }
+
+    @Test
+    fun anAgentWithoutImagesReadsTheirPaths() =
+        runTest {
+            assertEquals(
+                StopReason.EndTurn,
+                promptWithImage("image-paths.transcript"),
+            )
         }
 
     @Test

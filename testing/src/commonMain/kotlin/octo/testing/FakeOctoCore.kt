@@ -12,6 +12,9 @@ import octo.core.agent.MODEL_OPTION
 import octo.core.agent.PermissionMode
 import octo.core.agent.RequestResponse
 import octo.core.agent.VendorTerms
+import octo.core.attachments.Attachment
+import octo.core.attachments.Attachments
+import octo.core.attachments.FileUpload
 import octo.core.git.TaskDiff
 import octo.core.orchestrator.AgentCatalog
 import octo.core.orchestrator.AgentInfo
@@ -65,6 +68,7 @@ class FakeOctoCore : OctoCore {
                 "create",
                 request.title,
                 request.prompt,
+                request.files.takeIf { it.isNotEmpty() }?.joinToString(", ", "[", "]") { it.name },
                 request.machine?.let { "on $it" },
                 request.permissionMode?.let { "as ${it.name}" },
             ).joinToString(" ")
@@ -87,9 +91,21 @@ class FakeOctoCore : OctoCore {
     override suspend fun sendPrompt(
         taskId: TaskId,
         text: String,
+        files: List<FileUpload>,
     ) {
         if (taskId in notRunning) throw TaskNotRunningException(taskId)
-        calls += "prompt $text"
+        calls +=
+            "prompt $text" + files.joinToString(", ", " [", "]") { it.name }.takeIf { files.isNotEmpty() }.orEmpty()
+    }
+
+    override suspend fun attach(
+        taskId: TaskId,
+        files: List<FileUpload>,
+    ): List<Attachment> {
+        calls += "attach " + files.joinToString(", ") { it.name }
+        return files.map {
+            Attachment(it.name, "/attachments/${it.name}", Attachments.mimeType(it.bytes), it.bytes.size.toLong())
+        }
     }
 
     override suspend fun editQueued(

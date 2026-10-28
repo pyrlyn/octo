@@ -2,6 +2,7 @@ package octo.core.agent
 
 import kotlinx.coroutines.flow.Flow
 import kotlinx.serialization.Serializable
+import octo.core.attachments.PromptImage
 import octo.core.flags.FeatureFlag
 import octo.core.usage.UsageHistory
 import kotlin.jvm.JvmInline
@@ -41,6 +42,9 @@ enum class Capability {
 
     /** Shrinks the conversation to a summary through [AgentSession.compact]. */
     Compact,
+
+    /** Takes images with a prompt through [AgentSession.prompt]; without it the agent reads their paths. */
+    Images,
 }
 
 enum class AuthState { LoggedIn, LoggedOut, Unknown }
@@ -127,6 +131,15 @@ interface AgentSession {
     val events: Flow<AgentEvent>
 
     suspend fun prompt(text: String)
+
+    /** Sends [text] with [images]; images come only to adapters with [Capability.Images]. */
+    suspend fun prompt(
+        text: String,
+        images: List<PromptImage>,
+    ) {
+        if (images.isNotEmpty()) throw UnsupportedOperationException("This agent cannot take images")
+        prompt(text)
+    }
 
     /**
      * Adds [text] to the turn that is running; called only on adapters with [Capability.Steer].

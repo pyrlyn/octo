@@ -99,6 +99,9 @@ class Octo private constructor(
     /** Whether the `previews` flag lets the diff view preview images, notebooks and other files. */
     val previews: Boolean get() = flags.isEnabled(CoreFlags.PREVIEWS)
 
+    /** Whether the `attachments` flag lets prompts and answers carry files. */
+    val attachments: Boolean get() = flags.isEnabled(CoreFlags.ATTACHMENTS)
+
     /** Where the remote API listens, e.g. `http://127.0.0.1:47470`. */
     val remoteUrl: String? get() = remoteServer?.url
 
@@ -270,7 +273,7 @@ class Octo private constructor(
             hooks: Webhooks?,
         ): RemoteAccess {
             val guests = flags.isEnabled(CoreFlags.GUEST_SHARE)
-            if (flags.isEnabled(CoreFlags.REMOTE_ACCESS)) return startRemoteAccess(config, paths, core, hooks, guests)
+            if (flags.isEnabled(CoreFlags.REMOTE_ACCESS)) return startRemoteAccess(config, paths, core, hooks, flags)
             val unreachable = "Guest links need the ${CoreFlags.REMOTE_ACCESS.id} flag, which is off"
             return RemoteAccess(warning = unreachable.takeIf { guests })
         }
@@ -281,8 +284,9 @@ class Octo private constructor(
             paths: OctoPaths,
             core: OctoCore,
             hooks: Webhooks?,
-            guests: Boolean,
+            flags: FeatureFlags,
         ): RemoteAccess {
+            val guests = flags.isEnabled(CoreFlags.GUEST_SHARE)
             val access = config.remoteAccess
             val port = access.port
             val devices = Devices.open(AtomicFile(paths.devices), JvmSecrets)
@@ -290,7 +294,7 @@ class Octo private constructor(
             val problem = access.problem() ?: devices.warning ?: shares?.warning
             if (problem != null) return RemoteAccess(warning = "Remote access is off: $problem")
             return try {
-                val api = RemoteApi(core, devices, hooks, shares)
+                val api = RemoteApi(core, devices, hooks, shares, flags.isEnabled(CoreFlags.ATTACHMENTS))
                 val server = RemoteHttpServer(api, port, access.publicOrigin, guestPage = shares != null).start()
                 RemoteAccess(
                     server,

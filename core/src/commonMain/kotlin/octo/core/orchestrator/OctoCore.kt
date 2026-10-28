@@ -5,6 +5,8 @@ import kotlinx.coroutines.flow.StateFlow
 import octo.core.agent.AgentId
 import octo.core.agent.PermissionMode
 import octo.core.agent.RequestResponse
+import octo.core.attachments.Attachment
+import octo.core.attachments.FileUpload
 import octo.core.git.TaskDiff
 import octo.core.process.ProcessUsage
 import octo.core.task.Layout
@@ -40,12 +42,23 @@ interface OctoCore {
     /**
      * Sends [text] to an idle agent. A busy agent is steered when its adapter can take the text
      * into the running turn; otherwise the text waits in [octo.core.task.Task.queue] and is sent
-     * once the agent is idle.
+     * once the agent is idle. [files] are saved on the task's machine first; agents that take
+     * images get the images natively, and every other file as a line of paths.
      */
     suspend fun sendPrompt(
         taskId: TaskId,
         text: String,
+        files: List<FileUpload> = emptyList(),
     )
+
+    /**
+     * Saves [files] on the task's machine for a message that is not a prompt, such as the answer
+     * to a question, which then names their paths.
+     */
+    suspend fun attach(
+        taskId: TaskId,
+        files: List<FileUpload>,
+    ): List<Attachment>
 
     /** Replaces the text of a prompt that is still queued; throws when it was already sent. */
     suspend fun editQueued(

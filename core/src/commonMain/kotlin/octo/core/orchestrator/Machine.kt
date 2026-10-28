@@ -6,6 +6,9 @@ import kotlinx.io.files.Path
 import octo.core.agent.AdapterRegistry
 import octo.core.agent.AgentId
 import octo.core.agent.PermissionMode
+import octo.core.attachments.AttachmentStore
+import octo.core.attachments.LocalAttachments
+import octo.core.attachments.RemoteAttachments
 import octo.core.git.GitRemote
 import octo.core.git.GitRemotes
 import octo.core.git.Workspace
@@ -18,6 +21,9 @@ import octo.core.task.Task
 interface Machine {
     val registry: AdapterRegistry
     val workspace: Workspace
+
+    /** The files attached to messages of the tasks that run here. */
+    val attachments: AttachmentStore
 
     /** The worktree path for [slug] of [repo], on this machine. */
     suspend fun worktree(
@@ -40,6 +46,7 @@ class LocalMachine(
     override val registry: AdapterRegistry,
     override val workspace: Workspace,
     private val worktrees: Path,
+    override val attachments: AttachmentStore = LocalAttachments(Path(worktrees.parent ?: worktrees, "attachments")),
 ) : Machine {
     override suspend fun worktree(
         repo: String,
@@ -54,7 +61,8 @@ class LocalMachine(
 /**
  * A POSIX machine reached through [launcher]. Its paths always use `/`, whatever this computer
  * uses. Without a configured root, worktrees go under `$HOME/.octo/worktrees` there, looked up on
- * first use so start-up never waits on the network.
+ * first use so start-up never waits on the network; attachments always go under
+ * `$HOME/.octo/attachments`.
  */
 class RemoteMachine(
     override val registry: AdapterRegistry,
@@ -68,6 +76,9 @@ class RemoteMachine(
     private val repos = repos.entries.associate { (local, here) -> local.trimEnd('/') to here.trimEnd('/') }
     private val lock = Mutex()
     private var root: String? = worktrees
+    private var home: String? = null
+
+    override val attachments: AttachmentStore = RemoteAttachments(launcher) { "${home()}/.octo/attachments" }
 
     override suspend fun worktree(
         repo: String,
@@ -80,21 +91,18 @@ class RemoteMachine(
 
     override suspend fun gitRemote(repo: String) = remotes?.at(repo)
 
-    private suspend fun root(): String =
-        lock.withLock {
-            root ?: "${home()}/.octo/worktrees".also { root = it }
-        }
+    private suspend fun root(): String = root ?: "${home()}/.octo/worktrees".also { root = it }
 
-    private suspend fun home(): String {
-        val home =
-            launcher
+    private suspend fun home(): String =
+        lock.withLock {
+            home ?: launcher
                 .run(ProcessSpec("printenv", listOf("HOME")))
                 .stdout
                 .trim()
                 .trimEnd('/')
-        check(home.startsWith("/")) { "Could not find the home directory on the remote machine" }
-        return home
-    }
+                .also { check(it.startsWith("/")) { "Could not find the home directory on the remote machine" } }
+                .also { home = it }
+        }
 }
 
 /** This computer plus the remote machines, found by a task's machine id (null for this computer). */

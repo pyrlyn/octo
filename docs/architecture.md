@@ -278,6 +278,7 @@ class FeatureFlags(config: Map<String, Boolean>) {
 | `compact-idle` (compact a large idle conversation just before its prompt cache expires) | T35 |
 | `previews` (preview images, notebooks, archives, SQLite and Mermaid files in the diff view) | T36 |
 | `guest-share` (a guest watches a task by link and proposes messages; needs `remote-access`) | T37 |
+| `attachments` (attach images and files to prompts and answers; images go natively where accepted) | T41 |
 | `pty-terminal` | Reserved |
 
 ## 7. Core API and orchestration
@@ -369,6 +370,17 @@ agent and writes the state. `close()` belongs to `app`, so it is not on the inte
   the first dropped turn's id). Otherwise `Task.revertNote` goes before the next prompt and the
   kept checkpoints lose their run, so no later revert rolls the agent back past turns it still
   remembers. `removeTask` deletes the task's refs.
+- **Attachments.** `OctoCore.sendPrompt` and `NewTask` take `FileUpload`s; `PromptFiles` checks
+  the limits (`Attachments`), names the files safely and saves each message's files in one folder
+  of its task through the machine's `AttachmentStore` (`LocalAttachments`, or `RemoteAttachments`
+  writing base64 through `sh` over the ssh launcher; both refuse paths outside their root). The
+  `Attachment`s ride on the queued prompt and on the user's `TranscriptEntry.Text`, so they survive
+  a restart. An adapter with `Capability.Images` gets small images through
+  `AgentSession.prompt(text, images)` (Claude: stream-json `image` blocks; ACP: `image` content
+  when the agent's `promptCapabilities.image` is set, else paths); everything else is a list of
+  paths appended to the text. Steering and answers carry paths only (`attach` saves an answer's
+  files). A revert deletes the files of later messages and marks them `removed`; `removeTask`
+  deletes the task's folder. A task moved to another machine leaves its files where they were.
 - **Agent limit.** With the `queue` flag on, `maxRunningAgents` caps the live agent processes per
   machine. `StartQueue` holds the slots in one atomic `AgentSlots` value: a start without a free
   slot leaves the task `Queued` (with a notice) and joins its machine's queue. A slot frees only

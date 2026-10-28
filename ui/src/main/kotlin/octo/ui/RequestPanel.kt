@@ -15,8 +15,12 @@ import androidx.compose.material3.RadioButton
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.collectAsState
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.input.key.onPreviewKeyEvent
 import octo.core.agent.PermissionKind
 import octo.core.agent.Question
 import octo.core.task.PendingRequest
@@ -79,11 +83,7 @@ private fun Question(
 ) {
     Text(question.text, style = MaterialTheme.typography.titleSmall)
     if (question.options.isEmpty()) {
-        OutlinedTextField(
-            value = values.firstOrNull().orEmpty(),
-            onValueChange = { vm.answer(requestId, question.id, it) },
-            modifier = Modifier.fillMaxWidth(),
-        )
+        FreeAnswer(requestId, question, values, vm)
         return
     }
     question.options.forEach { option ->
@@ -97,6 +97,34 @@ private fun Question(
                 RadioButton(selected = option in values, onClick = { vm.answer(requestId, question.id, option) })
             }
             Text(option)
+        }
+    }
+}
+
+/** A typed answer; with the `attachments` flag on it takes files too, which the answer names by path. */
+@Composable
+private fun FreeAnswer(
+    requestId: String,
+    question: Question,
+    values: List<String>,
+    vm: TaskViewModel,
+) {
+    val state by vm.state.collectAsState()
+    val picker = remember(vm, requestId, question.id) { vm.answerFiles(requestId, question.id) }
+    val field = Modifier.fillMaxWidth()
+    if (!vm.canAttach) {
+        OutlinedTextField(values.firstOrNull().orEmpty(), { vm.answer(requestId, question.id, it) }, field)
+        return
+    }
+    Column(Modifier.dropFiles(picker), verticalArrangement = Arrangement.spacedBy(Gap)) {
+        PickedFiles(state.answerFiles[requestId]?.get(question.id).orEmpty(), picker)
+        Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(Gap)) {
+            OutlinedTextField(
+                value = values.firstOrNull().orEmpty(),
+                onValueChange = { vm.answer(requestId, question.id, it) },
+                modifier = Modifier.weight(1f).onPreviewKeyEvent { pasteFiles(it, picker) },
+            )
+            AttachButton(picker)
         }
     }
 }

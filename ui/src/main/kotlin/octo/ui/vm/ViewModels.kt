@@ -49,6 +49,8 @@ class ViewModels(
     private val shares: Shares? = null,
     /** Where guest links point. */
     private val shareBase: String? = null,
+    /** False while the `attachments` flag is off, which hides attaching files. */
+    private val attachments: Boolean = false,
 ) {
     val main = MainViewModel(core, scope, startupWarnings, sections, limits = usage != null)
 
@@ -64,7 +66,8 @@ class ViewModels(
 
     val canMove: Boolean get() = moveTask
 
-    fun task(id: TaskId) = TaskViewModel(core, id, scope, limits = usage != null, checkpoints = checkpoints)
+    fun task(id: TaskId) =
+        TaskViewModel(core, id, scope, limits = usage != null, checkpoints = checkpoints, canAttach = attachments)
 
     fun pluginActions(id: TaskId): PluginActionsViewModel? =
         plugins
@@ -107,7 +110,7 @@ class ViewModels(
 
     fun usage(): UsageViewModel? = usage?.let { UsageViewModel(it, catalog, scope) }
 
-    fun newTask() = NewTaskViewModel(core, catalog, scope, presets, compare)
+    fun newTask() = NewTaskViewModel(core, catalog, scope, presets, compare, attachments)
 
     fun presets(): PresetsViewModel? = presets?.let { PresetsViewModel(it, catalog, scope) }
 

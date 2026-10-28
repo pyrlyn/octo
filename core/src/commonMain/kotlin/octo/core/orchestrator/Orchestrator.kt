@@ -32,6 +32,9 @@ import octo.core.agent.Role
 import octo.core.agent.SessionSpec
 import octo.core.agent.SessionStats
 import octo.core.agent.StopReason
+import octo.core.attachments.Attachment
+import octo.core.attachments.Attachments
+import octo.core.attachments.FileUpload
 import octo.core.git.TaskDiff
 import octo.core.git.Workspace
 import octo.core.handoff.Handoff
@@ -90,8 +93,9 @@ class Orchestrator private constructor(
             launchAgent(it.id, it.resume, it.forkFrom)
         }
     private val setup = WorktreeSetup(worktreeSetup, transcripts) { machines[it.machine].workspace }
+    private val files = PromptFiles({ machines[it.machine].attachments }, newId)
     private val checkpoints =
-        Checkpoints(recordCheckpoints, mutableState, transcripts) { machines[it.machine].workspace }
+        Checkpoints(recordCheckpoints, mutableState, transcripts, files) { machines[it.machine].workspace }
     private val move = TaskMove(machines, relay)
     private val queues = PromptQueues(mutableState, MAX_QUEUED)
     private val compaction = compactIdle?.let { IdleCompaction(clock, it) }
@@ -131,7 +135,7 @@ class Orchestrator private constructor(
         mutableState.update { it.copy(tasks = it.tasks + TaskView(task, AgentStatus.Starting)) }
         withTask(id) {
             if (setUp(id)) startAgent(id, resume = false)
-            request.prompt?.let { prompt -> firstPrompt(id, prompt) }
+            request.prompt?.let { prompt -> firstPrompt(id, prompt, request.files) }
         }
         return id
     }
@@ -187,6 +191,7 @@ class Orchestrator private constructor(
     private suspend fun firstPrompt(
         id: TaskId,
         prompt: String,
+        uploads: List<FileUpload>,
     ) {
         // A queued task keeps the prompt in its message queue until its agent starts.
         if (running(id) == null && view(id).status != AgentStatus.Queued) {
@@ -195,26 +200,35 @@ class Orchestrator private constructor(
                 TranscriptEntry.Notice("The first prompt was not sent because the agent did not start", error = true),
             )
         } else {
-            sendLocked(id, prompt)
+            sendLocked(id, prompt, files.save(view(id).task, uploads))
         }
     }
 
     override suspend fun sendPrompt(
         taskId: TaskId,
         text: String,
+        files: List<FileUpload>,
     ) {
-        withTask(taskId) { sendLocked(taskId, text) }
+        withTask(taskId) { sendLocked(taskId, text, this.files.save(view(taskId).task, files)) }
     }
+
+    override suspend fun attach(
+        taskId: TaskId,
+        files: List<FileUpload>,
+    ): List<Attachment> = withTask(taskId) { this.files.save(view(taskId).task, files) }
 
     private suspend fun sendLocked(
         id: TaskId,
         text: String,
+        attachments: List<Attachment>,
     ) {
-        if (view(id).status == AgentStatus.Queued) return queues.add(id, text)
+        if (view(id).status == AgentStatus.Queued) return queues.add(id, text, attachments)
         val runtime = running(id) ?: throw TaskNotRunningException(id)
-        when (view(id).status) {
-            AgentStatus.Working, AgentStatus.Blocked -> if (!steer(id, runtime, text)) queues.add(id, text)
-            else -> prompt(id, runtime, text)
+        val busy = view(id).status == AgentStatus.Working || view(id).status == AgentStatus.Blocked
+        if (!busy) {
+            prompt(id, runtime, text, attachments)
+        } else if (!steer(id, runtime, text, attachments)) {
+            queues.add(id, text, attachments)
         }
     }
 
@@ -222,17 +236,19 @@ class Orchestrator private constructor(
         id: TaskId,
         runtime: Runtime,
         text: String,
+        attachments: List<Attachment>,
     ) {
         // Built before the new message lands, so the handoff ends with it exactly once.
         val task = view(id).task
+        val (described, images) = files.message(task, text, attachments, runtime.capabilities)
         val from = task.handoffFrom
-        val handedOver = from?.let { Handoff.build(transcripts.value[id].orEmpty(), text, it) } ?: text
+        val handedOver = from?.let { Handoff.build(transcripts.value[id].orEmpty(), described, it) } ?: described
         val sent = task.revertNote?.let { "$it\n\n$handedOver" } ?: handedOver
         // The first turn gets a starting point too, so it can be undone like any other.
         if (task.checkpoints.isEmpty()) checkpoints.record(id, runtime.run)
-        note(id, TranscriptEntry.Text(Role.User, text))
+        note(id, TranscriptEntry.Text(Role.User, text, attachments = attachments))
         compaction?.cancel(id)
-        startTurn(id, runtime) { runtime.session.prompt(sent) }
+        startTurn(id, runtime) { runtime.session.prompt(sent, images) }
         updateView(id) { it.copy(task = it.task.copy(handoffFrom = null, revertNote = null)) }
         if (from != null) note(id, TranscriptEntry.Notice("Handed the conversation over from $from"))
     }
@@ -275,24 +291,14 @@ class Orchestrator private constructor(
             }
         }
 
-    // Any failure means the turn could not take the text, and the queue is the declared fallback.
-    @Suppress("TooGenericExceptionCaught", "SwallowedException")
     private suspend fun steer(
         id: TaskId,
         runtime: Runtime,
         text: String,
+        attachments: List<Attachment>,
     ): Boolean {
-        val steered =
-            Capability.Steer in runtime.capabilities &&
-                try {
-                    runtime.session.steer(text)
-                    true
-                } catch (e: CancellationException) {
-                    throw e
-                } catch (e: Exception) {
-                    false
-                }
-        if (steered) note(id, TranscriptEntry.Text(Role.User, text))
+        val steered = runtime.steer(Attachments.withPaths(text, attachments.map { it.path }))
+        if (steered) note(id, TranscriptEntry.Text(Role.User, text, attachments = attachments))
         return steered
     }
 
@@ -309,7 +315,7 @@ class Orchestrator private constructor(
         taskId: TaskId,
         queuedId: Int,
     ) {
-        withTask(taskId) { queues.remove(taskId, queuedId) }
+        withTask(taskId) { queues.remove(taskId, queuedId)?.let { files.discard(view(taskId).task, it.attachments) } }
     }
 
     private fun deliverQueued(
@@ -336,7 +342,7 @@ class Orchestrator private constructor(
                 ?.firstOrNull() ?: return
         queues.remove(id, head.id)
         try {
-            prompt(id, runtime, head.text)
+            prompt(id, runtime, head.text, head.attachments)
         } catch (e: CancellationException) {
             throw e
         } catch (e: Exception) {
@@ -501,6 +507,7 @@ class Orchestrator private constructor(
             }
             stopLocked(taskId)
             checkpoints.forget(task)
+            files.forget(task)
             workspace?.removeWorktree(task.repo, task.worktree, force)
             mutableState.update { state ->
                 val layout =
