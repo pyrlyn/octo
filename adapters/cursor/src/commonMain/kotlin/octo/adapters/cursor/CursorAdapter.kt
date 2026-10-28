@@ -35,6 +35,7 @@ class CursorAdapter(
             Capability.Questions,
             Capability.Plan,
             Capability.Mcp,
+            Capability.Images,
         )
 
     // Not `agent`: Grok Build installs a binary with that name too.

@@ -1,0 +1,9 @@
+# A picture goes out as ACP image content when the agent declares promptCapabilities.image
+# (synthetic; shapes from the ACP v1 schema: ContentBlock::Image, PromptCapabilities).
+> {"jsonrpc":"2.0","id":1,"method":"initialize","params":{"protocolVersion":1}}
+< {"jsonrpc":"2.0","id":1,"result":{"protocolVersion":1,"agentCapabilities":{"promptCapabilities":{"image":true}},"authMethods":[]}}
+> {"jsonrpc":"2.0","id":2,"method":"session/new","params":{"cwd":"/repo"}}
+< {"jsonrpc":"2.0","id":2,"result":{"sessionId":"s-1"}}
+> {"id":3,"method":"session/prompt","params":{"sessionId":"s-1","prompt":[{"type":"image","mimeType":"image/png","data":"AQID"},{"type":"text","text":"What is this?"}]}}
+< {"jsonrpc":"2.0","id":3,"result":{"stopReason":"end_turn"}}
+x 0

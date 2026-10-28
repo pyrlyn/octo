@@ -24,6 +24,8 @@ internal class Checkpoints(
     private val enabled: Boolean,
     private val state: MutableStateFlow<OctoState>,
     private val transcripts: MutableStateFlow<Map<TaskId, List<TranscriptEntry>>>,
+    /** The files of messages a revert discards go with them. */
+    private val attachments: TaskAttachments,
     private val workspace: (Task) -> Workspace,
 ) {
     // A snapshot that fails costs that checkpoint only; the agent's turn goes on.
@@ -94,6 +96,7 @@ internal class Checkpoints(
             }
         note(id, TranscriptEntry.Notice("Reverted the files to checkpoint ${target.id}$how"))
         later.forEach { forget(task, it.ref) }
+        attachments.dropAfter(task, target.ref)
     }
 
     // Whatever stops the agent from rolling back, the note in the next prompt covers it.

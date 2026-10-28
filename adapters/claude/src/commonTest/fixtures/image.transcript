@@ -1,0 +1,9 @@
+# Synthetic stream-json: a picture goes out as a base64 image block before the text; a format the
+# API does not take (BMP) stays a path in the text. Block shapes from the Messages API image content.
+> {"type":"control_request","request_id":"req_1","request":{"subtype":"initialize"}}
+< {"type":"control_response","response":{"subtype":"success","request_id":"req_1","response":{}}}
+> {"type":"user","message":{"role":"user","content":[{"type":"image","source":{"type":"base64","media_type":"image/png","data":"AQID"}},{"type":"text","text":"What is this?"}]}}
+< {"type":"result","subtype":"success","is_error":false,"result":"A chart.","session_id":"sess-1","usage":{"input_tokens":6,"output_tokens":3}}
+> {"type":"user","message":{"role":"user","content":"Only a bitmap"}}
+< {"type":"result","subtype":"success","is_error":false,"result":"Read it.","session_id":"sess-1","usage":{"input_tokens":6,"output_tokens":3}}
+x 0
