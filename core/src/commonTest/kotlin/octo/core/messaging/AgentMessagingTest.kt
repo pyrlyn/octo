@@ -9,14 +9,26 @@ import kotlinx.serialization.json.JsonObject
 import kotlinx.serialization.json.jsonArray
 import kotlinx.serialization.json.jsonObject
 import kotlinx.serialization.json.jsonPrimitive
+import octo.core.agent.AdapterRegistry
 import octo.core.agent.AgentEvent
 import octo.core.agent.AgentId
 import octo.core.agent.Capability
+import octo.core.agent.MODEL_OPTION
 import octo.core.agent.McpServer
+import octo.core.agent.PermissionMode
 import octo.core.agent.Role
 import octo.core.agent.StopReason
+import octo.core.config.OctoConfig
+import octo.core.flags.FeatureFlags
+import octo.core.git.GitRemote
 import octo.core.orchestrator.FakeAdapter
+import octo.core.orchestrator.FakeWorkspace
+import octo.core.orchestrator.Machine
+import octo.core.orchestrator.NoProcesses
+import octo.core.orchestrator.RemoteMachine
 import octo.core.orchestrator.Setup
+import octo.core.orchestrator.UnknownAgentException
+import octo.core.orchestrator.UnknownMachineException
 import octo.core.orchestrator.setup
 import octo.core.status.AgentStatus
 import octo.core.task.NewTask
@@ -37,12 +49,24 @@ class AgentMessagingTest {
         val b: TaskId,
     )
 
-    private suspend fun TestScope.two(capabilities: Set<Capability> = setOf(Capability.Mcp)): Two {
+    private suspend fun TestScope.two(
+        capabilities: Set<Capability> = setOf(Capability.Mcp),
+        maxChildTasks: Int = OctoConfig.DEFAULT_MAX_CHILD_TASKS,
+        defaultPermissionMode: PermissionMode = PermissionMode.Supervised,
+        machines: Map<String, Machine> = emptyMap(),
+    ): Two {
         var next = 0
-        val tokens = listOf("tok-a", "tok-b", "tok-c").iterator()
-        val messaging = AgentMessaging(backgroundScope) { tokens.next() }
+        var token = 0
+        val messaging = AgentMessaging(backgroundScope, maxChildTasks) { "tok-${'a' + token++}" }
         messaging.bind("http://127.0.0.1:1/mcp")
-        val s = setup(FakeAdapter(capabilities), newId = { "id${++next}" }, mcp = messaging)
+        val s =
+            setup(
+                FakeAdapter(capabilities),
+                machines = machines,
+                newId = { "id${++next}" },
+                mcp = messaging,
+                defaultPermissionMode = defaultPermissionMode,
+            )
         messaging.attach(s.core)
         val task = NewTask(repo = "/src/app", baseRef = "main", agent = AgentId("fake"), title = "A", prompt = "Go")
         val a = s.core.createTask(task)
@@ -151,7 +175,7 @@ class AgentMessagingTest {
 
             val tools = call("""{"jsonrpc":"2.0","id":2,"method":"tools/list"}""")!!
             assertEquals(
-                listOf("list_tasks", "send_message", "wait_for_idle"),
+                listOf("list_tasks", "send_message", "wait_for_idle", "create_task"),
                 tools["result"]!!.jsonObject["tools"]!!.jsonArray.map { it.jsonObject["name"]!!.jsonPrimitive.content },
             )
 
@@ -177,5 +201,111 @@ class AgentMessagingTest {
                         """"arguments":{"task":"${t.b.value}","text":"hello"}}}""",
                 )
             assertTrue(text(sent).startsWith("Queued"))
+
+            val created =
+                call(
+                    """{"jsonrpc":"2.0","id":6,"method":"tools/call","params":{"name":"create_task",""" +
+                        """"arguments":{"title":"Tests","prompt":"Write tests","model":null}}}""",
+                )
+            assertEquals("Created task id3. Use send_message and wait_for_idle with this id.", text(created))
+            val noPrompt =
+                call(
+                    """{"jsonrpc":"2.0","id":7,"method":"tools/call","params":{"name":"create_task",""" +
+                        """"arguments":{"title":"Tests"}}}""",
+                )!!
+            assertEquals("true", noPrompt["result"]!!.jsonObject["isError"].toString())
+            assertEquals("'prompt' must be a string", text(noPrompt))
+        }
+
+    @Test
+    fun anAgentStartsAChildTaskInItsOwnRepository() =
+        runTest {
+            val t = two(defaultPermissionMode = PermissionMode.FullAccess)
+            t.s.core.setPermissionMode(t.a, PermissionMode.AutoAcceptEdits)
+            val id = t.messaging.createTask(t.a, ChildTask("Tests", "Write tests", model = "big-1"))
+            testScheduler.runCurrent()
+            val parent =
+                t.s.core.state.value[t.a]!!
+                    .task
+            val child =
+                t.s.core.state.value[id]!!
+                    .task
+            assertEquals(t.a, child.parentId)
+            assertEquals("Tests", child.title)
+            assertEquals(parent.repo, child.repo)
+            assertEquals(parent.agent, child.agent)
+            assertEquals("main", child.baseRef)
+            assertEquals("big-1", child.options[MODEL_OPTION])
+            // The config's default is wider than the parent's mode, so the parent's wins.
+            assertEquals(PermissionMode.AutoAcceptEdits, child.permissionMode)
+            assertEquals(
+                listOf("Write tests"),
+                t.s.adapter.sessions
+                    .last()
+                    .prompts,
+            )
+        }
+
+    @Test
+    fun aChildTaskOnAnotherMachineOpensTheParentsCloneThere() =
+        runTest {
+            val workspace = FakeWorkspace().apply { root = "/srv/app" }
+            val box =
+                RemoteMachine(
+                    AdapterRegistry(listOf(FakeAdapter()), FeatureFlags()),
+                    workspace,
+                    NoProcesses,
+                    "/srv/octo",
+                    mapOf("/src/app" to "/srv/app"),
+                    remotes = { GitRemote("ssh://box$it", "ssh") },
+                )
+            val t = two(machines = mapOf("box" to box))
+            val id = t.messaging.createTask(t.a, ChildTask("Remote", "Go", machine = "box", baseRef = "octo/a-1"))
+            val child =
+                t.s.core.state.value[id]!!
+                    .task
+            assertEquals("box", child.machine)
+            assertEquals("/srv/app", child.repo)
+            assertEquals("octo/a-1", child.baseRef)
+        }
+
+    @Test
+    fun refusesAnUnknownAgentOrMachineAndBadArguments() =
+        runTest {
+            val t = two()
+            assertFailsWith<UnknownAgentException> { t.messaging.createTask(t.a, ChildTask("T", "Go", agent = "nope")) }
+            assertFailsWith<UnknownMachineException> {
+                t.messaging.createTask(t.a, ChildTask("T", "Go", machine = "nope"))
+            }
+            assertFailsWith<IllegalArgumentException> { t.messaging.createTask(t.a, ChildTask(" ", "Go")) }
+            assertFailsWith<IllegalArgumentException> { t.messaging.createTask(t.a, ChildTask("T", "")) }
+            assertFailsWith<IllegalArgumentException> {
+                t.messaging.createTask(t.a, ChildTask("T", "Go", model = "--yolo"))
+            }
+            assertFailsWith<IllegalArgumentException> {
+                t.messaging.createTask(t.a, ChildTask("T", "Go", baseRef = "--orphan"))
+            }
+            assertEquals(2, t.s.core.state.value.tasks.size)
+        }
+
+    @Test
+    fun theCapStopsARunawayAgent() =
+        runTest {
+            val t = two(maxChildTasks = 2)
+            // A refused attempt does not use up a slot.
+            assertFailsWith<UnknownAgentException> { t.messaging.createTask(t.a, ChildTask("T", "Go", agent = "nope")) }
+            t.messaging.createTask(t.a, ChildTask("One", "Go"))
+            t.s.core.forkTask(t.a)
+            val e = assertFailsWith<IllegalArgumentException> { t.messaging.createTask(t.a, ChildTask("Three", "Go")) }
+            assertTrue("maxChildTasks" in e.message.orEmpty(), e.message)
+            // The cap is per task.
+            t.messaging.createTask(t.b, ChildTask("Other", "Go"))
+        }
+
+    @Test
+    fun aZeroCapTurnsTheToolOff() =
+        runTest {
+            val t = two(maxChildTasks = 0)
+            assertFailsWith<IllegalArgumentException> { t.messaging.createTask(t.a, ChildTask("T", "Go")) }
         }
 }

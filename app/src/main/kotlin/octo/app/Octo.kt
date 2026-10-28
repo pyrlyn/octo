@@ -131,7 +131,7 @@ class Octo private constructor(
                     ?: RemoteMachines(emptyMap(), emptyList())
             val limits = flags.ifOn(CoreFlags.QUEUE) { config.agentLimits() } ?: AgentLimits()
             val (messaging, mcpServer, mcpWarning) =
-                if (flags.isEnabled(CoreFlags.AGENT_MESSAGING)) startMessaging(scope) else Messaging()
+                flags.ifOn(CoreFlags.AGENT_MESSAGING) { startMessaging(scope, config.maxChildTasks) } ?: Messaging()
             val orchestrator =
                 Orchestrator.open(
                     registry,
@@ -314,8 +314,11 @@ class Octo private constructor(
         )
 
         // Without its server agents simply get no messaging tools; the rest of Octo works as before.
-        private fun startMessaging(scope: CoroutineScope): Messaging {
-            val messaging = AgentMessaging(scope)
+        private fun startMessaging(
+            scope: CoroutineScope,
+            maxChildTasks: Int,
+        ): Messaging {
+            val messaging = AgentMessaging(scope, maxChildTasks = maxChildTasks)
             val server =
                 try {
                     HttpMcpServer(messaging).start()
