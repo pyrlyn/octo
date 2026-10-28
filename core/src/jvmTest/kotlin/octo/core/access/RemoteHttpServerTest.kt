@@ -116,7 +116,10 @@ class RemoteHttpServerTest {
         assertEquals(401, send("GET", "/api/v1/tasks").statusCode())
         assertEquals(401, send("GET", "/api/v1/tasks", token = "0".repeat(64)).statusCode())
         assertEquals(403, send("GET", "/api/v1/tasks", token = token, origin = "https://evil.example").statusCode())
-        assertEquals(413, send("POST", "/api/v1/tasks", "x".repeat((1 shl 20) + 1), token = token).statusCode())
+        assertEquals(
+            413,
+            send("POST", "/api/v1/tasks", "x".repeat(RemoteHttpServer.MAX_BODY + 1), token = token).statusCode(),
+        )
     }
 
     @Test

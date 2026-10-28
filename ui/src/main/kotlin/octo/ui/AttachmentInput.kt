@@ -24,6 +24,7 @@ import androidx.compose.ui.input.key.onPreviewKeyEvent
 import androidx.compose.ui.input.key.type
 import octo.core.task.Attachment
 import octo.core.task.NewAttachment
+import octo.core.task.read
 import java.awt.Image
 import java.awt.Toolkit
 import java.awt.datatransfer.DataFlavor
@@ -33,8 +34,6 @@ import java.awt.image.BufferedImage
 import java.io.ByteArrayOutputStream
 import java.io.File
 import java.io.IOException
-import java.net.URLConnection
-import java.nio.file.Files
 import javax.imageio.ImageIO
 import javax.swing.JFileChooser
 
@@ -109,17 +108,7 @@ internal class AttachmentInput(
                 }
             }
 
-        fun fromFiles(files: List<File>): List<NewAttachment> =
-            files.filter { it.isFile }.map { file ->
-                // Checked before reading, so a huge file is never pulled into memory.
-                require(file.length() <= NewAttachment.MAX_BYTES) { "\"${file.name}\" is too large to attach" }
-                NewAttachment(file.name, mimeType(file), file.readBytes())
-            }
-
-        private fun mimeType(file: File) =
-            Files.probeContentType(file.toPath())
-                ?: URLConnection.guessContentTypeFromName(file.name)
-                ?: "application/octet-stream"
+        fun fromFiles(files: List<File>): List<NewAttachment> = files.filter { it.isFile }.map(NewAttachment::read)
 
         private fun png(image: Image): NewAttachment {
             val width = image.getWidth(null)

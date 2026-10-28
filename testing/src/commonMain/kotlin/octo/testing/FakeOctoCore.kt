@@ -68,7 +68,7 @@ class FakeOctoCore : OctoCore {
                 request.prompt,
                 request.machine?.let { "on $it" },
                 request.permissionMode?.let { "as ${it.name}" },
-            ).joinToString(" ")
+            ).joinToString(" ") + request.attachments.joinToString("") { " +${it.name}" }
         val id = TaskId("t${++next}")
         put(TaskView(task(id, request.repo, request.title).copy(group = request.group), AgentStatus.Starting))
         return id

@@ -135,7 +135,9 @@ class Orchestrator private constructor(
         mutableState.update { it.copy(tasks = it.tasks + TaskView(task, AgentStatus.Starting)) }
         withTask(id) {
             if (setUp(id)) startAgent(id, resume = false)
-            request.prompt?.let { prompt -> firstPrompt(id, prompt) }
+            if (request.prompt != null || request.attachments.isNotEmpty()) {
+                firstPrompt(id, request.prompt.orEmpty(), request.attachments)
+            }
         }
         return id
     }
@@ -191,6 +193,7 @@ class Orchestrator private constructor(
     private suspend fun firstPrompt(
         id: TaskId,
         prompt: String,
+        attachments: List<NewAttachment>,
     ) {
         // A queued task keeps the prompt in its message queue until its agent starts.
         if (running(id) == null && view(id).status != AgentStatus.Queued) {
@@ -199,7 +202,7 @@ class Orchestrator private constructor(
                 TranscriptEntry.Notice("The first prompt was not sent because the agent did not start", error = true),
             )
         } else {
-            sendLocked(id, prompt)
+            attached.sending(view(id).task, attachments) { sendLocked(id, prompt, it) }
         }
     }
 

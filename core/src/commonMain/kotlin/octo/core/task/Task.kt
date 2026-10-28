@@ -32,6 +32,8 @@ data class NewTask(
     /** Null takes the default from the config. */
     val permissionMode: PermissionMode? = null,
     val group: TaskGroup? = null,
+    /** Files that go with [prompt], saved on the task's machine once its worktree exists. */
+    val attachments: List<NewAttachment> = emptyList(),
 )
 
 /** One agent working in its own worktree; this part is persisted. */

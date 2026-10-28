@@ -6,9 +6,11 @@ import octo.core.agent.PermissionMode
 import octo.core.agent.PermissionOption
 import octo.core.agent.Question
 import octo.core.status.AgentStatus
+import octo.core.task.NewAttachment
 import octo.core.task.SidebarStatus
 import octo.core.task.TaskId
 import octo.core.task.TranscriptEntry
+import kotlin.io.encoding.Base64
 
 // The bodies of [RemoteApi]'s calls, shared with its clients so both ends read the same shapes.
 
@@ -43,7 +45,29 @@ data class NewTaskBody(
     val machine: String? = null,
     /** One of [PermissionMode]'s names; left out, the config default. */
     val permissionMode: PermissionMode? = null,
+    /** Files that go with [prompt]. */
+    val attachments: List<AttachmentBody> = emptyList(),
 )
+
+/** A file sent with a prompt; [data] holds its bytes in base64. */
+@Serializable
+data class AttachmentBody(
+    val name: String,
+    val mimeType: String = "application/octet-stream",
+    val data: String,
+) {
+    /** Throws [IllegalArgumentException] for a file the core would refuse, before any task is touched. */
+    fun decode(): NewAttachment {
+        require(name.isNotBlank()) { "Every attachment needs a name" }
+        val bytes = Base64.decode(data)
+        require(bytes.size <= NewAttachment.MAX_BYTES) { "\"$name\" is too large" }
+        return NewAttachment(name, mimeType, bytes)
+    }
+
+    companion object {
+        fun of(file: NewAttachment) = AttachmentBody(file.name, file.mimeType, Base64.encode(file.bytes))
+    }
+}
 
 @Serializable
 data class CreatedBody(
@@ -53,6 +77,7 @@ data class CreatedBody(
 @Serializable
 data class PromptBody(
     val text: String,
+    val attachments: List<AttachmentBody> = emptyList(),
 )
 
 @Serializable

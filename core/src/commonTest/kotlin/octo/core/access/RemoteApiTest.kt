@@ -139,6 +139,29 @@ class RemoteApiTest {
         }
 
     @Test
+    fun aDeviceSendsFilesInBase64() =
+        runTest {
+            val t = api()
+            val file = """{"name":"log.txt","mimeType":"text/plain","data":"Ym9vbQ=="}"""
+            val created = t.call("POST", "/tasks", newTask.replace(""","prompt":"Go"""", ""","attachments":[$file]"""))
+            assertEquals(201, created.status)
+            testScheduler.runCurrent()
+            val prompt = "/tasks/${t.s.core.state.value.tasks.single().task.id.value}/prompt"
+            val session =
+                t.s.adapter.sessions
+                    .single()
+            assertTrue("Attached files" in session.prompts.single(), "files alone start the task's first turn")
+            session.emit(AgentEvent.TurnEnded(StopReason.EndTurn))
+            testScheduler.runCurrent()
+
+            val broken = """{"text":"x","attachments":[{"name":"a","data":"%%"}]}"""
+            assertEquals(400, t.call("POST", prompt, broken).status)
+            assertEquals(204, t.call("POST", prompt, """{"text":"","attachments":[$file]}""").status)
+            assertEquals(2, session.prompts.size)
+            assertTrue(session.prompts.last().startsWith("Attached files"), session.prompts.last())
+        }
+
+    @Test
     fun aDeviceChoosesThePermissionMode() =
         runTest {
             val t = api()
