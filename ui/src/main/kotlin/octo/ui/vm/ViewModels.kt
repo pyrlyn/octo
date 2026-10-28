@@ -3,6 +3,7 @@ package octo.ui.vm
 import kotlinx.coroutines.CoroutineScope
 import octo.core.access.Devices
 import octo.core.access.Shares
+import octo.core.notify.NotificationConfig
 import octo.core.orchestrator.AgentCatalog
 import octo.core.orchestrator.OctoCore
 import octo.core.plugins.Plugin
@@ -49,8 +50,13 @@ class ViewModels(
     private val shares: Shares? = null,
     /** Where guest links point. */
     private val shareBase: String? = null,
+    /** Null while the `notifications` flag is off, which posts no OS notifications. */
+    notificationConfig: NotificationConfig? = null,
 ) {
     val main = MainViewModel(core, scope, startupWarnings, sections, limits = usage != null)
+
+    /** Lives as long as the window, since alerts come whatever screen is open. */
+    val notifications = notificationConfig?.let { NotificationsViewModel(core, main, scope, it) }
 
     val canShowUsage: Boolean get() = usage != null
 
