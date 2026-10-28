@@ -91,6 +91,9 @@ class Octo private constructor(
     /** Whether the `move-task` flag lets a task move between machines; they come with `remote-ssh`. */
     val moveTask: Boolean get() = flags.isEnabled(CoreFlags.MOVE_TASK) && flags.isEnabled(CoreFlags.REMOTE_SSH)
 
+    /** Whether the `previews` flag lets the diff view preview images, notebooks and other files. */
+    val previews: Boolean get() = flags.isEnabled(CoreFlags.PREVIEWS)
+
     /** Where the remote API listens, e.g. `http://127.0.0.1:47470`. */
     val remoteUrl: String? get() = remoteServer?.url
 

@@ -31,6 +31,7 @@ import octo.core.git.Hunk
 import octo.core.git.LineKind
 import octo.ui.vm.DiffUiState
 import octo.ui.vm.DiffViewModel
+import octo.ui.vm.PreviewState
 
 @Composable
 internal fun DiffScreen(
@@ -78,7 +79,15 @@ private fun Body(
                     }
                 }
                 VerticalDivider()
-                state.selected?.let { FileView(it, Modifier.weight(1f).padding(start = Gap)) }
+                state.selected?.let {
+                    FileView(
+                        it,
+                        state.preview,
+                        state.showDiff,
+                        vm::toggleDiff,
+                        Modifier.weight(1f).padding(start = Gap),
+                    )
+                }
             }
         }
     }
@@ -117,38 +126,53 @@ private val FileChange.marker: String
 @Composable
 private fun FileView(
     file: FileDiff,
+    preview: PreviewState?,
+    showDiff: Boolean,
+    onToggle: () -> Unit,
     modifier: Modifier,
 ) {
-    Column(modifier) {
-        Text(file.oldPath?.let { "$it → ${file.path}" } ?: file.path, style = MaterialTheme.typography.titleSmall)
-        if (file.binary) {
-            Text("Binary file")
-            return
+    Column(modifier, verticalArrangement = Arrangement.spacedBy(Gap)) {
+        Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(Gap)) {
+            Text(
+                file.oldPath?.let { "$it → ${file.path}" } ?: file.path,
+                Modifier.weight(1f),
+                style = MaterialTheme.typography.titleSmall,
+            )
+            if (preview != null) OutlinedButton(onClick = onToggle) { Text(if (showDiff) "Preview" else "Diff") }
         }
-        SelectionContainer {
-            LazyColumn {
-                file.hunks.forEach { hunk ->
-                    item {
-                        Text(
-                            hunk.header,
-                            Modifier.padding(top = Gap),
-                            color = MaterialTheme.colorScheme.primary,
-                            fontFamily = FontFamily.Monospace,
-                        )
-                    }
-                    items(hunk.lines) { line ->
-                        val (prefix, color) =
-                            when (line.kind) {
-                                LineKind.Added -> "+" to AddedLine
-                                LineKind.Removed -> "-" to RemovedLine
-                                LineKind.Context -> " " to Color.Transparent
-                            }
-                        Text(
-                            prefix + line.text,
-                            Modifier.fillMaxWidth().background(color),
-                            fontFamily = FontFamily.Monospace,
-                        )
-                    }
+        when {
+            preview != null && !showDiff -> PreviewView(preview)
+            file.binary -> Text("Binary file")
+            else -> Hunks(file)
+        }
+    }
+}
+
+@Composable
+private fun Hunks(file: FileDiff) {
+    SelectionContainer {
+        LazyColumn {
+            file.hunks.forEach { hunk ->
+                item {
+                    Text(
+                        hunk.header,
+                        Modifier.padding(top = Gap),
+                        color = MaterialTheme.colorScheme.primary,
+                        fontFamily = FontFamily.Monospace,
+                    )
+                }
+                items(hunk.lines) { line ->
+                    val (prefix, color) =
+                        when (line.kind) {
+                            LineKind.Added -> "+" to AddedLine
+                            LineKind.Removed -> "-" to RemovedLine
+                            LineKind.Context -> " " to Color.Transparent
+                        }
+                    Text(
+                        prefix + line.text,
+                        Modifier.fillMaxWidth().background(color),
+                        fontFamily = FontFamily.Monospace,
+                    )
                 }
             }
         }

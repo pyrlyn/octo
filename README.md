@@ -227,6 +227,12 @@ own before it gets there, so lower it for such models. 0 compacts every idle con
 { "flags": { "compact-idle": true }, "compactIdleMinTokens": 120000 }
 ```
 
+`"previews": true` previews a changed file in the diff view instead of its diff: images and SVG,
+Jupyter notebooks, zip-family archives (zip, jar, whl and the like), SQLite databases and Mermaid
+diagrams. A Diff button switches back. SQLite needs `sqlite3` on the PATH; Mermaid needs
+mermaid-cli (`mmdc`) and shows the source without it. Only files of 20 MB or less inside the
+task's worktree are read, and only for tasks on this computer.
+
 `"plugins": true` loads WebAssembly plugins from the `plugins` folder in the Octo home. A plugin
 can add ACP agents and actions in a task's Plugins menu. A plugin cannot reach files, processes or
 the network. A broken one is skipped with a warning. See `docs/plugins.md` for the ABI.
