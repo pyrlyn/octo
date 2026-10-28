@@ -1,6 +1,6 @@
 # T41. Done
 
-PR: PR_URL
+PR: https://github.com/pyrlyn/octo/pull/55
 
 ## What was done
 
