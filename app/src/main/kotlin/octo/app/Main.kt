@@ -11,13 +11,15 @@ import octo.core.paths.currentHostOs
 import octo.core.process.JvmProcessLauncher
 import octo.ui.OctoApp
 import octo.ui.isPaletteShortcut
+import octo.ui.preview.FilePreviewer
 import octo.ui.vm.ViewModels
 
 fun main() {
     val paths = OctoPaths.resolve(System.getenv(), currentHostOs(), System.getProperty("user.home"))
     val scope = CoroutineScope(SupervisorJob() + Dispatchers.Default)
     val homes = AgentHomes.resolve(System.getenv(), System.getProperty("user.home"))
-    val octo = runBlocking { Octo.open(paths, JvmProcessLauncher(), scope, homes) }
+    val launcher = JvmProcessLauncher()
+    val octo = runBlocking { Octo.open(paths, launcher, scope, homes) }
     val models =
         ViewModels(
             octo.core,
@@ -37,6 +39,9 @@ fun main() {
             octo.usage,
             octo.checkpoints,
             octo.moveTask,
+            if (octo.previews) FilePreviewer(launcher) else null,
+            octo.shares,
+            octo.shareBase,
         )
     application {
         Window(

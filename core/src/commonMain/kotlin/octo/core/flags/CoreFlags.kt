@@ -27,4 +27,8 @@ object CoreFlags {
         FeatureFlag("queue", "Cap the live agents per machine at maxRunningAgents; later tasks wait their turn")
     val MOVE_TASK =
         FeatureFlag("move-task", "Move a task with its uncommitted work to another machine; needs remote-ssh")
+    val GUEST_SHARE =
+        FeatureFlag("guest-share", "Let a guest watch a task by link and propose messages; needs remote-access")
+    val PREVIEWS =
+        FeatureFlag("previews", "Preview images, notebooks, archives, SQLite and Mermaid files in the diff view")
 }

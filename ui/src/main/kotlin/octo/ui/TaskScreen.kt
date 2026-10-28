@@ -50,6 +50,7 @@ import octo.core.task.TranscriptEntry
 import octo.ui.vm.MainViewModel
 import octo.ui.vm.PluginActionsViewModel
 import octo.ui.vm.RemoveStep
+import octo.ui.vm.ShareViewModel
 import octo.ui.vm.TaskUiState
 import octo.ui.vm.TaskViewModel
 
@@ -68,6 +69,8 @@ internal fun TaskScreen(
     onMove: (() -> Unit)? = null,
     /** Null while the `sections` flag is off, which hides pinning, snoozing and settling. */
     places: MainViewModel? = null,
+    /** Null while the `guest-share` flag is off, which hides sharing. */
+    share: ShareViewModel? = null,
 ) {
     val state by vm.state.collectAsState()
     val task = state.task ?: return
@@ -86,16 +89,7 @@ internal fun TaskScreen(
             ),
             places,
         )
-        Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(Gap)) {
-            Text(
-                task.machine?.let { "${task.branch} · on $it" } ?: task.branch,
-                Modifier.weight(1f),
-                style = MaterialTheme.typography.bodySmall,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
-            )
-            state.context?.let { ContextMenu(it) }
-            PermissionMenu(task.permissionMode, vm::setPermissionMode)
-        }
+        BranchRow(state, vm, share)
         state.failure?.let { Text(it, color = MaterialTheme.colorScheme.error) }
         state.limit?.let { LimitBanner(it, onResume = vm::resume) }
         state.error?.let { Banner(it, error = true, onDismiss = vm::dismissError) }
@@ -103,10 +97,31 @@ internal fun TaskScreen(
         Transcript(state, vm, Modifier.weight(1f).fillMaxWidth())
         Queue(state, vm)
         state.pending.forEach { RequestPanel(it, state.answers[it.id].orEmpty(), vm) }
+        share?.let { GuestProposals(it) }
         PromptBox(state, vm)
     }
     RemoveDialog(state.remove, vm)
     state.reverting?.let { RevertDialog(it, vm) }
+}
+
+@Composable
+private fun BranchRow(
+    state: TaskUiState,
+    vm: TaskViewModel,
+    share: ShareViewModel?,
+) {
+    val task = state.task ?: return
+    Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(Gap)) {
+        Text(
+            task.machine?.let { "${task.branch} · on $it" } ?: task.branch,
+            Modifier.weight(1f),
+            style = MaterialTheme.typography.bodySmall,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+        )
+        state.context?.let { ContextMenu(it) }
+        share?.let { ShareButton(it) }
+        PermissionMenu(task.permissionMode, vm::setPermissionMode)
+    }
 }
 
 @Composable

@@ -281,6 +281,8 @@ class FeatureFlags(config: Map<String, Boolean>) {
 | `queue` (`maxRunningAgents` per machine; later tasks wait as Queued, with Start now) | T33 |
 | `move-task` (move a task and its uncommitted work to another machine; needs `remote-ssh`) | T34 |
 | `compact-idle` (compact a large idle conversation just before its prompt cache expires) | T35 |
+| `previews` (preview images, notebooks, archives, SQLite and Mermaid files in the diff view) | T36 |
+| `guest-share` (a guest watches a task by link and proposes messages; needs `remote-access`) | T37 |
 | `pty-terminal` | Reserved |
 
 ## 7. Core API and orchestration
@@ -399,9 +401,24 @@ agent and writes the state. `close()` belongs to `app`, so it is not on the inte
   `SessionStats.promptCacheTtlMs` as each request starts (Claude reads it from `message_start`'s
   `cache_creation`). `IdleCompaction` sets the task's time two minutes before that lifetime ends
   and wakes at the earliest one. Under the task's lock the orchestrator checks the task again
-  (idle, nothing queued or pending, active or pinned, 200K tokens or more in the context) and calls
+  (idle, nothing queued or pending, active or pinned, at least `compactIdleMinTokens` in the
+  context, 200K by default) and calls
   `AgentSession.compact()`, which Claude takes as `/compact`. A prompt or a stop cancels the time,
   and the compaction's own requests set none. The times live in memory only.
+- **File previews.** With the `previews` flag on, the app hands `ViewModels` a `FilePreviewer`
+  (`ui/preview`), which picks a renderer by extension. Repository files are untrusted: the real
+  path must stay inside the worktree and under 20 MB, pictures over 40 megapixels are refused,
+  an archive is listed from its central directory without inflating it, and SQLite is read by
+  the `sqlite3` CLI in read-only safe mode. Mermaid goes through `mmdc` to PNG, since Skia's SVG
+  renderer drops Mermaid's HTML labels. Remote tasks keep the plain diff.
+- **Guest links.** With `guest-share` and `remote-access` on, `Shares` (`core/access`) keeps one
+  link per task in `shares.json` as a SHA-256 of its 256-bit token, and the guests' proposals in
+  memory: at most 10 waiting and 50 kept per link, 4000 characters each. `RemoteApi` serves
+  `/api/v1/guest` to a share token only, never a device token, and the guest reads one task and
+  proposes; approving settles the proposal before `sendPrompt`, so it is sent once.
+  `RemoteHttpServer` serves the static page at `/share` under a CSP with no outside sources; it
+  renders the transcript as text only. `LoopbackHttpServer` still refuses foreign `Origin`s, but
+  accepts `remoteAccess.publicUrl`'s, since a browser sends `Origin` on a tunnel page's POST.
 - **Prompts while busy.** `sendPrompt` runs under the task's lock. An idle agent gets the prompt
   and reads as working at once, so a second sender never sees a stale idle. A busy agent is
   steered when its adapter declares `Steer` and the steer succeeds; otherwise the text joins

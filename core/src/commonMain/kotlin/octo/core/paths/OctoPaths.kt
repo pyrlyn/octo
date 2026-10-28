@@ -19,6 +19,7 @@ data class OctoPaths(
     val acknowledgements: Path get() = Path(home, "acknowledgements.json")
     val presets: Path get() = Path(home, "presets.json")
     val devices: Path get() = Path(home, "devices.json")
+    val shares: Path get() = Path(home, "shares.json")
     val plugins: Path get() = Path(home, "plugins")
     val usage: Path get() = Path(home, "usage.json")
 

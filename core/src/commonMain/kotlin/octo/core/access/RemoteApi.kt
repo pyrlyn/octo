@@ -43,12 +43,15 @@ data class ApiResponse(
  * The JSON API a paired device uses, kept free of any transport. Every call but `POST /pair`
  * and `POST /hooks/{id}` needs a paired device's token; the device is the user's own, so it may
  * do what the window does, except accept vendor terms, which the user reads in the window.
- * A webhook proves itself with its own secret instead, and can only start its one task.
+ * A webhook proves itself with its own secret instead, and can only start its one task. A guest
+ * holds a share's token, which opens the one shared task to watch and to propose messages for.
  */
 class RemoteApi(
     private val core: OctoCore,
     private val devices: Devices,
     private val hooks: Webhooks? = null,
+    /** Null while the `guest-share` flag is off. */
+    private val shares: Shares? = null,
 ) {
     @Suppress("TooGenericExceptionCaught")
     suspend fun handle(request: ApiRequest): ApiResponse =
@@ -85,6 +88,10 @@ class RemoteApi(
 
             hooks != null && segments.size == HOOK_CALL && segments[0] == "hooks" -> {
                 hook(hooks, request, segments[1])
+            }
+
+            shares != null && segments.firstOrNull() == "guest" -> {
+                guest(shares, request, segments.drop(1))
             }
 
             devices.device(bearerToken(request.authorization)) == null -> {
@@ -124,6 +131,54 @@ class RemoteApi(
                 Delivery.NotFound -> error(NOT_FOUND, "No webhook '$id'")
             }
         }
+
+    private suspend fun guest(
+        shares: Shares,
+        request: ApiRequest,
+        rest: List<String>,
+    ): ApiResponse {
+        val share = shares.share(bearerToken(request.authorization))
+        val view = share?.let { core.state.value[it.taskId] }
+        return when {
+            share == null -> {
+                error(UNAUTHORIZED, "This link is wrong or was revoked")
+            }
+
+            view == null -> {
+                error(NOT_FOUND, "The shared task is gone")
+            }
+
+            rest.isEmpty() && request.method != GET -> {
+                ApiResponse(METHOD_NOT_ALLOWED, allow = GET)
+            }
+
+            rest.isEmpty() -> {
+                val mine = shares.proposals.value.filter { it.shareId == share.id }
+                val body =
+                    GuestBody(
+                        view.task.title,
+                        view.task.agent.value,
+                        view.sidebarStatus,
+                        core.transcript(share.taskId).first(),
+                        mine.map { it.body() },
+                    )
+                ok(GuestBody.serializer(), body)
+            }
+
+            rest == listOf("proposals") -> {
+                post(request, ProposeBody.serializer()) {
+                    val proposal = shares.propose(share, it.name, it.text)
+                    ApiResponse(ACCEPTED, ApiJson.encodeToJsonElement(GuestProposalBody.serializer(), proposal.body()))
+                }
+            }
+
+            else -> {
+                error(NOT_FOUND, "Not found")
+            }
+        }
+    }
+
+    private fun Proposal.body() = GuestProposalBody(id, text, status)
 
     private suspend fun pair(body: PairBody): ApiResponse {
         val token = devices.pair(body.code, body.name)

@@ -291,7 +291,7 @@ internal suspend fun TestScope.setup(
         },
     checkpoints: Boolean = false,
     agentLimits: Map<String?, Int> = emptyMap(),
-    compactIdle: Boolean = false,
+    compactIdle: Long? = null,
 ): Setup {
     val core =
         Orchestrator.open(

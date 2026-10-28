@@ -2,6 +2,7 @@ package octo.ui.vm
 
 import kotlinx.coroutines.CoroutineScope
 import octo.core.access.Devices
+import octo.core.access.Shares
 import octo.core.orchestrator.AgentCatalog
 import octo.core.orchestrator.OctoCore
 import octo.core.plugins.Plugin
@@ -9,6 +10,7 @@ import octo.core.preset.PresetLibrary
 import octo.core.publish.TaskPublisher
 import octo.core.task.TaskId
 import octo.core.usage.UsageReport
+import octo.ui.preview.FilePreviewer
 
 /** Builds the screens' view models, so composables never hold a reference to core. */
 class ViewModels(
@@ -41,6 +43,12 @@ class ViewModels(
     private val checkpoints: Boolean = false,
     /** False while the `move-task` flag is off, which hides moving a task to another machine. */
     private val moveTask: Boolean = false,
+    /** Null while the `previews` flag is off, which leaves the diff view as plain diffs. */
+    private val previewer: FilePreviewer? = null,
+    /** Null while the `guest-share` flag is off or remote access is down, which hides sharing. */
+    private val shares: Shares? = null,
+    /** Where guest links point. */
+    private val shareBase: String? = null,
 ) {
     val main = MainViewModel(core, scope, startupWarnings, sections, limits = usage != null)
 
@@ -69,7 +77,10 @@ class ViewModels(
 
     fun moveTask(id: TaskId): MoveTaskViewModel? = if (moveTask) MoveTaskViewModel(core, id, scope) else null
 
-    fun diff(id: TaskId) = DiffViewModel(core, id, scope)
+    fun share(id: TaskId): ShareViewModel? =
+        if (shares != null && shareBase != null) ShareViewModel(shares, id, shareBase, scope) else null
+
+    fun diff(id: TaskId) = DiffViewModel(core, id, scope, previewer)
 
     /** Null while the `palette` flag is off. Commands behind a flag that is off are left out. */
     fun palette(): PaletteViewModel? {

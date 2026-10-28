@@ -6,6 +6,7 @@ import octo.core.access.Devices
 import octo.core.access.JvmSecrets
 import octo.core.access.RemoteApi
 import octo.core.access.RemoteHttpServer
+import octo.core.access.Shares
 import octo.core.agent.AdapterRegistry
 import octo.core.config.AgentLimits
 import octo.core.config.OctoConfig
@@ -67,6 +68,10 @@ class Octo private constructor(
     val usage: UsageReport?,
     /** Null unless the `triggers` flag is on. */
     private val triggers: Triggers?,
+    /** Null unless the `guest-share` flag is on and remote access is up. */
+    val shares: Shares?,
+    /** Where guest links point: the user's tunnel, or loopback for a guest on `ssh -L`; null with [shares]. */
+    val shareBase: String?,
 ) {
     val core: OctoCore get() = orchestrator
 
@@ -90,6 +95,9 @@ class Octo private constructor(
 
     /** Whether the `move-task` flag lets a task move between machines; they come with `remote-ssh`. */
     val moveTask: Boolean get() = flags.isEnabled(CoreFlags.MOVE_TASK) && flags.isEnabled(CoreFlags.REMOTE_SSH)
+
+    /** Whether the `previews` flag lets the diff view preview images, notebooks and other files. */
+    val previews: Boolean get() = flags.isEnabled(CoreFlags.PREVIEWS)
 
     /** Where the remote API listens, e.g. `http://127.0.0.1:47470`. */
     val remoteUrl: String? get() = remoteServer?.url
@@ -138,7 +146,7 @@ class Octo private constructor(
                     defaultPermissionMode = config.defaultPermissionMode,
                     worktreeSetup = config.worktreeSetup,
                     checkpoints = flags.isEnabled(CoreFlags.CHECKPOINTS),
-                    compactIdle = flags.isEnabled(CoreFlags.COMPACT_IDLE),
+                    compactIdle = flags.ifOn(CoreFlags.COMPACT_IDLE) { config.compactIdleMinTokens },
                     agentLimits = limits.limits,
                 )
             messaging?.attach(orchestrator)
@@ -147,9 +155,7 @@ class Octo private constructor(
             val presets = flags.ifOn(CoreFlags.PRESETS) { FilePresetLibrary.open(AtomicFile(paths.presets)) }
             val usage = flags.ifOn(CoreFlags.USAGE) { usage(paths, orchestrator, registry, scope) }
             val triggers = flags.ifOn(CoreFlags.TRIGGERS) { triggers(config, flags, paths, orchestrator, scope) }
-            val access =
-                flags.ifOn(CoreFlags.REMOTE_ACCESS) { startRemoteAccess(config, paths, orchestrator, triggers?.first) }
-                    ?: RemoteAccess()
+            val access = remoteAccess(config, flags, paths, orchestrator, triggers?.first)
             val warnings =
                 listOfNotNull(warning, mcpWarning, presets?.warning, access.warning, usage?.second) + remote.warnings +
                     plugins.loaded.warnings + plugins.agents.warnings + triggers?.second.orEmpty() +
@@ -168,6 +174,8 @@ class Octo private constructor(
                 flags,
                 usage?.first,
                 triggers?.first,
+                access.shares,
+                access.shareBase,
             )
         }
 
@@ -250,7 +258,22 @@ class Octo private constructor(
             val server: RemoteHttpServer? = null,
             val devices: Devices? = null,
             val warning: String? = null,
+            val shares: Shares? = null,
+            val shareBase: String? = null,
         )
+
+        private suspend fun remoteAccess(
+            config: OctoConfig,
+            flags: FeatureFlags,
+            paths: OctoPaths,
+            core: OctoCore,
+            hooks: Webhooks?,
+        ): RemoteAccess {
+            val guests = flags.isEnabled(CoreFlags.GUEST_SHARE)
+            if (flags.isEnabled(CoreFlags.REMOTE_ACCESS)) return startRemoteAccess(config, paths, core, hooks, guests)
+            val unreachable = "Guest links need the ${CoreFlags.REMOTE_ACCESS.id} flag, which is off"
+            return RemoteAccess(warning = unreachable.takeIf { guests })
+        }
 
         // A taken port or a broken devices.json turns remote access off; the window works as before.
         private suspend fun startRemoteAccess(
@@ -258,13 +281,27 @@ class Octo private constructor(
             paths: OctoPaths,
             core: OctoCore,
             hooks: Webhooks?,
+            guests: Boolean,
         ): RemoteAccess {
-            val port = config.remoteAccess.port
+            val access = config.remoteAccess
+            val port = access.port
             val devices = Devices.open(AtomicFile(paths.devices), JvmSecrets)
-            val problem = config.remoteAccess.problem() ?: devices.warning
+            val shares = if (guests) Shares.open(AtomicFile(paths.shares), JvmSecrets, core) else null
+            val problem = access.problem() ?: devices.warning ?: shares?.warning
             if (problem != null) return RemoteAccess(warning = "Remote access is off: $problem")
             return try {
-                RemoteAccess(RemoteHttpServer(RemoteApi(core, devices, hooks), port).start(), devices)
+                val api = RemoteApi(core, devices, hooks, shares)
+                val server = RemoteHttpServer(api, port, access.publicOrigin, guestPage = shares != null).start()
+                RemoteAccess(
+                    server,
+                    devices,
+                    shares = shares,
+                    shareBase =
+                        shares?.let {
+                            access.publicOrigin
+                                ?: server.url
+                        },
+                )
             } catch (e: java.io.IOException) {
                 RemoteAccess(warning = "Remote access is off: port $port: ${e.message}")
             }
