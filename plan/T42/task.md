@@ -1,9 +1,9 @@
 ---
-status: todo
+status: in progress
 priority: P1
 complexity: 2
-readiness: 0%
-agent:
+readiness: 100%
+agent: Claude Code / claude-opus-5-5
 ---
 
 # T42. Let agents start tasks through the messaging MCP server
@@ -24,3 +24,25 @@ Done means:
   the new task never gets a more permissive mode than its parent.
 - A per-task cap on child tasks in `config.json` stops a runaway agent.
 - Core and MCP handler tests cover success, an unknown agent or machine, and the cap.
+
+## Execution plan
+
+1. `NewTask.parentId`: `Orchestrator.createTask` records it, caps the permission mode at the
+   parent's (`PermissionMode.atMost`), and on another machine finds the parent repository's clone
+   there through the move-task `repos` mapping.
+2. `OctoConfig.maxChildTasks` (default 10, 0 turns the tool off), passed to `AgentMessaging`.
+3. `AgentMessaging.createTask`: checks the arguments (title, prompt, model and base ref, which
+   reach the agent CLI and `git`), counts the caller's children plus the ones still being created
+   against the cap in one atomic update, and creates the child in the caller's repository; the
+   agent, model, base ref and machine default to the parent's.
+4. `McpHandler`: the `create_task` tool and its schema; a refused or failed creation is the tool's
+   error answer.
+5. Tests: `AgentMessagingTest` (success, unknown agent, unknown machine, cap, mode cap, handler),
+   `MachineConfigTest` for the new key.
+6. Docs: the `agent-messaging` row in `docs/architecture.md` §6 and the README section.
+
+Files: `core/.../task/Task.kt`, `core/.../agent/PermissionMode.kt`,
+`core/.../orchestrator/Orchestrator.kt`, `core/.../config/OctoConfig.kt`,
+`core/.../messaging/{AgentMessaging,McpHandler}.kt`, `app/.../Octo.kt`, tests next to them.
+
+Verify: `./gradlew check` (tests, ktlint, detekt) locally; CI is not running.

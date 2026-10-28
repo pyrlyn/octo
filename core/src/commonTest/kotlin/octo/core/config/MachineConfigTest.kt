@@ -32,6 +32,12 @@ class MachineConfigTest {
     }
 
     @Test
+    fun theChildTaskCapLoadsFromConfigWithADefault() {
+        assertEquals(3, OctoConfig.parse("""{"maxChildTasks":3}""").config.maxChildTasks)
+        assertEquals(10, OctoConfig.parse("""{"flags":{}}""").config.maxChildTasks)
+    }
+
+    @Test
     fun agentLimitsComeFromTheConfigAndBadOnesAreWarnedAbout() {
         val config =
             OctoConfig

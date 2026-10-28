@@ -9,11 +9,15 @@ import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.flow.updateAndGet
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withTimeoutOrNull
+import octo.core.agent.AgentId
+import octo.core.agent.MODEL_OPTION
 import octo.core.agent.McpServer
 import octo.core.agent.Role
+import octo.core.config.OctoConfig
 import octo.core.http.bearerToken
 import octo.core.orchestrator.OctoCore
 import octo.core.status.AgentStatus
+import octo.core.task.NewTask
 import octo.core.task.OctoState
 import octo.core.task.TaskId
 import octo.core.task.TranscriptEntry
@@ -33,6 +37,16 @@ data class TaskSummary(
     val status: AgentStatus,
 )
 
+/** A task an agent asks for; every null takes its parent's value. */
+data class ChildTask(
+    val title: String,
+    val prompt: String,
+    val agent: String? = null,
+    val model: String? = null,
+    val baseRef: String? = null,
+    val machine: String? = null,
+)
+
 data class WaitResult(
     val status: AgentStatus,
     /** False when the wait ran out first. */
@@ -47,11 +61,16 @@ data class WaitResult(
  */
 class AgentMessaging(
     private val scope: CoroutineScope,
+    /** Child tasks one task may have, forks included; 0 refuses every [createTask]. */
+    private val maxChildTasks: Int = OctoConfig.DEFAULT_MAX_CHILD_TASKS,
     private val newToken: () -> String = ::randomToken,
 ) : McpProvider {
     private val endpoint = MutableStateFlow<String?>(null)
     private val tokens = MutableStateFlow<Map<TaskId, String>>(emptyMap())
     private val queues = MutableStateFlow<Map<TaskId, List<String>>>(emptyMap())
+
+    // Children still being set up are not in the state yet but must count against the cap.
+    private val creating = MutableStateFlow<Map<TaskId, Int>>(emptyMap())
 
     // Delivered but not yet picked up: the target still reads as idle until its turn starts.
     private val inFlight = MutableStateFlow<Set<TaskId>>(emptySet())
@@ -115,6 +134,59 @@ class AgentMessaging(
             val queue = all[to].orEmpty()
             require(queue.size < MAX_QUEUED) { "Task '${to.value}' already has $MAX_QUEUED messages waiting" }
             all + (to to queue + prompt)
+        }
+    }
+
+    /**
+     * Starts [child] in the caller's repository as a child of the caller, through the same path as a
+     * task the user starts: the terms gate, the start queue and a permission mode no wider than the
+     * caller's.
+     */
+    suspend fun createTask(
+        caller: TaskId,
+        child: ChildTask,
+    ): TaskId {
+        val core = attached.await()
+        require(child.title.isNotBlank()) { "The title is empty" }
+        require(child.title.length <= MAX_TITLE) { "The title is longer than $MAX_TITLE characters" }
+        require(child.prompt.isNotBlank()) { "The prompt is empty" }
+        require(child.prompt.length <= MAX_MESSAGE) { "The prompt is longer than $MAX_MESSAGE characters" }
+        // Both reach a command line (the agent CLI, git), where a leading dash would read as an option.
+        child.model?.let { require(it.matches(MODEL)) { "'$it' is not a model name" } }
+        child.baseRef?.let { require(it.matches(REF)) { "'$it' is not a git ref" } }
+        val parent = core.state.value[caller]?.task ?: throw IllegalArgumentException("No task '${caller.value}'")
+        creating.update { all ->
+            // Counted inside the update: a child that finished being created between a read outside
+            // it and this check would slip past the cap.
+            val children =
+                core.state.value.tasks
+                    .count { it.task.parentId == caller }
+            val pending = all[caller] ?: 0
+            require(children + pending < maxChildTasks) {
+                "This task already has $maxChildTasks child tasks; maxChildTasks in config.json sets the cap"
+            }
+            all + (caller to pending + 1)
+        }
+        try {
+            val agent = child.agent?.let(::AgentId) ?: parent.agent
+            val options = if (agent == parent.agent) parent.options else emptyMap()
+            return core.createTask(
+                NewTask(
+                    repo = parent.repo,
+                    baseRef = child.baseRef ?: parent.baseRef,
+                    agent = agent,
+                    title = child.title,
+                    prompt = child.prompt,
+                    options = options + listOfNotNull(child.model?.let { MODEL_OPTION to it }),
+                    machine = child.machine ?: parent.machine,
+                    parentId = caller,
+                ),
+            )
+        } finally {
+            creating.update { all ->
+                val left = (all[caller] ?: 1) - 1
+                if (left > 0) all + (caller to left) else all - caller
+            }
         }
     }
 
@@ -196,6 +268,11 @@ class AgentMessaging(
         const val SERVER_NAME = "octo"
         const val MAX_MESSAGE = 20_000
         const val MAX_QUEUED = 20
+        const val MAX_TITLE = 200
+        private val MODEL = Regex("[A-Za-z0-9][A-Za-z0-9._:/@\\[\\]-]{0,99}")
+
+        // A plain subset of git ref names and commit ids; git still rejects the rest of its own rules.
+        private val REF = Regex("[A-Za-z0-9_][A-Za-z0-9._/-]{0,199}")
 
         /** Below the five-minute idle timeout HTTP MCP clients apply to a silent tool call. */
         const val MAX_WAIT_MS = 240_000L
