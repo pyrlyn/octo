@@ -143,6 +143,8 @@ private fun TaskPane(
     DisposableEffect(vm) { onDispose { vm.close() } }
     val plugins = remember(id) { models.pluginActions(id) }
     DisposableEffect(plugins) { onDispose { plugins?.close() } }
+    val share = remember(id) { models.share(id) }
+    DisposableEffect(share) { onDispose { share?.close() } }
     val main = models.main
     val dialog =
         main.state
@@ -157,6 +159,7 @@ private fun TaskPane(
         onFork = if (models.canFork) ({ models.main.fork(id) }) else null,
         onMove = if (models.canMove) ({ main.openTaskDialog(TaskDialog.Move) }) else null,
         places = models.main.takeIf { it.sections },
+        share = share,
     )
     if (dialog == TaskDialog.SwitchAgent) {
         val switch = remember(id) { models.switchAgent(id) } ?: return

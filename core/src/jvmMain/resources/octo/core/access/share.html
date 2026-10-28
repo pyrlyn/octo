@@ -1,0 +1,120 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="referrer" content="no-referrer">
+<title>Shared task · Octo</title>
+<style>
+  :root { color-scheme: light dark; --muted: #6b7280; --line: #d1d5db; --error: #b91c1c; }
+  body { margin: 0 auto; max-width: 860px; padding: 16px; font: 15px/1.5 system-ui, sans-serif; }
+  h1 { font-size: 20px; margin: 0; }
+  .muted { color: var(--muted); font-size: 13px; }
+  .error { color: var(--error); }
+  #log > div { border-bottom: 1px solid var(--line); padding: 8px 0; white-space: pre-wrap; overflow-wrap: anywhere; }
+  .who { font-weight: 600; margin-right: 6px; }
+  .thought { font-style: italic; color: var(--muted); }
+  form { display: grid; gap: 8px; margin-top: 16px; }
+  textarea { min-height: 80px; font: inherit; }
+  input, textarea, button { font: inherit; padding: 6px; }
+</style>
+</head>
+<body>
+<h1 id="title">Shared task</h1>
+<p id="status" class="muted">Loading…</p>
+<div id="log"></div>
+<div id="mine"></div>
+<form id="propose">
+  <input id="name" maxlength="60" placeholder="Your name">
+  <textarea id="text" maxlength="4000" placeholder="Propose a message; the owner sends it to the agent only if they approve"></textarea>
+  <button>Propose</button>
+  <p id="note" class="muted"></p>
+</form>
+<script>
+  // The token stays in the fragment, which the browser never sends, so no log along the way holds it.
+  const token = location.hash.slice(1);
+  const auth = { Authorization: "Bearer " + token };
+  const $ = (id) => document.getElementById(id);
+  let timer = null;
+
+  // Text only, never HTML: the transcript is the agent's output and must not run in this page.
+  function line(text, className, who) {
+    const div = document.createElement("div");
+    if (className) div.className = className;
+    if (who) {
+      const span = document.createElement("span");
+      span.className = "who";
+      span.textContent = who;
+      div.append(span);
+    }
+    div.append(document.createTextNode(text));
+    return div;
+  }
+
+  function entry(e) {
+    switch (e.type) {
+      case "text": return line(e.text, null, e.role === "User" ? "You:" : "Agent:");
+      case "thought": return line(e.text, "thought");
+      case "tool": return line(e.title + " (" + e.status + ")", "muted");
+      case "plan": return line(e.entries.map((p) => (p.done ? "[x] " : "[ ] ") + p.text).join("\n"), "muted", "Plan:");
+      case "request": return line(e.title, "muted", e.resolved ? "Answered:" : "Waiting for the owner:");
+      case "notice": return line(e.text, e.error ? "error" : "muted");
+      default: return null;
+    }
+  }
+
+  async function refresh() {
+    let response;
+    try {
+      response = await fetch("api/v1/guest", { headers: auth, cache: "no-store" });
+    } catch (e) {
+      $("status").textContent = "Cannot reach Octo; retrying.";
+      return;
+    }
+    if (response.status === 401 || response.status === 404) {
+      $("status").textContent = response.status === 401 ? "This link was revoked." : "The shared task is gone.";
+      $("status").className = "error";
+      $("propose").hidden = true;
+      clearInterval(timer);
+      return;
+    }
+    if (!response.ok) return;
+    const body = await response.json();
+    document.title = body.title + " · Octo";
+    $("title").textContent = body.title;
+    $("status").textContent = body.agent + " · " + body.sidebarStatus;
+    const atBottom = window.innerHeight + window.scrollY >= document.body.scrollHeight - 40;
+    $("log").replaceChildren(...body.entries.map(entry).filter(Boolean));
+    $("mine").replaceChildren(...body.proposals.map((p) => line(p.text, "muted", "Your message, " + p.status.toLowerCase() + ":")));
+    if (atBottom) window.scrollTo(0, document.body.scrollHeight);
+  }
+
+  $("propose").addEventListener("submit", async (event) => {
+    event.preventDefault();
+    const text = $("text").value.trim();
+    if (!text) return;
+    const response = await fetch("api/v1/guest/proposals", {
+      method: "POST",
+      headers: { ...auth, "Content-Type": "application/json" },
+      body: JSON.stringify({ text, name: $("name").value }),
+    });
+    if (response.ok) {
+      $("text").value = "";
+      $("note").textContent = "Sent to the owner for approval.";
+    } else {
+      const body = await response.json().catch(() => ({}));
+      $("note").textContent = body.error || "Could not send it.";
+    }
+    refresh();
+  });
+
+  if (!token) {
+    $("status").textContent = "This link is missing its token.";
+    $("propose").hidden = true;
+  } else {
+    refresh();
+    timer = setInterval(refresh, 2000);
+  }
+</script>
+</body>
+</html>

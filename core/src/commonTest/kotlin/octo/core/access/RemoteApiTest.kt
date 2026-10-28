@@ -9,6 +9,7 @@ import kotlinx.serialization.json.jsonArray
 import kotlinx.serialization.json.jsonObject
 import kotlinx.serialization.json.jsonPrimitive
 import octo.core.agent.AgentEvent
+import octo.core.agent.AgentId
 import octo.core.agent.PermissionKind
 import octo.core.agent.PermissionMode
 import octo.core.agent.PermissionOption
@@ -19,6 +20,7 @@ import octo.core.io.AtomicFile
 import octo.core.orchestrator.FakeAdapter
 import octo.core.orchestrator.Setup
 import octo.core.orchestrator.setup
+import octo.core.task.NewTask
 import octo.core.triggers.Delivery
 import octo.core.triggers.Webhooks
 import kotlin.test.Test
@@ -226,5 +228,76 @@ class RemoteApiTest {
             assertEquals(405, call("GET", "pr").status)
             val withoutHooks = RemoteApi(s.core, devices).handle(ApiRequest("POST", "/api/v1/hooks/pr", null, "{}"))
             assertEquals(401, withoutHooks.status, "with triggers off the route is a device call like any other")
+        }
+
+    @Test
+    fun aGuestWatchesTheSharedTaskAndOnlyProposes() =
+        runTest {
+            val s = setup()
+            val devices = Devices.open(AtomicFile(Path(s.home, "devices.json")), FakeSecrets())
+            val shares = Shares.open(AtomicFile(Path(s.home, "shares.json")), FakeSecrets(), s.core)
+            val api = RemoteApi(s.core, devices, shares = shares)
+            val created = api.handle(ApiRequest("POST", "/api/v1/tasks", "Bearer none", newTask))
+            assertEquals(401, created.status, "a guest link is not a device token")
+            val id = s.core.createTask(NewTask("/src/app", "main", AgentId("fake"), "Fix it", prompt = "Go"))
+            testScheduler.runCurrent()
+            val token = shares.share(id)
+
+            suspend fun guest(
+                method: String,
+                path: String = "",
+                body: String? = null,
+                token: String = "guess",
+            ) = api.handle(ApiRequest(method, "/api/v1/guest$path", "Bearer $token", body))
+
+            assertEquals(401, guest("GET").status)
+            assertEquals(401, api.handle(ApiRequest("GET", "/api/v1/tasks", "Bearer $token", null)).status)
+            val view = guest("GET", token = token)
+            assertEquals(200, view.status)
+            assertEquals(
+                "Fix it",
+                view.body!!
+                    .jsonObject["title"]!!
+                    .jsonPrimitive.content,
+            )
+            assertEquals(405, guest("POST", token = token).status)
+            assertEquals(404, guest("GET", "/tasks", token = token).status)
+
+            val proposed = guest("POST", "/proposals", """{"text":"Try again","name":"Ann"}""", token)
+            assertEquals(202, proposed.status)
+            assertEquals(
+                "Pending",
+                proposed.body!!
+                    .jsonObject["status"]!!
+                    .jsonPrimitive.content,
+            )
+            assertEquals(400, guest("POST", "/proposals", """{"text":" "}""", token).status)
+            assertEquals(
+                "Try again",
+                guest("GET", token = token)
+                    .body!!
+                    .jsonObject["proposals"]!!
+                    .jsonArray
+                    .single()
+                    .jsonObject["text"]!!
+                    .jsonPrimitive.content,
+            )
+            assertEquals(
+                listOf("Go"),
+                s.adapter.sessions
+                    .single()
+                    .prompts,
+                "a proposal is not sent by itself",
+            )
+
+            s.core.removeTask(id, deleteWorktree = true, force = true)
+            testScheduler.runCurrent()
+            assertEquals(404, guest("GET", token = token).status)
+            shares.revoke(id)
+            assertEquals(401, guest("GET", token = token).status)
+            assertEquals(
+                401,
+                RemoteApi(s.core, devices).handle(ApiRequest("GET", "/api/v1/guest", "Bearer $token", null)).status,
+            )
         }
 }

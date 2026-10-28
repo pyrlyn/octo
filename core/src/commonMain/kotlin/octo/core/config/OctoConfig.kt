@@ -110,12 +110,28 @@ data class MachineConfig(
 data class RemoteAccessConfig(
     /** The loopback port; a fixed one, so the user's tunnel keeps pointing at it. */
     val port: Int = DEFAULT_PORT,
+    /**
+     * Where the user's tunnel serves the API to others, e.g. `https://box.tailnet.ts.net`; guest
+     * links start with it, and pages from it may call the API.
+     */
+    val publicUrl: String? = null,
 ) {
-    fun problem(): String? = if (port in 1..MAX_PORT) null else "remoteAccess.port $port is not a TCP port"
+    /** [publicUrl] without a trailing slash, as a browser sends it in `Origin`. */
+    val publicOrigin: String? get() = publicUrl?.trimEnd('/')
+
+    fun problem(): String? =
+        when {
+            port !in 1..MAX_PORT -> "remoteAccess.port $port is not a TCP port"
+            publicOrigin?.matches(ORIGIN) == false -> "remoteAccess.publicUrl $publicUrl is not http(s)://host[:port]"
+            else -> null
+        }
 
     companion object {
         const val DEFAULT_PORT = 47470
         private const val MAX_PORT = 65535
+
+        // An origin only: a path would not match what browsers send, so links and pages would break.
+        private val ORIGIN = Regex("https?://[A-Za-z0-9.-]+(:[0-9]{1,5})?")
     }
 }
 
