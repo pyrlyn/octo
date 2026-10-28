@@ -68,6 +68,9 @@ internal class ClaudeSession(
     private var nextRequest = 1
     private var cancelling = false
 
+    // Read and written only by the output reader.
+    private var cacheTtlMs: Long? = null
+
     override suspend fun initialize(spec: SessionSpec) {
         withTimeout(INITIALIZE_TIMEOUT_MS) {
             control(
@@ -96,6 +99,8 @@ internal class ClaudeSession(
             put("parent_tool_use_id", JsonNull)
         }
     }
+
+    override suspend fun compact() = prompt("/compact")
 
     override suspend fun respond(
         requestId: String,
@@ -191,9 +196,16 @@ internal class ClaudeSession(
         if (id != ref.value) emit(AgentEvent.SessionReady(AgentSessionRef(id)))
     }
 
+    // The cache's lifetime is reported as the request starts, when it begins. A request served
+    // wholly from the cache refreshes it for the lifetime it was written with.
     private fun streamEvent(message: JsonObject) {
-        val delta = message.obj("event")?.takeIf { it.string("type") == "content_block_delta" }?.obj("delta") ?: return
-        if (delta.string("type") == "text_delta") {
+        val event = message.obj("event") ?: return
+        val delta = event.obj("delta")
+        val type = event.string("type")
+        if (type == "message_start" && message.string("parent_tool_use_id") == null) {
+            cacheTtlMs = cacheTtl(event.obj("message")?.obj("usage")) ?: cacheTtlMs
+            cacheTtlMs?.let { emit(AgentEvent.StatsUpdated(SessionStats(promptCacheTtlMs = it))) }
+        } else if (type == "content_block_delta" && delta?.string("type") == "text_delta") {
             delta.string("text")?.let { emit(AgentEvent.MessageDelta(Role.Assistant, it)) }
         }
     }
@@ -385,56 +397,6 @@ internal class ClaudeSession(
         process.writeLine(buildJsonObject(body).toString())
     }
 
-    private fun permissionDecision(
-        request: Pending.Permission,
-        response: RequestResponse,
-    ): JsonObject =
-        buildJsonObject {
-            when {
-                response is RequestResponse.Option && response.optionId == ALLOW_ALWAYS -> {
-                    put("behavior", "allow")
-                    put("updatedInput", request.input)
-                    put("updatedPermissions", request.suggestions)
-                }
-
-                response is RequestResponse.Option && response.optionId == ALLOW -> {
-                    put("behavior", "allow")
-                    put("updatedInput", request.input)
-                }
-
-                response is RequestResponse.Cancelled -> {
-                    put("behavior", "deny")
-                    put("message", "The user cancelled the request")
-                    put("interrupt", true)
-                }
-
-                else -> {
-                    put("behavior", "deny")
-                    put("message", "The user rejected this action")
-                }
-            }
-        }
-
-    private fun questionDecision(
-        request: Pending.Questions,
-        response: RequestResponse,
-    ): JsonObject =
-        buildJsonObject {
-            if (response is RequestResponse.Answers) {
-                put("behavior", "allow")
-                put(
-                    "updatedInput",
-                    buildJsonObject {
-                        put("questions", request.input["questions"] ?: JsonArray(emptyList()))
-                        put("answers", buildJsonObject { response.answers.forEach { (q, a) -> put(q, a) } })
-                    },
-                )
-            } else {
-                put("behavior", "deny")
-                put("message", "The user dismissed the question")
-            }
-        }
-
     companion object {
         const val ALLOW = "allow"
         const val ALLOW_ALWAYS = "allow_always"
@@ -443,12 +405,74 @@ internal class ClaudeSession(
         private const val INITIALIZE_TIMEOUT_MS = 60_000L
         private const val INTERRUPT_TIMEOUT_MS = 10_000L
         private const val DETAIL_LIMIT = 4_000
+        private const val HOUR_MS = 3_600_000L
+        private const val FIVE_MINUTES_MS = 300_000L
+
+        /** The lifetime the request wrote its cache with; null when it wrote none. */
+        private fun cacheTtl(usage: JsonObject?): Long? {
+            val written = usage?.obj("cache_creation")
+            return when {
+                (written?.long("ephemeral_1h_input_tokens") ?: 0) > 0 -> HOUR_MS
+                (written?.long("ephemeral_5m_input_tokens") ?: 0) > 0 -> FIVE_MINUTES_MS
+                else -> null
+            }
+        }
 
         fun permissionOptions(canRemember: Boolean): List<PermissionOption> =
             buildList {
                 add(PermissionOption(ALLOW, "Allow", PermissionKind.AllowOnce))
                 if (canRemember) add(PermissionOption(ALLOW_ALWAYS, "Always allow", PermissionKind.AllowAlways))
                 add(PermissionOption(REJECT, "Reject", PermissionKind.RejectOnce))
+            }
+
+        private fun permissionDecision(
+            request: Pending.Permission,
+            response: RequestResponse,
+        ): JsonObject =
+            buildJsonObject {
+                when {
+                    response is RequestResponse.Option && response.optionId == ALLOW_ALWAYS -> {
+                        put("behavior", "allow")
+                        put("updatedInput", request.input)
+                        put("updatedPermissions", request.suggestions)
+                    }
+
+                    response is RequestResponse.Option && response.optionId == ALLOW -> {
+                        put("behavior", "allow")
+                        put("updatedInput", request.input)
+                    }
+
+                    response is RequestResponse.Cancelled -> {
+                        put("behavior", "deny")
+                        put("message", "The user cancelled the request")
+                        put("interrupt", true)
+                    }
+
+                    else -> {
+                        put("behavior", "deny")
+                        put("message", "The user rejected this action")
+                    }
+                }
+            }
+
+        private fun questionDecision(
+            request: Pending.Questions,
+            response: RequestResponse,
+        ): JsonObject =
+            buildJsonObject {
+                if (response is RequestResponse.Answers) {
+                    put("behavior", "allow")
+                    put(
+                        "updatedInput",
+                        buildJsonObject {
+                            put("questions", request.input["questions"] ?: JsonArray(emptyList()))
+                            put("answers", buildJsonObject { response.answers.forEach { (q, a) -> put(q, a) } })
+                        },
+                    )
+                } else {
+                    put("behavior", "deny")
+                    put("message", "The user dismissed the question")
+                }
             }
 
         /** Claude keys answers by the question text, so that text doubles as the question id. */

@@ -275,6 +275,7 @@ class FeatureFlags(config: Map<String, Boolean>) {
 | `triggers` (tasks from `config.json` on a cron schedule or from a signed webhook) | T32 |
 | `queue` (`maxRunningAgents` per machine; later tasks wait as Queued, with Start now) | T33 |
 | `move-task` (move a task and its uncommitted work to another machine; needs `remote-ssh`) | T34 |
+| `compact-idle` (compact a large idle conversation just before its prompt cache expires) | T35 |
 | `pty-terminal` | Reserved |
 
 ## 7. Core API and orchestration
@@ -389,6 +390,13 @@ agent and writes the state. `close()` belongs to `app`, so it is not on the inte
   the new machine, repo and worktree, forgets its checkpoints and starts a fresh session with a
   handoff.
   `MachineConfig.repos` maps this computer's repository paths to the clones on each machine.
+- **Idle compaction.** With the `compact-idle` flag on, an adapter that declares `Compact` reports
+  `SessionStats.promptCacheTtlMs` as each request starts (Claude reads it from `message_start`'s
+  `cache_creation`). `IdleCompaction` sets the task's time two minutes before that lifetime ends
+  and wakes at the earliest one. Under the task's lock the orchestrator checks the task again
+  (idle, nothing queued or pending, active or pinned, 200K tokens or more in the context) and calls
+  `AgentSession.compact()`, which Claude takes as `/compact`. A prompt or a stop cancels the time,
+  and the compaction's own requests set none. The times live in memory only.
 - **Prompts while busy.** `sendPrompt` runs under the task's lock. An idle agent gets the prompt
   and reads as working at once, so a second sender never sees a stale idle. A busy agent is
   steered when its adapter declares `Steer` and the steer succeeds; otherwise the text joins

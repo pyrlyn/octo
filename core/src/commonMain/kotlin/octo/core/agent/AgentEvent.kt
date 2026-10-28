@@ -136,6 +136,8 @@ data class SessionStats(
     val outputTokens: Long? = null,
     val cacheReadTokens: Long? = null,
     val cacheWriteTokens: Long? = null,
+    /** How long the prompt cache keeps the latest request's context, counted from its start. */
+    val promptCacheTtlMs: Long? = null,
 ) {
     /** Agents report figures piecemeal, so a field [next] leaves out keeps its last value. */
     fun merge(next: SessionStats) =
@@ -147,6 +149,7 @@ data class SessionStats(
             outputTokens = next.outputTokens ?: outputTokens,
             cacheReadTokens = next.cacheReadTokens ?: cacheReadTokens,
             cacheWriteTokens = next.cacheWriteTokens ?: cacheWriteTokens,
+            promptCacheTtlMs = next.promptCacheTtlMs ?: promptCacheTtlMs,
         )
 }
 

@@ -117,11 +117,10 @@ class Octo private constructor(
             val registry = adapterRegistry(launcher, flags, plugins.agents.adapters, homes)
             val terms = TermsGate(AtomicFile(paths.acknowledgements))
             val remote =
-                if (flags.isEnabled(CoreFlags.REMOTE_SSH)) {
-                    remoteMachines(config.machines, launcher, flags, paths.sockets, scope)
-                } else {
-                    RemoteMachines(emptyMap(), emptyList())
-                }
+                flags.ifOn(
+                    CoreFlags.REMOTE_SSH,
+                ) { remoteMachines(config.machines, launcher, flags, paths.sockets, scope) }
+                    ?: RemoteMachines(emptyMap(), emptyList())
             val limits = flags.ifOn(CoreFlags.QUEUE) { config.agentLimits() } ?: AgentLimits()
             val (messaging, mcpServer, mcpWarning) =
                 if (flags.isEnabled(CoreFlags.AGENT_MESSAGING)) startMessaging(scope) else Messaging()
@@ -139,6 +138,7 @@ class Octo private constructor(
                     defaultPermissionMode = config.defaultPermissionMode,
                     worktreeSetup = config.worktreeSetup,
                     checkpoints = flags.isEnabled(CoreFlags.CHECKPOINTS),
+                    compactIdle = flags.isEnabled(CoreFlags.COMPACT_IDLE),
                     agentLimits = limits.limits,
                 )
             messaging?.attach(orchestrator)
