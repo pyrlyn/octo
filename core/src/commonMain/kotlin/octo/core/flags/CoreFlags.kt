@@ -17,4 +17,6 @@ object CoreFlags {
     val SECTIONS = FeatureFlag("sections", "Pin, snooze and settle tasks into sections of the sidebar")
     val USAGE = FeatureFlag("usage", "Show token use per agent and model, and when an agent hits its usage limit")
     val PALETTE = FeatureFlag("palette", "Find tasks and run actions from a Cmd+K command palette")
+    val CHECKPOINTS =
+        FeatureFlag("checkpoints", "Snapshot the worktree after every turn and revert a task to a snapshot")
 }

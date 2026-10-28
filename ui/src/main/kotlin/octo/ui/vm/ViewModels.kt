@@ -37,6 +37,8 @@ class ViewModels(
     private val palette: Boolean = false,
     /** Null while the `usage` flag is off, which hides usage and limits. */
     private val usage: UsageReport? = null,
+    /** False while the `checkpoints` flag is off, which hides reverting a task. */
+    private val checkpoints: Boolean = false,
 ) {
     val main = MainViewModel(core, scope, startupWarnings, sections, limits = usage != null)
 
@@ -50,7 +52,7 @@ class ViewModels(
 
     val canFork: Boolean get() = fork
 
-    fun task(id: TaskId) = TaskViewModel(core, id, scope, limits = usage != null)
+    fun task(id: TaskId) = TaskViewModel(core, id, scope, limits = usage != null, checkpoints = checkpoints)
 
     fun pluginActions(id: TaskId): PluginActionsViewModel? =
         plugins

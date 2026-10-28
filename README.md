@@ -140,6 +140,13 @@ too; other agents are counted from what Octo saw in its own runs. Octo reads onl
 never credentials. When an agent hits its usage limit the task says "Limited until HH:MM" and
 offers Resume, which sends "Continue"; Octo never resumes on its own.
 
+`"checkpoints": true` records each task's worktree before its first prompt and after every turn,
+on hidden git refs under `refs/octo/`, without touching the index, the branch or the stash. A
+checkpoint in the transcript offers "Revert to here", which brings the files back to that point
+(after a confirmation) and drops the later checkpoints. Codex also drops the reverted turns from
+its conversation; other agents are told what was reverted with their next prompt. The refs are
+deleted with the task.
+
 `"plugins": true` loads WebAssembly plugins from the `plugins` folder in the Octo home. A plugin
 can add ACP agents and actions in a task's Plugins menu. A plugin cannot reach files, processes or
 the network. A broken one is skipped with a warning. See `docs/plugins.md` for the ABI.

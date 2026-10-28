@@ -114,6 +114,16 @@ interface OctoCore {
 
     suspend fun diff(taskId: TaskId): TaskDiff
 
+    /**
+     * Brings the worktree's files back to the checkpoint on [ref] and forgets the later ones. The
+     * agent's conversation is rolled back too when it can be; otherwise its next prompt says what
+     * was reverted. Throws while a turn is running.
+     */
+    suspend fun revert(
+        taskId: TaskId,
+        ref: String,
+    )
+
     suspend fun updateLayout(layout: Layout)
 
     /** Clears the "done" mark once the user has looked at the task. */

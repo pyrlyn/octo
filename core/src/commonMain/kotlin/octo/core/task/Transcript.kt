@@ -50,6 +50,14 @@ sealed interface TranscriptEntry {
         val resolved: Boolean = false,
     ) : TranscriptEntry
 
+    /** The worktree as it was here can be brought back; see [octo.core.task.Task.checkpoints]. */
+    @Serializable
+    @SerialName("checkpoint")
+    data class Checkpoint(
+        val id: Int,
+        val ref: String,
+    ) : TranscriptEntry
+
     @Serializable
     @SerialName("notice")
     data class Notice(

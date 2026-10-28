@@ -52,6 +52,28 @@ interface Workspace {
         worktree: String,
         baseRef: String,
     ): TaskDiff
+
+    /**
+     * Records [worktree]'s tracked and untracked files as a commit on [ref], on top of HEAD. The
+     * worktree's index, branch and stash are not touched.
+     */
+    suspend fun snapshot(
+        worktree: String,
+        ref: String,
+    ): Unit = throw UnsupportedOperationException("This workspace keeps no checkpoints")
+
+    /** Makes [worktree]'s files match the snapshot on [ref]; HEAD and the index stay as they are. */
+    suspend fun restore(
+        worktree: String,
+        ref: String,
+    ): Unit = throw UnsupportedOperationException("This workspace keeps no checkpoints")
+
+    /** Deletes [ref] and every ref below it, such as `refs/octo/<task>`. */
+    suspend fun deleteRefs(
+        repo: String,
+        ref: String,
+    ) {
+    }
 }
 
 class GitWorkspace(
@@ -90,14 +112,69 @@ class GitWorkspace(
         val head = git.run(source, listOf("rev-parse", "HEAD")).trim()
         createWorktree(repo, path, branch, head)
         if (!isDirty(source)) return
-        val index = git.run(source, listOf("rev-parse", "--path-format=absolute", "--git-path", FORK_INDEX)).trim()
-        val env = mapOf("GIT_INDEX_FILE" to index)
-        git.run(source, listOf("read-tree", head), env = env)
-        git.run(source, listOf("add", "--all"), env = env)
-        val tree = git.run(source, listOf("write-tree"), env = env).trim()
+        val tree = filesTree(source, FORK_INDEX)
         // Only the files change, so the fork's index stays at HEAD and the copy shows as uncommitted.
         git.run(path, listOf("restore", "--source=$tree", "--worktree", "--", "."))
     }
+
+    override suspend fun snapshot(
+        worktree: String,
+        ref: String,
+    ) {
+        val tree = filesTree(worktree, CHECKPOINT_INDEX)
+        // A fixed identity, so a checkpoint never depends on (or signs with) the user's git config.
+        val commit =
+            git
+                .run(
+                    worktree,
+                    listOf("commit-tree", "--no-gpg-sign", tree, "-p", "HEAD", "-m", "Octo checkpoint"),
+                    env = IDENTITY,
+                ).trim()
+        git.run(worktree, listOf("update-ref", ref, commit))
+    }
+
+    // A two-tree read-tree in a separate index moves the files from what they are now to the
+    // snapshot, deleting files created since, while ignored files, HEAD and the real index stay.
+    override suspend fun restore(
+        worktree: String,
+        ref: String,
+    ) {
+        val target = git.run(worktree, listOf("rev-parse", "--verify", "$ref^{tree}")).trim()
+        val env = mapOf("GIT_INDEX_FILE" to indexPath(worktree, CHECKPOINT_INDEX))
+        val current = filesTree(worktree, CHECKPOINT_INDEX)
+        git.run(worktree, listOf("read-tree", "-m", "-u", current, target), env = env)
+    }
+
+    override suspend fun deleteRefs(
+        repo: String,
+        ref: String,
+    ) {
+        val refs =
+            git
+                .run(repo, listOf("for-each-ref", "--format=%(refname)", ref))
+                .lines()
+                .filter { it.isNotBlank() }
+        if (refs.isEmpty()) return
+        git.run(repo, listOf("update-ref", "--stdin"), stdin = refs.joinToString("\n") { "delete $it" })
+    }
+
+    /** The tree of [dir]'s files as they are, tracked and untracked, built in the separate [index]. */
+    private suspend fun filesTree(
+        dir: String,
+        index: String,
+    ): String {
+        val env = mapOf("GIT_INDEX_FILE" to indexPath(dir, index))
+        git.run(dir, listOf("read-tree", "HEAD"), env = env)
+        git.run(dir, listOf("add", "--all"), env = env)
+        // Fresh entries carry no stat data, which read-tree -u would take as changed files.
+        git.run(dir, listOf("update-index", "-q", "--refresh"), okCodes = setOf(0, 1), env = env)
+        return git.run(dir, listOf("write-tree"), env = env).trim()
+    }
+
+    private suspend fun indexPath(
+        dir: String,
+        name: String,
+    ) = git.run(dir, listOf("rev-parse", "--path-format=absolute", "--git-path", name)).trim()
 
     // The same launcher as git, so on a remote machine the command runs there.
     override suspend fun runSetup(
@@ -150,5 +227,14 @@ class GitWorkspace(
     private companion object {
         /** Reused by every fork of a worktree, so at most one is left in its git directory. */
         const val FORK_INDEX = "octo-fork-index"
+        const val CHECKPOINT_INDEX = "octo-checkpoint-index"
+
+        val IDENTITY =
+            mapOf(
+                "GIT_AUTHOR_NAME" to "Octo",
+                "GIT_AUTHOR_EMAIL" to "octo@localhost",
+                "GIT_COMMITTER_NAME" to "Octo",
+                "GIT_COMMITTER_EMAIL" to "octo@localhost",
+            )
     }
 }

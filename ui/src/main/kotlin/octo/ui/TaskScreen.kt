@@ -85,12 +85,13 @@ internal fun TaskScreen(
         state.limit?.let { LimitBanner(it, onResume = vm::resume) }
         state.error?.let { Banner(it, error = true, onDismiss = vm::dismissError) }
         HorizontalDivider()
-        Transcript(state.transcript, Modifier.weight(1f).fillMaxWidth())
+        Transcript(state, vm, Modifier.weight(1f).fillMaxWidth())
         Queue(state, vm)
         state.pending.forEach { RequestPanel(it, state.answers[it.id].orEmpty(), vm) }
         PromptBox(state, vm)
     }
     RemoveDialog(state.remove, vm)
+    state.reverting?.let { RevertDialog(it, vm) }
 }
 
 @Composable
@@ -153,9 +154,11 @@ private fun PermissionMenu(
 
 @Composable
 private fun Transcript(
-    entries: List<TranscriptEntry>,
+    state: TaskUiState,
+    vm: TaskViewModel,
     modifier: Modifier,
 ) {
+    val entries = state.transcript
     val list = rememberLazyListState()
     // Follow the live output like a terminal does; tool updates and streamed text change the last
     // entry in place, so its content is a key too.
@@ -164,7 +167,14 @@ private fun Transcript(
     }
     SelectionContainer(modifier) {
         LazyColumn(state = list, verticalArrangement = Arrangement.spacedBy(Gap)) {
-            itemsIndexed(entries) { _, entry -> Entry(entry) }
+            itemsIndexed(entries) { _, entry ->
+                if (entry is TranscriptEntry.Checkpoint) {
+                    // Reverting under a running turn would fight the agent for the files.
+                    CheckpointRow(entry, entry.ref in state.revertable, enabled = !state.busy, vm::askRevert)
+                } else {
+                    Entry(entry)
+                }
+            }
         }
     }
 }
@@ -202,7 +212,45 @@ private fun Entry(entry: TranscriptEntry) {
         is TranscriptEntry.Notice -> {
             Text(entry.text, color = if (entry.error) MaterialTheme.colorScheme.error else muted)
         }
+
+        is TranscriptEntry.Checkpoint -> {
+            Text("Checkpoint ${entry.id}", color = muted)
+        }
     }
+}
+
+/** A point the worktree can go back to; one that was dropped or belongs to another task stays a label. */
+@Composable
+private fun CheckpointRow(
+    entry: TranscriptEntry.Checkpoint,
+    revertable: Boolean,
+    enabled: Boolean,
+    onRevert: (TranscriptEntry.Checkpoint) -> Unit,
+) {
+    Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(Gap)) {
+        Text("Checkpoint ${entry.id}", color = MaterialTheme.colorScheme.onSurfaceVariant)
+        if (revertable) TextButton(onClick = { onRevert(entry) }, enabled = enabled) { Text("Revert to here") }
+    }
+}
+
+@Composable
+private fun RevertDialog(
+    checkpoint: TranscriptEntry.Checkpoint,
+    vm: TaskViewModel,
+) {
+    AlertDialog(
+        onDismissRequest = { vm.askRevert(null) },
+        title = { Text("Revert to checkpoint ${checkpoint.id}?") },
+        text = {
+            Text(
+                "The worktree's files go back to how they were here, and later checkpoints are dropped. " +
+                    "Changes made since, including uncommitted ones, are lost. The branch keeps its commits, so " +
+                    "files a later commit changed show as uncommitted.",
+            )
+        },
+        confirmButton = { Button(onClick = vm::revert) { Text("Revert") } },
+        dismissButton = { TextButton(onClick = { vm.askRevert(null) }) { Text("Cancel") } },
+    )
 }
 
 /** Prompts waiting for the agent, each editable in place until it is sent. */

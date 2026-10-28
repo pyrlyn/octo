@@ -64,7 +64,6 @@ import octo.core.task.Transcript
 import octo.core.task.TranscriptEntry
 import octo.core.terms.TermsGate
 import kotlin.coroutines.cancellation.CancellationException
-import kotlin.random.Random
 import kotlin.time.Clock
 
 /**
@@ -87,21 +86,28 @@ class Orchestrator private constructor(
     private val defaultPermissionMode: PermissionMode,
     private val worktreeSetup: Map<String, String>,
     private val clock: Clock,
+    recordCheckpoints: Boolean,
 ) : OctoCore {
     private val mutableState = MutableStateFlow(OctoState())
     private val transcripts = MutableStateFlow<Map<TaskId, List<TranscriptEntry>>>(emptyMap())
     private val runtimes = MutableStateFlow<Map<TaskId, Runtime>>(emptyMap())
     private val locks = MutableStateFlow<Map<TaskId, Mutex>>(emptyMap())
     private var saver: Job? = null
+    private val checkpoints =
+        Checkpoints(recordCheckpoints, mutableState, transcripts) { machines[it.machine].workspace }
 
     override val state: StateFlow<OctoState> = mutableState.asStateFlow()
 
-    /** One running agent; [scope] is the task's own supervisor, ended when the agent stops. */
+    /**
+     * One running agent; [scope] is the task's own supervisor, ended when the agent stops. [run]
+     * tells checkpoints of this session apart from those of an earlier one.
+     */
     private class Runtime(
         val session: AgentSession,
         val agent: MutableStateFlow<AgentState>,
         val capabilities: Set<Capability>,
         parent: CoroutineScope,
+        val run: String = randomId(),
     ) {
         val supervisor = SupervisorJob(parent.coroutineContext[Job])
         val scope = CoroutineScope(parent.coroutineContext + supervisor)
@@ -272,8 +278,12 @@ class Orchestrator private constructor(
         text: String,
     ) {
         // Built before the new message lands, so the handoff ends with it exactly once.
-        val from = view(id).task.handoffFrom
-        val sent = from?.let { Handoff.build(transcripts.value[id].orEmpty(), text, it) } ?: text
+        val task = view(id).task
+        val from = task.handoffFrom
+        val handedOver = from?.let { Handoff.build(transcripts.value[id].orEmpty(), text, it) } ?: text
+        val sent = task.revertNote?.let { "$it\n\n$handedOver" } ?: handedOver
+        // The first turn gets a starting point too, so it can be undone like any other.
+        if (task.checkpoints.isEmpty()) checkpoints.record(id, runtime.run)
         note(id, TranscriptEntry.Text(Role.User, text))
         // Working before the agent says so: a sender in between queues instead of starting a
         // second turn the agent cannot take.
@@ -289,10 +299,8 @@ class Orchestrator private constructor(
             updateView(id) { it.copy(task = it.task.copy(lastStatus = reduced.status), status = reduced.status) }
             throw e
         }
-        if (from != null) {
-            updateView(id) { it.copy(task = it.task.copy(handoffFrom = null)) }
-            note(id, TranscriptEntry.Notice("Handed the conversation over from $from"))
-        }
+        updateView(id) { it.copy(task = it.task.copy(handoffFrom = null, revertNote = null)) }
+        if (from != null) note(id, TranscriptEntry.Notice("Handed the conversation over from $from"))
     }
 
     // Any failure means the turn could not take the text, and the queue is the declared fallback.
@@ -494,6 +502,7 @@ class Orchestrator private constructor(
                 throw WorktreeDirtyException(taskId, task.worktree)
             }
             stopLocked(taskId)
+            checkpoints.forget(task)
             workspace?.removeWorktree(task.repo, task.worktree, force)
             mutableState.update { state ->
                 val layout =
@@ -508,6 +517,13 @@ class Orchestrator private constructor(
     override suspend fun diff(taskId: TaskId): TaskDiff {
         val task = view(taskId).task
         return machines[task.machine].workspace.diff(task.worktree, task.baseRef)
+    }
+
+    override suspend fun revert(
+        taskId: TaskId,
+        ref: String,
+    ) {
+        withTask(taskId) { running(taskId).let { checkpoints.revert(view(taskId), ref, it?.run, it?.session) } }
     }
 
     override suspend fun updateLayout(layout: Layout) {
@@ -607,7 +623,11 @@ class Orchestrator private constructor(
         runtime: Runtime,
     ) {
         try {
-            runtime.session.events.collect { if (apply(id, runtime.agent, it)) deliverQueued(id, runtime) }
+            runtime.session.events.collect {
+                // Taken while the task still reads as working, so no new turn changes files under it.
+                if (it is AgentEvent.TurnEnded) checkpoints.record(id, runtime.run)
+                if (apply(id, runtime.agent, it)) deliverQueued(id, runtime)
+            }
         } catch (e: CancellationException) {
             throw e
         } catch (e: Exception) {
@@ -748,8 +768,6 @@ class Orchestrator private constructor(
         private const val SETUP_TOOL_ID = "octo.setup"
         private const val STOP_TIMEOUT_MS = 10_000L
         private const val PROCESS_SAMPLE_MS = 2_000L
-        private const val SLUG_LENGTH = 32
-        private val NOT_SLUG = Regex("[^a-z0-9]+")
 
         /** Loads the saved state (every task comes back stopped) and starts saving changes. */
         suspend fun open(
@@ -768,6 +786,8 @@ class Orchestrator private constructor(
             worktreeSetup: Map<String, String> = emptyMap(),
             /** Wall time, for snoozes that last until a given moment. */
             clock: Clock = Clock.System,
+            /** Whether the `checkpoints` flag records the worktree around every turn. */
+            checkpoints: Boolean = false,
         ): Orchestrator =
             Orchestrator(
                 Machines(LocalMachine(registry, workspace, worktrees), machines),
@@ -780,32 +800,9 @@ class Orchestrator private constructor(
                 defaultPermissionMode,
                 worktreeSetup.mapKeys { it.key.trimEnd('/') },
                 clock,
+                checkpoints,
             ).also {
                 it.begin()
             }
-
-        private const val HEX = 16
-        private const val ID_LENGTH = 8
-
-        private fun randomId(): String =
-            Random
-                .nextInt()
-                .toUInt()
-                .toString(HEX)
-                .padStart(ID_LENGTH, '0')
-
-        internal fun slug(
-            title: String,
-            id: TaskId,
-        ): String {
-            val words =
-                title
-                    .lowercase()
-                    .replace(NOT_SLUG, "-")
-                    .trim('-')
-                    .take(SLUG_LENGTH)
-                    .trimEnd('-')
-            return if (words.isEmpty()) id.value else "$words-${id.value}"
-        }
     }
 }

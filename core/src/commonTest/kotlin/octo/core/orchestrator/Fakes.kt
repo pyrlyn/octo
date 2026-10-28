@@ -45,6 +45,8 @@ internal class FakeSession(
     var cancelled = 0
     val modes = mutableListOf<PermissionMode>()
     var refuseMode = false
+    val rollbacks = mutableListOf<Int>()
+    var refuseRollback = false
 
     override val events: Flow<AgentEvent> = channel.receiveAsFlow()
 
@@ -69,6 +71,11 @@ internal class FakeSession(
     override suspend fun setPermissionMode(mode: PermissionMode) {
         check(!refuseMode) { "fake cannot switch" }
         modes += mode
+    }
+
+    override suspend fun rollback(turns: Int) {
+        check(!refuseRollback) { "fake cannot roll back" }
+        rollbacks += turns
     }
 
     override suspend fun cancel() {
@@ -175,6 +182,35 @@ internal class FakeWorkspace : Workspace {
         worktree: String,
         baseRef: String,
     ) = TaskDiff(baseRef, "abc", emptyList())
+
+    /** A worktree's "files", which a checkpoint copies and a restore puts back. */
+    val files = mutableMapOf<String, String>()
+
+    /** Refs to the files they hold. */
+    val refs = mutableMapOf<String, String>()
+    var failSnapshot = false
+
+    override suspend fun snapshot(
+        worktree: String,
+        ref: String,
+    ) {
+        check(!failSnapshot) { "disk full" }
+        refs[ref] = files[worktree].orEmpty()
+    }
+
+    override suspend fun restore(
+        worktree: String,
+        ref: String,
+    ) {
+        files[worktree] = refs.getValue(ref)
+    }
+
+    override suspend fun deleteRefs(
+        repo: String,
+        ref: String,
+    ) {
+        refs.keys.removeAll { it == ref || it.startsWith("$ref/") }
+    }
 }
 
 internal class Setup(
@@ -202,6 +238,7 @@ internal suspend fun TestScope.setup(
         object : Clock {
             override fun now() = Instant.fromEpochMilliseconds(testScheduler.currentTime)
         },
+    checkpoints: Boolean = false,
 ): Setup {
     val core =
         Orchestrator.open(
@@ -218,6 +255,7 @@ internal suspend fun TestScope.setup(
             defaultPermissionMode = defaultPermissionMode,
             worktreeSetup = worktreeSetup,
             clock = clock,
+            checkpoints = checkpoints,
         )
     return Setup(core, adapter, workspace, home)
 }

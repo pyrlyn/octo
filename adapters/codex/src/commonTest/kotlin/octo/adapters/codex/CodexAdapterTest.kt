@@ -200,6 +200,21 @@ class CodexAdapterTest {
         }
 
     @Test
+    fun rollbackRevertsTheThreadBeforeTheFirstDroppedTurn() =
+        runTest {
+            val (adapter, _) = fixture("rollback.transcript")
+            val session = adapter.start(SessionSpec("/repo"))
+            val events = Events(backgroundScope, session)
+            session.prompt("First")
+            events.next<AgentEvent.TurnEnded>()
+            session.prompt("Second")
+            events.next<AgentEvent.TurnEnded>()
+            assertFailsWith<IllegalStateException> { session.rollback(3) }
+            session.rollback(1)
+            assertFailsWith<IllegalStateException>("turn-2 is gone, one turn is left") { session.rollback(2) }
+        }
+
+    @Test
     fun probeReadsVersionAndLogin() =
         runTest {
             val (adapter, _) =

@@ -123,6 +123,61 @@ class GitWorkspaceTest {
         }
 
     @Test
+    fun aCheckpointBringsTheFilesBackAndLeavesIndexAndBranchAlone() =
+        runBlocking {
+            val repo = repo()
+            val worktree = File(root, "worktrees/repo/task-1")
+            workspace.createWorktree(repo.path, worktree.path, "octo/task-1", "main")
+            File(worktree, ".gitignore").writeText("build/\n")
+            File(worktree, "a.txt").writeText("one\n2\n")
+            File(worktree, "staged.txt").writeText("staged\n")
+            git.run(worktree.path, listOf("add", "staged.txt"))
+            File(worktree, "new file.txt").writeText("fresh\n")
+            val head = git.run(worktree.path, listOf("rev-parse", "HEAD"))
+            val status = git.run(worktree.path, listOf("status", "--porcelain"))
+
+            workspace.snapshot(worktree.path, "refs/octo/t1/0")
+            assertEquals(status, git.run(worktree.path, listOf("status", "--porcelain")), "the index is untouched")
+            assertEquals("", git.run(worktree.path, listOf("stash", "list")))
+
+            // A turn that edits, deletes, adds and commits.
+            File(worktree, "a.txt").writeText("changed\n")
+            File(worktree, "new file.txt").delete()
+            File(worktree, "later.txt").writeText("later\n")
+            File(worktree, "build").mkdirs()
+            File(worktree, "build/out.bin").writeText("ignored\n")
+            File(worktree, "committed.txt").writeText("c\n")
+            git.run(worktree.path, listOf("add", "committed.txt"))
+            git.run(worktree.path, listOf("commit", "-q", "-m", "turn"))
+            val moved = git.run(worktree.path, listOf("rev-parse", "HEAD"))
+            workspace.snapshot(worktree.path, "refs/octo/t1/1")
+
+            workspace.restore(worktree.path, "refs/octo/t1/0")
+            assertEquals("one\n2\n", File(worktree, "a.txt").readText())
+            assertEquals("fresh\n", File(worktree, "new file.txt").readText())
+            assertEquals("staged\n", File(worktree, "staged.txt").readText())
+            assertFalse(File(worktree, "later.txt").exists())
+            assertFalse(File(worktree, "committed.txt").exists())
+            assertTrue(File(worktree, "build/out.bin").exists(), "ignored files are left alone")
+            assertEquals(moved, git.run(worktree.path, listOf("rev-parse", "HEAD")), "the branch stays")
+            assertEquals("octo/task-1", git.run(worktree.path, listOf("branch", "--show-current")).trim())
+
+            workspace.restore(worktree.path, "refs/octo/t1/1")
+            assertEquals("changed\n", File(worktree, "a.txt").readText())
+            assertTrue(File(worktree, "later.txt").exists())
+
+            git.run(repo.path, listOf("update-ref", "refs/octo/t2/0", head.trim()))
+            git.run(repo.path, listOf("update-ref", "refs/octo/t10/0", head.trim()))
+            workspace.deleteRefs(repo.path, "refs/octo/t10/0")
+            workspace.deleteRefs(repo.path, "refs/octo/t1")
+            assertEquals(
+                "refs/octo/t2/0",
+                git.run(repo.path, listOf("for-each-ref", "--format=%(refname)", "refs/octo/")).trim(),
+            )
+            workspace.deleteRefs(repo.path, "refs/octo/none")
+        }
+
+    @Test
     fun setupRunsInTheWorktreeWithAShell() =
         runBlocking {
             val repo = repo()

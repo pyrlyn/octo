@@ -49,6 +49,9 @@ internal class CodexSession(
     private val lock = Mutex()
     private var threadId: String? = null
     private var turnId: String? = null
+
+    /** Turns started by this process, oldest first; what a rollback can name. */
+    private var turns = listOf<String>()
     private var usage: Usage? = null
 
     /** Set by a live switch and sent with the next turn, which is where Codex takes it. */
@@ -117,7 +120,28 @@ internal class CodexSession(
             .obj()
             ?.obj("turn")
             ?.string("id")
-            ?.let { id -> lock.withLock { turnId = id } }
+            ?.let { started(it) }
+    }
+
+    // Both the response and the notification name the turn; whichever comes first records it.
+    private suspend fun started(id: String) =
+        lock.withLock {
+            turnId = id
+            if (turns.lastOrNull() != id) turns = turns + id
+        }
+
+    // `thread/revert` keeps the history before the named turn; the files are Octo's to restore.
+    override suspend fun rollback(turns: Int) {
+        val (thread, first) = lock.withLock { threadId to this.turns.getOrNull(this.turns.size - turns) }
+        if (thread == null || first == null) error("This Codex process did not run that many turns")
+        peer.request(
+            "thread/revert",
+            buildJsonObject {
+                put("threadId", thread)
+                put("beforeTurnId", first)
+            },
+        )
+        lock.withLock { this.turns = this.turns.dropLast(turns) }
     }
 
     override suspend fun setModel(model: String) {
@@ -205,8 +229,7 @@ internal class CodexSession(
     }
 
     private suspend fun turnStarted(p: JsonObject) {
-        val id = p.obj("turn")?.string("id") ?: return
-        lock.withLock { turnId = id }
+        p.obj("turn")?.string("id")?.let { started(it) }
     }
 
     // Octo derives working / blocked / idle from turns and open requests; only a system error
