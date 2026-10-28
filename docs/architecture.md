@@ -421,8 +421,9 @@ agent and writes the state. `close()` belongs to `app`, so it is not on the inte
 - **OS notifications.** With the `notifications` flag on, `taskAlerts` (`core/notify`) turns
   the state stream into alerts: a task that moves into Blocked, Failed or Done, if
   `config.json`'s `notifications` allows that event. Each task's alert waits 1.5 s; a newer one
-  replaces it and one whose state is gone by then is dropped, so a burst shows once. The first
-  state is only a baseline. `NotificationsViewModel` posts an alert unless the window is focused
+  replaces it and one whose state is gone by then is dropped, so a burst shows once. After an
+  alert the task's next one is held until 20 s have passed, and dropped if its state is gone by
+  then. The first state is only a baseline. `NotificationsViewModel` posts an alert unless the window is focused
   on that task; the app posts it through a Compose `Tray`. A click (Windows sends one, and so does
   the tray icon) opens the alerted task. macOS only activates the app, so the window gaining focus
   after an alert posted in the background opens that task once.

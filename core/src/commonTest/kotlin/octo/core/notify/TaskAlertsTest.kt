@@ -116,6 +116,27 @@ class TaskAlertsTest {
         }
 
     @Test
+    fun aTaskAlertsAtMostOncePerCooldown() =
+        runTest {
+            set(view("a", AgentStatus.Working), view("b", AgentStatus.Working))
+            watch()
+            set(view("a", AgentStatus.Idle, unseen = true), view("b", AgentStatus.Idle, unseen = true))
+            settle()
+            set(view("a", AgentStatus.Working), view("b", AgentStatus.Working))
+            set(view("a", AgentStatus.Blocked, pending = listOf(approval)), view("b", AgentStatus.Failed))
+            settle()
+            assertEquals(2, got.size, "both tasks are still cooling down")
+            set(view("a", AgentStatus.Blocked, pending = listOf(approval)), view("b", AgentStatus.Working))
+            advanceTimeBy(ALERT_COOLDOWN_MS)
+            runCurrent()
+            assertEquals(
+                Alert(TaskId("a"), AlertKind.Blocked, "Task a", "Waits for your approval"),
+                got.drop(2).single(),
+                "the held alert shows once the cooldown ends, unless its state is gone",
+            )
+        }
+
+    @Test
     fun theConfigChoosesTheEvents() =
         runTest {
             set(view("a", AgentStatus.Working), view("b", AgentStatus.Working))
