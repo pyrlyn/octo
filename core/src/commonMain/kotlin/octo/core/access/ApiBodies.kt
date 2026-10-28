@@ -88,3 +88,27 @@ data class PendingBody(
     val options: List<PermissionOption> = emptyList(),
     val questions: List<Question> = emptyList(),
 )
+
+/** What a guest sees of the one task their link opens. */
+@Serializable
+data class GuestBody(
+    val title: String,
+    val agent: String,
+    val sidebarStatus: SidebarStatus,
+    val entries: List<TranscriptEntry>,
+    /** The guest's own messages and what the owner did with them. */
+    val proposals: List<GuestProposalBody>,
+)
+
+@Serializable
+data class GuestProposalBody(
+    val id: String,
+    val text: String,
+    val status: ProposalStatus,
+)
+
+@Serializable
+data class ProposeBody(
+    val text: String,
+    val name: String = "",
+)

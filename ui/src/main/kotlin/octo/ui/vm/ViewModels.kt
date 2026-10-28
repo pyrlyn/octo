@@ -2,6 +2,7 @@ package octo.ui.vm
 
 import kotlinx.coroutines.CoroutineScope
 import octo.core.access.Devices
+import octo.core.access.Shares
 import octo.core.orchestrator.AgentCatalog
 import octo.core.orchestrator.OctoCore
 import octo.core.plugins.Plugin
@@ -44,6 +45,10 @@ class ViewModels(
     private val moveTask: Boolean = false,
     /** Null while the `previews` flag is off, which leaves the diff view as plain diffs. */
     private val previewer: FilePreviewer? = null,
+    /** Null while the `guest-share` flag is off or remote access is down, which hides sharing. */
+    private val shares: Shares? = null,
+    /** Where guest links point. */
+    private val shareBase: String? = null,
 ) {
     val main = MainViewModel(core, scope, startupWarnings, sections, limits = usage != null)
 
@@ -71,6 +76,9 @@ class ViewModels(
         if (handoff) SwitchAgentViewModel(core, catalog, id, scope) else null
 
     fun moveTask(id: TaskId): MoveTaskViewModel? = if (moveTask) MoveTaskViewModel(core, id, scope) else null
+
+    fun share(id: TaskId): ShareViewModel? =
+        if (shares != null && shareBase != null) ShareViewModel(shares, id, shareBase, scope) else null
 
     fun diff(id: TaskId) = DiffViewModel(core, id, scope, previewer)
 

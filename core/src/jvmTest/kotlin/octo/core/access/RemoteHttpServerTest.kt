@@ -152,4 +152,39 @@ class RemoteHttpServerTest {
         assertEquals(404, send("POST", "/api/v1/hooks/other", "{}").statusCode())
         assertEquals(403, send("POST", "/api/v1/hooks/pr", "{}", origin = "https://evil.example").statusCode())
     }
+
+    @Test
+    fun theGuestPageIsServedLockedDownAndItsOriginMayCall() {
+        assertEquals(404, send("GET", "/share").statusCode(), "without guest-share there is no page")
+        val shares = runBlocking { Shares.open(AtomicFile(Path(home, "shares.json")), JvmSecrets, core) }
+        val tunnel = "https://box.tailnet.ts.net"
+        RemoteHttpServer(RemoteApi(core, devices, shares = shares), 0, tunnel, guestPage = true).start().use { guests ->
+            fun send(
+                method: String,
+                path: String,
+                origin: String? = null,
+            ): HttpResponse<String> {
+                val request =
+                    HttpRequest
+                        .newBuilder(
+                            URI(guests.url + path),
+                        ).method(method, HttpRequest.BodyPublishers.noBody())
+                origin?.let { request.header("Origin", it) }
+                return client.send(request.build(), HttpResponse.BodyHandlers.ofString())
+            }
+
+            val page = send("GET", Shares.SHARE_PATH)
+            assertEquals(200, page.statusCode())
+            assertEquals("text/html; charset=utf-8", page.headers().firstValue("Content-Type").orElse(null))
+            assertTrue("default-src 'none'" in page.headers().firstValue("Content-Security-Policy").orElse(""))
+            assertTrue("location.hash" in page.body())
+            assertEquals(405, send("POST", Shares.SHARE_PATH).statusCode())
+            assertEquals(
+                401,
+                send("GET", "/api/v1/guest", tunnel).statusCode(),
+                "the tunnel's origin gets past the check",
+            )
+            assertEquals(403, send("GET", "/api/v1/guest", "https://evil.example").statusCode())
+        }
+    }
 }

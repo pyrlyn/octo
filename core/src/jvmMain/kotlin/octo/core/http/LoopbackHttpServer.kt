@@ -12,12 +12,14 @@ import java.util.concurrent.Executors
 
 /**
  * An HTTP server bound to `127.0.0.1` only. It refuses requests from web pages on other origins
- * and bodies over [maxBody] before [handle] sees them; everything else is [handle]'s to decide.
- * Throws [java.net.BindException] when [port] is taken.
+ * than loopback and [publicOrigin], and bodies over [maxBody], before [handle] sees them;
+ * everything else is [handle]'s to decide. Throws [java.net.BindException] when [port] is taken.
  */
 class LoopbackHttpServer(
     port: Int = 0,
     private val maxBody: Int = DEFAULT_MAX_BODY,
+    /** The user's tunnel, whose pages are Octo's own, e.g. `https://box.tailnet.ts.net`. */
+    private val publicOrigin: String? = null,
     private val handle: (Request) -> Response,
 ) : AutoCloseable {
     class Request(
@@ -29,7 +31,7 @@ class LoopbackHttpServer(
         val headers: Map<String, String> = emptyMap(),
     )
 
-    /** A null [body] sends no content; a non-null one is sent as JSON. */
+    /** A null [body] sends no content; a non-null one is sent as JSON unless [headers] set a `Content-Type`. */
     class Response(
         val status: Int,
         val body: String? = null,
@@ -60,7 +62,8 @@ class LoopbackHttpServer(
     private fun serve(exchange: HttpExchange) {
         val headers = exchange.requestHeaders
         // A web page the user visits could otherwise post to a loopback port (DNS rebinding).
-        if (!localOrigin(headers.getFirst("Origin"))) return send(exchange, Response(FORBIDDEN))
+        val origin = headers.getFirst("Origin")
+        if (!localOrigin(origin) && origin != publicOrigin) return send(exchange, Response(FORBIDDEN))
         val body = exchange.requestBody.readNBytes(maxBody + 1)
         val response =
             if (body.size > maxBody) {
@@ -90,7 +93,9 @@ class LoopbackHttpServer(
             if (bytes == null) {
                 exchange.sendResponseHeaders(response.status, -1)
             } else {
-                exchange.responseHeaders.add("Content-Type", "application/json")
+                if (!exchange.responseHeaders.containsKey("Content-Type")) {
+                    exchange.responseHeaders.add("Content-Type", "application/json")
+                }
                 exchange.sendResponseHeaders(response.status, bytes.size.toLong())
                 exchange.responseBody.write(bytes)
             }

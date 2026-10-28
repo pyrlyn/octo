@@ -40,6 +40,8 @@ fun main() {
             octo.checkpoints,
             octo.moveTask,
             if (octo.previews) FilePreviewer(launcher) else null,
+            octo.shares,
+            octo.shareBase,
         )
     application {
         Window(
