@@ -132,6 +132,27 @@ class ViewModelTest {
         }
 
     @Test
+    fun aTaskWaitingForASlotTakesPromptsAndCanStartNow() =
+        runTest {
+            core.put(view("a", AgentStatus.Queued))
+            val vm = TaskViewModel(core, TaskId("a"), backgroundScope)
+            settle()
+            assertTrue(vm.state.value.canStartNow)
+            assertTrue(vm.state.value.canStop)
+            vm.editDraft("first")
+            assertTrue(vm.state.value.canSend, "the core queues it until the agent starts")
+
+            vm.startNow()
+            settle()
+            assertTrue("start now" in core.calls)
+
+            core.put(view("a", AgentStatus.Idle))
+            settle()
+            assertFalse(vm.state.value.canStartNow)
+            vm.close()
+        }
+
+    @Test
     fun queuedPromptsCanBeEditedAndRemoved() =
         runTest {
             val queued =

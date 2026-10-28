@@ -188,6 +188,16 @@ trigger has an `id`, a `task` (`repo`, `baseRef`, `agent`, `title`, and optional
 `triggers.json` in the Octo home keeps each trigger's last run and recent delivery ids. A broken
 trigger, or a task one cannot start, shows as a warning.
 
+`"queue": true` caps the agents running at once on each machine. `maxRunningAgents` in
+`config.json` sets the cap for this computer, and the same key on a `machines` entry sets it for
+that machine; a machine without it has no cap. A task started over the cap reads "Queued" and
+waits its turn, taking prompts meanwhile; tasks start in the order they were queued as agents stop
+or exit. "Start now" on a queued task starts it at once, over the cap.
+
+```json
+{ "flags": { "queue": true }, "maxRunningAgents": 3 }
+```
+
 `"plugins": true` loads WebAssembly plugins from the `plugins` folder in the Octo home. A plugin
 can add ACP agents and actions in a task's Plugins menu. A plugin cannot reach files, processes or
 the network. A broken one is skipped with a warning. See `docs/plugins.md` for the ABI.

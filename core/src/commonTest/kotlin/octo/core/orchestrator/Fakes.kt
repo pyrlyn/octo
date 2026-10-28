@@ -25,8 +25,11 @@ import octo.core.git.Workspace
 import octo.core.io.AtomicFile
 import octo.core.messaging.McpProvider
 import octo.core.persist.StateStore
+import octo.core.process.ProcessLauncher
 import octo.core.process.ProcessMonitor
 import octo.core.process.ProcessResult
+import octo.core.process.ProcessSpec
+import octo.core.process.RunningProcess
 import octo.core.tempDir
 import octo.core.terms.TermsGate
 import kotlin.time.Clock
@@ -213,6 +216,13 @@ internal class FakeWorkspace : Workspace {
     }
 }
 
+/** A remote machine's launcher for tests whose agents start through a fake adapter. */
+internal object NoProcesses : ProcessLauncher {
+    override suspend fun which(command: String): String? = null
+
+    override suspend fun launch(spec: ProcessSpec): RunningProcess = error("not used")
+}
+
 internal class Setup(
     val core: Orchestrator,
     val adapter: FakeAdapter,
@@ -239,6 +249,7 @@ internal suspend fun TestScope.setup(
             override fun now() = Instant.fromEpochMilliseconds(testScheduler.currentTime)
         },
     checkpoints: Boolean = false,
+    agentLimits: Map<String?, Int> = emptyMap(),
 ): Setup {
     val core =
         Orchestrator.open(
@@ -256,6 +267,7 @@ internal suspend fun TestScope.setup(
             worktreeSetup = worktreeSetup,
             clock = clock,
             checkpoints = checkpoints,
+            agentLimits = agentLimits,
         )
     return Setup(core, adapter, workspace, home)
 }

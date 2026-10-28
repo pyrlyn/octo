@@ -18,9 +18,6 @@ import octo.core.agent.StopReason
 import octo.core.agent.VendorTerms
 import octo.core.flags.FeatureFlags
 import octo.core.io.AtomicFile
-import octo.core.process.ProcessLauncher
-import octo.core.process.ProcessSpec
-import octo.core.process.RunningProcess
 import octo.core.status.AgentStatus
 import octo.core.task.NewTask
 import octo.core.task.PendingRequest
@@ -53,17 +50,11 @@ class OrchestratorTest {
         runTest {
             val remoteAdapter = FakeAdapter()
             val remoteWorkspace = FakeWorkspace()
-            val noProcesses =
-                object : ProcessLauncher {
-                    override suspend fun which(command: String): String? = null
-
-                    override suspend fun launch(spec: ProcessSpec): RunningProcess = error("not used")
-                }
             val box =
                 RemoteMachine(
                     AdapterRegistry(listOf(remoteAdapter), FeatureFlags()),
                     remoteWorkspace,
-                    noProcesses,
+                    NoProcesses,
                     "/srv/octo",
                 )
             val s = setup(machines = mapOf("box" to box))

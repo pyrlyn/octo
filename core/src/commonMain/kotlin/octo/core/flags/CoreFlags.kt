@@ -21,4 +21,6 @@ object CoreFlags {
         FeatureFlag("checkpoints", "Snapshot the worktree after every turn and revert a task to a snapshot")
     val TRIGGERS =
         FeatureFlag("triggers", "Start the tasks in config.json's triggers on a schedule or from a webhook")
+    val QUEUE =
+        FeatureFlag("queue", "Cap the live agents per machine at maxRunningAgents; later tasks wait their turn")
 }

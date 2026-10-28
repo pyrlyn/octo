@@ -10,11 +10,8 @@ import octo.core.agent.AgentEvent
 import octo.core.agent.AgentId
 import octo.core.agent.SessionStats
 import octo.core.flags.FeatureFlags
-import octo.core.process.ProcessLauncher
 import octo.core.process.ProcessMonitor
-import octo.core.process.ProcessSpec
 import octo.core.process.ProcessUsage
-import octo.core.process.RunningProcess
 import octo.core.task.NewTask
 import kotlin.test.Test
 import kotlin.test.assertEquals
@@ -132,12 +129,6 @@ class AgentFiguresTest {
 
             assertEquals(emptyMap(), s.core.processUsage.first())
         }
-
-    private object NoProcesses : ProcessLauncher {
-        override suspend fun which(command: String): String? = null
-
-        override suspend fun launch(spec: ProcessSpec): RunningProcess = error("not used")
-    }
 
     private companion object {
         const val MIB = 1024L * 1024

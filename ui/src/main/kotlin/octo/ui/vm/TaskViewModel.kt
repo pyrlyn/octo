@@ -61,7 +61,7 @@ data class TaskUiState(
     /** Turns are marked seen while the screen is open, so this never shows "done". */
     val sidebarStatus: SidebarStatus get() = task?.let { TaskView(it, status).sidebarStatus } ?: SidebarStatus.Stopped
 
-    /** A busy agent still takes text: the core steers the turn or queues it. */
+    /** A busy or queued agent still takes text: the core steers the turn or queues it. */
     val canSend: Boolean get() = status in LIVE && draft.isNotBlank()
 
     val busy: Boolean get() = status == AgentStatus.Working || status == AgentStatus.Blocked
@@ -69,12 +69,19 @@ data class TaskUiState(
     val canStop: Boolean get() = status != AgentStatus.Stopped && status != AgentStatus.Failed
     val canRestart: Boolean get() = !gone && !canStop
 
+    /** Waiting for a free slot, which the user may skip. */
+    val canStartNow: Boolean get() = status == AgentStatus.Queued
+
     private companion object {
-        val LIVE = setOf(AgentStatus.Idle, AgentStatus.Starting, AgentStatus.Working, AgentStatus.Blocked)
+        val LIVE =
+            setOf(AgentStatus.Idle, AgentStatus.Starting, AgentStatus.Working, AgentStatus.Blocked, AgentStatus.Queued)
     }
 }
 
+// One small function per thing the task screen lets the user do; splitting them would split one screen.
+
 /** One task: its live transcript, the requests it waits on, the prompt box and its lifecycle. */
+@Suppress("TooManyFunctions")
 class TaskViewModel(
     private val core: OctoCore,
     val taskId: TaskId,
@@ -176,6 +183,8 @@ class TaskViewModel(
     fun stop() = act { core.stop(taskId) }
 
     fun restart() = act { core.restart(taskId) }
+
+    fun startNow() = act { core.startNow(taskId) }
 
     /** Asks a limited agent to go on, starting it again first if it stopped. */
     fun resume() =

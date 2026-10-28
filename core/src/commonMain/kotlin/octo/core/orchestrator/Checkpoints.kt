@@ -136,20 +136,7 @@ internal class Checkpoints(
     private fun update(
         id: TaskId,
         change: (Task) -> Task,
-    ) = state.update { s ->
-        s.copy(
-            tasks =
-                s.tasks.map {
-                    if (it.task.id ==
-                        id
-                    ) {
-                        it.copy(task = change(it.task))
-                    } else {
-                        it
-                    }
-                },
-        )
-    }
+    ) = state.update { s -> s.change(id) { it.copy(task = change(it.task)) } }
 
     private fun note(
         id: TaskId,

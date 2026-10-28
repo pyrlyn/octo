@@ -40,7 +40,6 @@ import octo.core.agent.Role
 import octo.core.agent.SessionSpec
 import octo.core.agent.SessionStats
 import octo.core.agent.StopReason
-import octo.core.agent.ToolStatus
 import octo.core.git.TaskDiff
 import octo.core.git.Workspace
 import octo.core.handoff.Handoff
@@ -48,7 +47,6 @@ import octo.core.messaging.McpProvider
 import octo.core.persist.PersistedState
 import octo.core.persist.StateStore
 import octo.core.process.ProcessMonitor
-import octo.core.process.ProcessResult
 import octo.core.process.ProcessUsage
 import octo.core.status.AgentState
 import octo.core.status.AgentStatus
@@ -84,15 +82,21 @@ class Orchestrator private constructor(
     private val mcp: McpProvider?,
     private val processes: ProcessMonitor?,
     private val defaultPermissionMode: PermissionMode,
-    private val worktreeSetup: Map<String, String>,
+    worktreeSetup: Map<String, String>,
     private val clock: Clock,
     recordCheckpoints: Boolean,
+    agentLimits: Map<String?, Int>,
 ) : OctoCore {
     private val mutableState = MutableStateFlow(OctoState())
     private val transcripts = MutableStateFlow<Map<TaskId, List<TranscriptEntry>>>(emptyMap())
     private val runtimes = MutableStateFlow<Map<TaskId, Runtime>>(emptyMap())
     private val locks = MutableStateFlow<Map<TaskId, Mutex>>(emptyMap())
     private var saver: Job? = null
+    private val starts =
+        StartQueue(agentLimits, scope, mutableState, ::withTask, { running(it) != null }) {
+            launchAgent(it.id, it.resume, it.forkFrom)
+        }
+    private val setup = WorktreeSetup(worktreeSetup, transcripts) { machines[it.machine].workspace }
     private val checkpoints =
         Checkpoints(recordCheckpoints, mutableState, transcripts) { machines[it.machine].workspace }
 
@@ -193,56 +197,19 @@ class Orchestrator private constructor(
         return id
     }
 
-    // Runs the repository's setup command in the task's new worktree. False, with the task Failed,
-    // when it does not succeed, so the agent never starts on a half-prepared worktree; whatever the
-    // command or the machine throws counts as that failure.
-    @Suppress("TooGenericExceptionCaught")
+    // The output is already in the setup entry right above the failure notice.
     private suspend fun setUp(id: TaskId): Boolean {
-        val task = view(id).task
-        val command = worktreeSetup[task.repo.trimEnd('/')] ?: return true
-        val title = "Setup: $command"
-        setupEntry(id, title, ToolStatus.InProgress)
-        val result =
-            try {
-                withTimeoutOrNull(
-                    SETUP_TIMEOUT_MS,
-                ) { machines[task.machine].workspace.runSetup(task.worktree, command) }
-            } catch (e: CancellationException) {
-                throw e
-            } catch (e: Exception) {
-                ProcessResult(-1, "", e.message ?: "The setup command did not run")
-            }
-        val output = result?.let { listOf(it.stdout, it.stderr).filter(String::isNotBlank).joinToString("\n") }
-        val detail = output?.takeLast(MAX_SETUP_OUTPUT)?.ifBlank { null }
-        val ok = result?.exitCode == 0
-        setupEntry(id, title, if (ok) ToolStatus.Completed else ToolStatus.Failed, detail)
-        if (!ok) {
-            val why = result?.let { "exited with code ${it.exitCode}" } ?: "timed out"
-            // The output is already in the setup entry right above the notice.
-            apply(
-                id,
-                MutableStateFlow(AgentState.Initial),
-                AgentEvent.Failed("The setup command $why; the agent was not started"),
-            )
-        }
-        return ok
-    }
-
-    private fun setupEntry(
-        id: TaskId,
-        title: String,
-        status: ToolStatus,
-        detail: String? = null,
-    ) {
-        val event = AgentEvent.ToolCall(SETUP_TOOL_ID, title, "execute", status, detail)
-        transcripts.update { it + (id to Transcript.reduce(it[id].orEmpty(), event)) }
+        val failure = setup.run(view(id).task) ?: return true
+        apply(id, MutableStateFlow(AgentState.Initial), AgentEvent.Failed(failure))
+        return false
     }
 
     private suspend fun firstPrompt(
         id: TaskId,
         prompt: String,
     ) {
-        if (running(id) == null) {
+        // A queued task keeps the prompt in its message queue until its agent starts.
+        if (running(id) == null && view(id).status != AgentStatus.Queued) {
             note(
                 id,
                 TranscriptEntry.Notice("The first prompt was not sent because the agent did not start", error = true),
@@ -263,6 +230,7 @@ class Orchestrator private constructor(
         id: TaskId,
         text: String,
     ) {
+        if (view(id).status == AgentStatus.Queued) return enqueue(id, text)
         val runtime = running(id) ?: throw TaskNotRunningException(id)
         when (view(id).status) {
             AgentStatus.Working, AgentStatus.Blocked -> if (!steer(id, runtime, text)) enqueue(id, text)
@@ -421,7 +389,7 @@ class Orchestrator private constructor(
                 note(taskId, TranscriptEntry.Notice("Model: $model"))
                 return@withTask
             }
-            stopLocked(taskId)
+            stopLocked(taskId, keepSlot = true)
             val from = task.handoffFrom ?: registry[task.agent]?.displayName ?: task.agent.value
             updateView(taskId) {
                 it.copy(task = it.task.copy(agent = agent, options = options, sessionRef = null, handoffFrom = from))
@@ -484,9 +452,13 @@ class Orchestrator private constructor(
 
     override suspend fun restart(taskId: TaskId) {
         withTask(taskId) {
-            stopLocked(taskId)
+            stopLocked(taskId, keepSlot = true)
             startAgent(taskId, resume = true)
         }
+    }
+
+    override suspend fun startNow(taskId: TaskId) {
+        withTask(taskId) { starts.startNow(taskId) }
     }
 
     override suspend fun removeTask(
@@ -570,18 +542,38 @@ class Orchestrator private constructor(
 
     /** Stops every agent and writes the state; owned by the app, not the UI, so it is not on [OctoCore]. */
     suspend fun close() {
+        // Emptied first, so stopping one agent does not start a waiting one on the way out.
+        starts.close().forEach { id -> updateView(id) { it.copy(status = AgentStatus.Stopped) } }
         mutableState.value.tasks.forEach { stop(it.task.id) }
         saver?.cancelAndJoin()
         save(persistedState(mutableState.value, transcripts.value))
     }
 
-    /** Starts the agent; a failure to start shows on the task as [AgentStatus.Failed] instead of throwing. */
-    @Suppress("TooGenericExceptionCaught")
+    /** Starts the agent, or queues the task when its machine has no free slot. */
     private suspend fun startAgent(
         id: TaskId,
         resume: Boolean,
         // Never stored on the task, so a fork that fails to start cannot later resume its parent's session.
         forkFrom: AgentSessionRef? = null,
+    ) {
+        val start = Waiting(id, view(id).task.machine, resume, forkFrom)
+        if (starts.start(start)) return
+        updateView(id) { it.copy(status = AgentStatus.Queued, pending = emptyList(), failure = null) }
+        val where = start.machine?.let { "'$it'" } ?: "This computer"
+        note(
+            id,
+            TranscriptEntry.Notice(
+                "Waiting for a free slot: $where already runs ${starts.limit(start.machine)} agents",
+            ),
+        )
+    }
+
+    /** A failure to start shows on the task as [AgentStatus.Failed] instead of throwing. */
+    @Suppress("TooGenericExceptionCaught")
+    private suspend fun launchAgent(
+        id: TaskId,
+        resume: Boolean,
+        forkFrom: AgentSessionRef?,
     ) {
         val task = view(id).task
         val adapter = machines[task.machine].registry[task.agent] ?: throw UnknownAgentException(task.agent)
@@ -637,10 +629,21 @@ class Orchestrator private constructor(
         } catch (e: Exception) {
             apply(id, runtime.agent, AgentEvent.Failed(e.message ?: "The agent's event stream failed"))
         }
+        // An agent that ended on its own frees its slot; a stop has taken it out of runtimes already.
+        if (runtimes.value[id] === runtime) starts.free(id)
     }
 
-    private suspend fun stopLocked(id: TaskId) {
-        val runtime = runtimes.value[id] ?: return
+    /** [keepSlot] holds on to the slot for a start right after, as a restart does. */
+    private suspend fun stopLocked(
+        id: TaskId,
+        keepSlot: Boolean = false,
+    ) {
+        val runtime = runtimes.value[id]
+        if (runtime == null) {
+            if (view(id).status == AgentStatus.Queued) updateView(id) { it.copy(status = AgentStatus.Stopped) }
+            if (!keepSlot) starts.free(id)
+            return
+        }
         runtimes.update { it - id }
         runtime.agent.update { it.closing() }
         withContext(NonCancellable) {
@@ -654,6 +657,8 @@ class Orchestrator private constructor(
         ) {
             updateView(id) { it.copy(status = AgentStatus.Stopped, pending = emptyList()) }
         }
+        // Freed once the process is gone, so the next agent never runs beside it over the limit.
+        if (!keepSlot) starts.free(id)
     }
 
     /** Applies [event]; true when it made the agent idle. */
@@ -693,22 +698,7 @@ class Orchestrator private constructor(
     private fun updateView(
         id: TaskId,
         change: (TaskView) -> TaskView,
-    ) {
-        mutableState.update { state ->
-            state.copy(
-                tasks =
-                    state.tasks.map {
-                        if (it.task.id ==
-                            id
-                        ) {
-                            change(it)
-                        } else {
-                            it
-                        }
-                    },
-            )
-        }
-    }
+    ) = mutableState.update { it.change(id, change) }
 
     private fun note(
         id: TaskId,
@@ -766,9 +756,6 @@ class Orchestrator private constructor(
     companion object {
         const val BRANCH_PREFIX = "octo/"
         const val MAX_QUEUED = 20
-        private const val SETUP_TIMEOUT_MS = 30 * 60_000L
-        private const val MAX_SETUP_OUTPUT = 4_000
-        private const val SETUP_TOOL_ID = "octo.setup"
         private const val STOP_TIMEOUT_MS = 10_000L
         private const val PROCESS_SAMPLE_MS = 2_000L
 
@@ -791,6 +778,8 @@ class Orchestrator private constructor(
             clock: Clock = Clock.System,
             /** Whether the `checkpoints` flag records the worktree around every turn. */
             checkpoints: Boolean = false,
+            /** Live agents allowed per machine (null for this computer); a machine left out has no limit. */
+            agentLimits: Map<String?, Int> = emptyMap(),
         ): Orchestrator =
             Orchestrator(
                 Machines(LocalMachine(registry, workspace, worktrees), machines),
@@ -804,6 +793,7 @@ class Orchestrator private constructor(
                 worktreeSetup.mapKeys { it.key.trimEnd('/') },
                 clock,
                 checkpoints,
+                agentLimits,
             ).also {
                 it.begin()
             }

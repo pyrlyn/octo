@@ -158,6 +158,7 @@ data class TaskView(
                 AgentStatus.Starting -> SidebarStatus.Starting
                 AgentStatus.Idle -> if (unseen) SidebarStatus.Done else SidebarStatus.Idle
                 AgentStatus.Stopped -> SidebarStatus.Stopped
+                AgentStatus.Queued -> SidebarStatus.Queued
             }
 }
 
@@ -167,7 +168,7 @@ data class UsageLimit(
 )
 
 /** Ordered by priority: the first one present wins a rollup. */
-enum class SidebarStatus { Blocked, Failed, Working, Starting, Done, Idle, Stopped }
+enum class SidebarStatus { Blocked, Failed, Working, Starting, Queued, Done, Idle, Stopped }
 
 /** The status shown for a group of tasks, such as one repository; null for an empty group. */
 fun Iterable<TaskView>.rollup(): SidebarStatus? = minOfOrNull { it.sidebarStatus }
@@ -187,4 +188,10 @@ data class OctoState(
     val warnings: List<String> = emptyList(),
 ) {
     operator fun get(id: TaskId): TaskView? = tasks.firstOrNull { it.task.id == id }
+
+    /** This state with [id]'s view replaced by [change] of it; the same state when there is no such task. */
+    internal fun change(
+        id: TaskId,
+        change: (TaskView) -> TaskView,
+    ) = copy(tasks = tasks.map { if (it.task.id == id) change(it) else it })
 }
