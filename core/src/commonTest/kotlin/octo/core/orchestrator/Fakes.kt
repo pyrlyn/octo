@@ -52,6 +52,7 @@ internal class FakeSession(
     var refuseMode = false
     val rollbacks = mutableListOf<Int>()
     var refuseRollback = false
+    var compactions = 0
 
     override val events: Flow<AgentEvent> = channel.receiveAsFlow()
 
@@ -81,6 +82,10 @@ internal class FakeSession(
     override suspend fun rollback(turns: Int) {
         check(!refuseRollback) { "fake cannot roll back" }
         rollbacks += turns
+    }
+
+    override suspend fun compact() {
+        compactions++
     }
 
     override suspend fun cancel() {
@@ -286,6 +291,7 @@ internal suspend fun TestScope.setup(
         },
     checkpoints: Boolean = false,
     agentLimits: Map<String?, Int> = emptyMap(),
+    compactIdle: Boolean = false,
 ): Setup {
     val core =
         Orchestrator.open(
@@ -304,6 +310,7 @@ internal suspend fun TestScope.setup(
             clock = clock,
             checkpoints = checkpoints,
             agentLimits = agentLimits,
+            compactIdle = compactIdle,
         )
     return Setup(core, adapter, workspace, home)
 }

@@ -78,6 +78,7 @@ class Orchestrator private constructor(
     recordCheckpoints: Boolean,
     agentLimits: Map<String?, Int>,
     relay: String,
+    compactIdle: Boolean,
 ) : OctoCore {
     private val mutableState = MutableStateFlow(OctoState())
     private val transcripts = MutableStateFlow<Map<TaskId, List<TranscriptEntry>>>(emptyMap())
@@ -93,6 +94,7 @@ class Orchestrator private constructor(
         Checkpoints(recordCheckpoints, mutableState, transcripts) { machines[it.machine].workspace }
     private val move = TaskMove(machines, relay)
     private val queues = PromptQueues(mutableState, MAX_QUEUED)
+    private val compaction = if (compactIdle) IdleCompaction(clock) else null
 
     override val state: StateFlow<OctoState> = mutableState.asStateFlow()
 
@@ -216,8 +218,6 @@ class Orchestrator private constructor(
         }
     }
 
-    // Whatever the agent throws, the turn did not start and the caller hears why.
-    @Suppress("TooGenericExceptionCaught")
     private suspend fun prompt(
         id: TaskId,
         runtime: Runtime,
@@ -231,11 +231,24 @@ class Orchestrator private constructor(
         // The first turn gets a starting point too, so it can be undone like any other.
         if (task.checkpoints.isEmpty()) checkpoints.record(id, runtime.run)
         note(id, TranscriptEntry.Text(Role.User, text))
+        compaction?.cancel(id)
+        startTurn(id, runtime) { runtime.session.prompt(sent) }
+        updateView(id) { it.copy(task = it.task.copy(handoffFrom = null, revertNote = null)) }
+        if (from != null) note(id, TranscriptEntry.Notice("Handed the conversation over from $from"))
+    }
+
+    // Whatever the agent throws, the turn did not start and the caller hears why.
+    @Suppress("TooGenericExceptionCaught")
+    private suspend fun startTurn(
+        id: TaskId,
+        runtime: Runtime,
+        send: suspend () -> Unit,
+    ) {
         // Working before the agent says so: a sender in between queues instead of starting a
         // second turn the agent cannot take.
         apply(id, runtime.agent, AgentEvent.TurnStarted)
         try {
-            runtime.session.prompt(sent)
+            send()
         } catch (e: CancellationException) {
             throw e
         } catch (e: Exception) {
@@ -245,9 +258,21 @@ class Orchestrator private constructor(
             updateView(id) { it.copy(task = it.task.copy(lastStatus = reduced.status), status = reduced.status) }
             throw e
         }
-        updateView(id) { it.copy(task = it.task.copy(handoffFrom = null, revertNote = null)) }
-        if (from != null) note(id, TranscriptEntry.Notice("Handed the conversation over from $from"))
     }
+
+    // Checked again under the lock: the task may have moved on since its time was set. A failure
+    // only costs the saving, so it is a notice.
+    private suspend fun compactIdle(id: TaskId) =
+        withTask(id) {
+            val runtime = running(id)?.takeIf { Capability.Compact in it.capabilities }
+            if (runtime == null || mutableState.value[id]?.let(IdleCompaction::worthIt) != true) return@withTask
+            compaction?.started(id)
+            note(id, TranscriptEntry.Notice("Compacting the idle conversation before its prompt cache expires"))
+            runCatching { startTurn(id, runtime) { runtime.session.compact() } }.onFailure {
+                if (it is CancellationException) throw it
+                note(id, TranscriptEntry.Notice("Could not compact: ${it.message}", error = true))
+            }
+        }
 
     // Any failure means the turn could not take the text, and the queue is the declared fallback.
     @Suppress("TooGenericExceptionCaught", "SwallowedException")
@@ -519,17 +544,7 @@ class Orchestrator private constructor(
     }
 
     override val processUsage: Flow<Map<TaskId, ProcessUsage>> =
-        processes?.usage(PROCESS_SAMPLE_MS) {
-            // A remote task's local process is the ssh client, whose figures would mislead.
-            val local =
-                mutableState.value.tasks
-                    .filter { it.task.machine == null }
-                    .map { it.task.id }
-            runtimes.value
-                .filterKeys { it in local }
-                .mapNotNull { (id, runtime) -> runtime.session.processId?.let { id to it } }
-                .toMap()
-        } ?: flowOf(emptyMap())
+        processes?.usage(PROCESS_SAMPLE_MS) { localRoots(mutableState.value, runtimes.value) } ?: flowOf(emptyMap())
 
     /** Stops every agent and writes the state; owned by the app, not the UI, so it is not on [OctoCore]. */
     suspend fun close() {
@@ -612,6 +627,7 @@ class Orchestrator private constructor(
             runtime.session.events.collect {
                 // Taken while the task still reads as working, so no new turn changes files under it.
                 if (it is AgentEvent.TurnEnded) checkpoints.record(id, runtime.run)
+                if (it is AgentEvent.StatsUpdated) it.stats.promptCacheTtlMs?.let { ttl -> compaction?.cached(id, ttl) }
                 if (apply(id, runtime.agent, it)) deliverQueued(id, runtime)
             }
         } catch (e: CancellationException) {
@@ -628,6 +644,7 @@ class Orchestrator private constructor(
         id: TaskId,
         keepSlot: Boolean = false,
     ) {
+        compaction?.cancel(id)
         val runtime = runtimes.value[id]
         if (runtime == null) {
             if (view(id).status == AgentStatus.Queued) updateView(id) { it.copy(status = AgentStatus.Stopped) }
@@ -665,17 +682,9 @@ class Orchestrator private constructor(
     /** The task's mode as its agent can run it, saying so when that is a fallback; null without the adapter. */
     private fun effectiveMode(id: TaskId): PermissionMode? {
         val task = view(id).task
-        val adapter = machines[task.machine].registry[task.agent] ?: return null
-        val effective = task.permissionMode.within(adapter.permissionModes)
-        if (effective != task.permissionMode) {
-            note(
-                id,
-                TranscriptEntry.Notice(
-                    "${adapter.displayName} has no ${task.permissionMode.label} mode; it runs ${effective.label}",
-                ),
-            )
-        }
-        return effective
+        val (mode, fallback) = machines[task.machine].effectiveMode(task) ?: return null
+        fallback?.let { note(id, TranscriptEntry.Notice(it)) }
+        return mode
     }
 
     private fun running(id: TaskId): Runtime? = runtimes.value[id]?.takeIf { it.job.isActive }
@@ -720,6 +729,7 @@ class Orchestrator private constructor(
         transcripts.value = tasks.associate { it.task.id to it.transcript }
         saver.watch(scope, mutableState, transcripts)
         scope.launch { mutableState.wakeSnoozed(clock) }
+        compaction?.let { scope.launch { it.run { id -> scope.launch { compactIdle(id) } } } }
     }
 
     companion object {
@@ -751,6 +761,8 @@ class Orchestrator private constructor(
             agentLimits: Map<String?, Int> = emptyMap(),
             /** A bare repository that carries a moving task between two remote machines. */
             relay: Path = Path(worktrees.parent ?: worktrees, "relay.git"),
+            /** Whether the `compact-idle` flag compacts a large idle conversation before its cache expires. */
+            compactIdle: Boolean = false,
         ): Orchestrator =
             Orchestrator(
                 Machines(LocalMachine(registry, workspace, worktrees), machines),
@@ -766,6 +778,7 @@ class Orchestrator private constructor(
                 checkpoints,
                 agentLimits,
                 relay.toString(),
+                compactIdle,
             ).also {
                 it.begin()
             }

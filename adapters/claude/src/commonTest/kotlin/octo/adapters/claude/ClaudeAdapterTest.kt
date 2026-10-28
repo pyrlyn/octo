@@ -182,6 +182,24 @@ class ClaudeAdapterTest {
         }
 
     @Test
+    fun theCacheLifetimeComesFromEachRequestAndCompactIsAPrompt() =
+        runTest {
+            val (adapter, _) = fixture("compact.transcript")
+            val session = adapter.start(SessionSpec("/repo"))
+            session.prompt("Read the logs")
+            session.compact()
+            val events = Events(backgroundScope, session).drain()
+
+            // The subagent's 5-minute cache is not the session's; a request read wholly from the
+            // cache keeps the hour it was written with.
+            assertEquals(
+                listOf(3_600_000L, 3_600_000L),
+                events.filterIsInstance<AgentEvent.StatsUpdated>().mapNotNull { it.stats.promptCacheTtlMs },
+            )
+            assertEquals(2, events.filterIsInstance<AgentEvent.TurnEnded>().size)
+        }
+
+    @Test
     fun permissionsAndQuestionsRoundTrip() =
         runTest {
             val (adapter, launcher) = fixture("permission.transcript")

@@ -38,6 +38,9 @@ enum class Capability {
 
     /** Takes a message into the running turn through [AgentSession.steer]; without it Octo queues. */
     Steer,
+
+    /** Shrinks the conversation to a summary through [AgentSession.compact]. */
+    Compact,
 }
 
 enum class AuthState { LoggedIn, LoggedOut, Unknown }
@@ -156,6 +159,12 @@ interface AgentSession {
      */
     suspend fun rollback(turns: Int): Unit =
         throw UnsupportedOperationException("This agent cannot roll its conversation back")
+
+    /**
+     * Starts a turn that replaces the conversation with a summary; called only on adapters with
+     * [Capability.Compact]. Ends like any other turn.
+     */
+    suspend fun compact(): Unit = throw UnsupportedOperationException("This agent cannot compact its conversation")
 
     /** Cancels the current turn; the session stays usable. */
     suspend fun cancel()

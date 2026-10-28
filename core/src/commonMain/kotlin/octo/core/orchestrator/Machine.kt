@@ -5,12 +5,14 @@ import kotlinx.coroutines.sync.withLock
 import kotlinx.io.files.Path
 import octo.core.agent.AdapterRegistry
 import octo.core.agent.AgentId
+import octo.core.agent.PermissionMode
 import octo.core.git.GitRemote
 import octo.core.git.GitRemotes
 import octo.core.git.Workspace
 import octo.core.process.ProcessLauncher
 import octo.core.process.ProcessSpec
 import octo.core.process.run
+import octo.core.task.Task
 
 /** Where a task runs: its agents, its git and the root its worktrees go under. */
 interface Machine {
@@ -116,3 +118,11 @@ internal fun where(machine: String?) = machine?.let { "'$it'" } ?: "this compute
 
 /** The adapter for [agent] on this machine; throws when it has none. */
 internal fun Machine.adapter(agent: AgentId) = registry[agent] ?: throw UnknownAgentException(agent)
+
+/** [task]'s mode as its agent here can run it, with a notice when that is a fallback; null without the adapter. */
+internal fun Machine.effectiveMode(task: Task): Pair<PermissionMode, String?>? {
+    val adapter = registry[task.agent] ?: return null
+    val effective = task.permissionMode.within(adapter.permissionModes)
+    val fallback = "${adapter.displayName} has no ${task.permissionMode.label} mode; it runs ${effective.label}"
+    return effective to fallback.takeIf { effective != task.permissionMode }
+}

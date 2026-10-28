@@ -1,0 +1,14 @@
+# Synthetic stream-json: the prompt cache's lifetime from message_start usage, then /compact.
+# Shaped after the Messages API streaming events; not a recording of a real account.
+> {"type":"control_request","request_id":"req_1","request":{"subtype":"initialize"}}
+< {"type":"control_response","response":{"subtype":"success","request_id":"req_1","response":{"commands":[]}}}
+> {"type":"user","message":{"role":"user","content":"Read the logs"}}
+< {"type":"system","subtype":"init","session_id":"sess-1","model":"claude-opus-5-5","tools":["Bash"]}
+< {"type":"stream_event","event":{"type":"message_start","message":{"id":"m1","usage":{"input_tokens":3,"cache_read_input_tokens":0,"cache_creation_input_tokens":9000,"cache_creation":{"ephemeral_5m_input_tokens":0,"ephemeral_1h_input_tokens":9000}}}},"session_id":"sess-1","parent_tool_use_id":null}
+< {"type":"stream_event","event":{"type":"message_start","message":{"id":"m2","usage":{"input_tokens":3,"cache_read_input_tokens":800,"cache_creation_input_tokens":800,"cache_creation":{"ephemeral_5m_input_tokens":800,"ephemeral_1h_input_tokens":0}}}},"session_id":"sess-1","parent_tool_use_id":"tu1"}
+< {"type":"stream_event","event":{"type":"message_start","message":{"id":"m3","usage":{"input_tokens":3,"cache_read_input_tokens":9000,"cache_creation_input_tokens":0,"cache_creation":{"ephemeral_5m_input_tokens":0,"ephemeral_1h_input_tokens":0}}}},"session_id":"sess-1","parent_tool_use_id":null}
+< {"type":"result","subtype":"success","is_error":false,"result":"Done.","session_id":"sess-1","usage":{"input_tokens":6,"output_tokens":20}}
+> {"type":"user","message":{"role":"user","content":"/compact"}}
+< {"type":"system","subtype":"compact_boundary","session_id":"sess-1","compact_metadata":{"trigger":"manual","pre_tokens":9006}}
+< {"type":"result","subtype":"success","is_error":false,"result":"","session_id":"sess-1","usage":{"input_tokens":0,"output_tokens":0}}
+x 0

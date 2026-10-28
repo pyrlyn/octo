@@ -19,6 +19,8 @@ object CoreFlags {
     val PALETTE = FeatureFlag("palette", "Find tasks and run actions from a Cmd+K command palette")
     val CHECKPOINTS =
         FeatureFlag("checkpoints", "Snapshot the worktree after every turn and revert a task to a snapshot")
+    val COMPACT_IDLE =
+        FeatureFlag("compact-idle", "Compact a large idle conversation just before its prompt cache expires")
     val TRIGGERS =
         FeatureFlag("triggers", "Start the tasks in config.json's triggers on a schedule or from a webhook")
     val QUEUE =
