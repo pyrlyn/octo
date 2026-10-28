@@ -138,6 +138,8 @@ data class SessionStats(
     val cacheWriteTokens: Long? = null,
     /** How long the prompt cache keeps the latest request's context, counted from its start. */
     val promptCacheTtlMs: Long? = null,
+    /** What [contextUsed] is made of, when the agent says. */
+    val contextParts: ContextParts? = null,
 ) {
     /** Agents report figures piecemeal, so a field [next] leaves out keeps its last value. */
     fun merge(next: SessionStats) =
@@ -150,8 +152,20 @@ data class SessionStats(
             cacheReadTokens = next.cacheReadTokens ?: cacheReadTokens,
             cacheWriteTokens = next.cacheWriteTokens ?: cacheWriteTokens,
             promptCacheTtlMs = next.promptCacheTtlMs ?: promptCacheTtlMs,
+            contextParts = next.contextParts ?: contextParts,
         )
 }
+
+/**
+ * The latest request's context by kind of token; the parts add up to [SessionStats.contextUsed]
+ * and a null part is one the agent does not count there.
+ */
+data class ContextParts(
+    val cacheRead: Long? = null,
+    val cacheWrite: Long? = null,
+    val input: Long? = null,
+    val output: Long? = null,
+)
 
 sealed interface RequestResponse {
     data class Option(

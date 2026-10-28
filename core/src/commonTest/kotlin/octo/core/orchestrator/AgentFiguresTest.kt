@@ -8,6 +8,7 @@ import kotlinx.coroutines.test.runTest
 import octo.core.agent.AdapterRegistry
 import octo.core.agent.AgentEvent
 import octo.core.agent.AgentId
+import octo.core.agent.ContextParts
 import octo.core.agent.SessionStats
 import octo.core.flags.FeatureFlags
 import octo.core.process.ProcessMonitor
@@ -35,6 +36,15 @@ class AgentFiguresTest {
         val next = first.merge(SessionStats(contextUsed = 20, contextWindow = 100))
 
         assertEquals(SessionStats(model = "m1", contextUsed = 20, contextWindow = 100, inputTokens = 5), next)
+    }
+
+    @Test
+    fun contextPartsAreReplacedWhole() {
+        val first = SessionStats(contextParts = ContextParts(cacheRead = 10, input = 2))
+        val next = first.merge(SessionStats(contextParts = ContextParts(input = 7)))
+
+        assertEquals(ContextParts(input = 7), next.contextParts)
+        assertEquals(next, next.merge(SessionStats()))
     }
 
     @Test

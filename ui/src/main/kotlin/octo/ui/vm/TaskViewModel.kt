@@ -55,6 +55,8 @@ data class TaskUiState(
     val error: String? = null,
     /** The agent hit its usage limit; always null while the `usage` flag is off. */
     val limit: UsageLimit? = null,
+    /** How full the agent's context is; always null while the `usage` flag is off. */
+    val context: ContextSummary? = null,
     /** Refs of the checkpoints the task can go back to; always empty while the `checkpoints` flag is off. */
     val revertable: Set<String> = emptySet(),
     /** A revert waiting for the user to confirm it. */
@@ -91,7 +93,7 @@ class TaskViewModel(
     private val core: OctoCore,
     val taskId: TaskId,
     parent: CoroutineScope,
-    /** False while the `usage` flag is off, which hides usage limits. */
+    /** False while the `usage` flag is off, which hides usage limits and the context popup. */
     private val limits: Boolean = false,
     /** False while the `checkpoints` flag is off, which hides reverting. */
     private val checkpoints: Boolean = false,
@@ -298,6 +300,7 @@ private fun TaskUiState.withCore(
     pending = view?.pending.orEmpty(),
     queue = view?.task?.queue.orEmpty(),
     limit = view?.limit?.takeIf { shown.limits },
+    context = view?.stats?.takeIf { shown.limits }?.let(::contextSummary),
     revertable =
         view
             ?.task

@@ -89,16 +89,7 @@ internal fun TaskScreen(
             ),
             places,
         )
-        Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(Gap)) {
-            Text(
-                task.machine?.let { "${task.branch} · on $it" } ?: task.branch,
-                Modifier.weight(1f),
-                style = MaterialTheme.typography.bodySmall,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
-            )
-            share?.let { ShareButton(it) }
-            PermissionMenu(task.permissionMode, vm::setPermissionMode)
-        }
+        BranchRow(state, vm, share)
         state.failure?.let { Text(it, color = MaterialTheme.colorScheme.error) }
         state.limit?.let { LimitBanner(it, onResume = vm::resume) }
         state.error?.let { Banner(it, error = true, onDismiss = vm::dismissError) }
@@ -113,6 +104,26 @@ internal fun TaskScreen(
     }
     RemoveDialog(state.remove, vm)
     state.reverting?.let { RevertDialog(it, vm) }
+}
+
+@Composable
+private fun BranchRow(
+    state: TaskUiState,
+    vm: TaskViewModel,
+    share: ShareViewModel?,
+) {
+    val task = state.task ?: return
+    Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(Gap)) {
+        Text(
+            task.machine?.let { "${task.branch} · on $it" } ?: task.branch,
+            Modifier.weight(1f),
+            style = MaterialTheme.typography.bodySmall,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+        )
+        state.context?.let { ContextMenu(it) }
+        share?.let { ShareButton(it) }
+        PermissionMenu(task.permissionMode, vm::setPermissionMode)
+    }
 }
 
 @Composable
