@@ -23,4 +23,6 @@ object CoreFlags {
         FeatureFlag("triggers", "Start the tasks in config.json's triggers on a schedule or from a webhook")
     val QUEUE =
         FeatureFlag("queue", "Cap the live agents per machine at maxRunningAgents; later tasks wait their turn")
+    val MOVE_TASK =
+        FeatureFlag("move-task", "Move a task with its uncommitted work to another machine; needs remote-ssh")
 }

@@ -8,6 +8,8 @@ import kotlinx.io.IOException
 import kotlinx.io.files.FileSystem
 import kotlinx.io.files.Path
 import kotlinx.io.files.SystemFileSystem
+import octo.core.git.GitRemote
+import octo.core.git.GitRemotes
 import octo.core.process.CommandPath
 import octo.core.process.ProcessLauncher
 import octo.core.process.ProcessSpec
@@ -30,7 +32,8 @@ class SshProcessLauncher(
     private val port: Int? = null,
     command: String = "ssh",
     private val sharing: SharedConnection? = null,
-) : ProcessLauncher {
+) : ProcessLauncher,
+    GitRemotes {
     private val ssh = CommandPath(local, command) { SshNotFoundException() }
     private val masterLock = Mutex()
     private var master: RunningProcess? = null
@@ -64,11 +67,24 @@ class SshProcessLauncher(
         }
     }
 
-    private suspend fun sshSpec(remote: String): ProcessSpec {
-        sharing?.let { startMaster(it) }
-        // With no socket yet ssh connects directly, so a missing or dead master only costs the handshake.
-        val shared = sharing?.let { listOf("-o", "ControlMaster=no", "-o", "ControlPath=${it.controlPath}") }
-        return ProcessSpec(ssh.get(), options() + shared.orEmpty() + listOf("--", host, remote))
+    // git runs the same ssh with the same options; the port goes in the URL, where git expects it.
+    override suspend fun at(path: String): GitRemote {
+        require(path.startsWith("/")) { "'$path' is not an absolute path on $host" }
+        val command = listOf(ssh.get(), "-o", "BatchMode=yes") + shared()
+        return GitRemote(
+            "ssh://$host${port?.let { ":$it" }.orEmpty()}$path",
+            command.joinToString(" ", transform = ::shellQuote),
+        )
+    }
+
+    private suspend fun sshSpec(remote: String): ProcessSpec =
+        ProcessSpec(ssh.get(), options() + shared() + listOf("--", host, remote))
+
+    // With no socket yet ssh connects directly, so a missing or dead master only costs the handshake.
+    private suspend fun shared(): List<String> {
+        val sharing = sharing ?: return emptyList()
+        startMaster(sharing)
+        return listOf("-o", "ControlMaster=no", "-o", "ControlPath=${sharing.controlPath}")
     }
 
     // BatchMode makes ssh fail instead of prompting, since Octo has no terminal to ask for a password.

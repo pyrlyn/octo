@@ -274,6 +274,7 @@ class FeatureFlags(config: Map<String, Boolean>) {
 | `checkpoints` (worktree snapshots on hidden refs after every turn, with revert) | T27 |
 | `triggers` (tasks from `config.json` on a cron schedule or from a signed webhook) | T32 |
 | `queue` (`maxRunningAgents` per machine; later tasks wait as Queued, with Start now) | T33 |
+| `move-task` (move a task and its uncommitted work to another machine; needs `remote-ssh`) | T34 |
 | `pty-terminal` | Reserved |
 
 ## 7. Core API and orchestration
@@ -375,6 +376,19 @@ agent and writes the state. `close()` belongs to `app`, so it is not on the inte
   `startNow` starts a waiting task over the limit; `close()` empties the queue first, so stopping
   agents on the way out starts none. Nothing waits across a restart of Octo: every task loads
   stopped.
+- **Moving a task.** With the `move-task` flag on, `moveTask` stops the agent and `TaskMove`
+  snapshots the worktree onto `refs/octo-move/<task>` (the checkpoint snapshot, so untracked files
+  count), with the branch tip as its parent. `RefTransfer` pushes or fetches that ref with git's
+  own ssh transport: `SshProcessLauncher.at` gives the clone's `ssh://` URL and the same `ssh`
+  command, options and shared socket as `GIT_SSH_COMMAND`. Between two remote machines the ref
+  goes through a bare `relay.git` on this computer. On the target, `createWorktree` with
+  `takeOver` puts the branch at `<ref>^` (taking over a branch an earlier move left there) and
+  `restore` brings the files back as uncommitted changes. The hidden refs are deleted on every
+  side either way. A failure takes the new worktree away again and restarts the agent where it
+  was. Otherwise the old worktree is deleted (a failure there is only a notice), and the task gets
+  the new machine, repo and worktree, forgets its checkpoints and starts a fresh session with a
+  handoff.
+  `MachineConfig.repos` maps this computer's repository paths to the clones on each machine.
 - **Prompts while busy.** `sendPrompt` runs under the task's lock. An idle agent gets the prompt
   and reads as working at once, so a second sender never sees a stale idle. A busy agent is
   steered when its adapter declares `Steer` and the steer succeeds; otherwise the text joins

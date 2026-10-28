@@ -85,6 +85,22 @@ interface OctoCore {
     )
 
     /**
+     * The machines the task can move to with [moveTask] (null for this computer): those whose
+     * `repos` in `config.json` map the task's repository to a clone there.
+     */
+    fun moveTargets(taskId: TaskId): List<String?> = emptyList()
+
+    /**
+     * Moves the task to [machine] with its branch and uncommitted work, into a new worktree there,
+     * and deletes the old one. A fresh session starts there and the next prompt carries the
+     * conversation over. A move that fails leaves the task where it was.
+     */
+    suspend fun moveTask(
+        taskId: TaskId,
+        machine: String?,
+    ): Unit = throw UnsupportedOperationException("Moving tasks is not available")
+
+    /**
      * Keeps [mode] on the task and switches a running agent to it; an agent that cannot switch in
      * place takes it on its next start, and one without the mode runs Supervised.
      */

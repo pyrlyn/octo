@@ -178,6 +178,51 @@ class GitWorkspaceTest {
         }
 
     @Test
+    fun aSnapshotCarriesTheBranchAndItsUncommittedWorkToAnotherClone() =
+        runBlocking {
+            val repo = repo()
+            val worktree = File(root, "worktrees/repo/task-1")
+            workspace.createWorktree(repo.path, worktree.path, "octo/task-1", "main")
+            File(worktree, "b.txt").writeText("committed\n")
+            git.run(worktree.path, listOf("add", "b.txt"))
+            git.run(worktree.path, listOf("commit", "-q", "-m", "b"))
+            File(worktree, "a.txt").writeText("one\n2\n")
+            File(worktree, "untracked.txt").writeText("new\n")
+            val ref = "refs/octo-move/task-1/files"
+            workspace.snapshot(worktree.path, ref)
+
+            // A local path stands in for the other machine; git takes it without ssh.
+            val clone = File(root, "clone")
+            git.run(root.path, listOf("clone", "-q", repo.path, clone.path))
+            git.run(clone.path, listOf("branch", "octo/task-1", "origin/main"))
+            val relay = File(root, "relay.git").path
+            workspace.initBare(relay)
+            workspace.fetchRefs(relay, GitRemote(repo.path, ""), listOf(ref))
+            workspace.pushRefs(relay, GitRemote(clone.path, ""), listOf(ref))
+
+            val moved = File(root, "elsewhere/task-1")
+            workspace.createWorktree(clone.path, moved.path, "octo/task-1", "$ref^", takeOver = true)
+            workspace.restore(moved.path, ref)
+
+            assertEquals(
+                git.run(worktree.path, listOf("rev-parse", "HEAD")),
+                git.run(moved.path, listOf("rev-parse", "HEAD")),
+                "the branch with its own commits",
+            )
+            assertEquals("one\n2\n", File(moved, "a.txt").readText())
+            assertEquals("new\n", File(moved, "untracked.txt").readText())
+            assertEquals(
+                setOf(" M a.txt", "?? untracked.txt"),
+                git
+                    .run(moved.path, listOf("status", "--porcelain"))
+                    .lines()
+                    .filter { it.isNotBlank() }
+                    .toSet(),
+                "uncommitted again",
+            )
+        }
+
+    @Test
     fun setupRunsInTheWorktreeWithAShell() =
         runBlocking {
             val repo = repo()

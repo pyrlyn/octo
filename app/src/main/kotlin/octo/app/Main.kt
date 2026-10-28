@@ -36,6 +36,7 @@ fun main() {
             octo.palette,
             octo.usage,
             octo.checkpoints,
+            octo.moveTask,
         )
     application {
         Window(

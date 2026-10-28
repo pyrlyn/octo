@@ -198,6 +198,22 @@ or exit. "Start now" on a queued task starts it at once, over the cap.
 { "flags": { "queue": true }, "maxRunningAgents": 3 }
 ```
 
+`"move-task": true` (with `remote-ssh`) adds "Move to…" to a task, which moves it to another
+machine or back to this computer. The branch and its uncommitted and untracked changes go to a
+new worktree there; the old worktree is deleted, and its branch stays in the old clone. Git
+carries the code with the same `ssh`, straight from one clone to the other, or through
+`relay.git` in the Octo home between two remote machines. Each machine needs its own clone of
+the repository, listed under `repos` on its `machines` entry as this computer's path to the
+path there. A fresh session starts on the new machine and your next prompt carries the
+conversation over; checkpoints stay behind. A move that fails leaves the task where it was.
+
+```json
+{
+  "flags": { "remote-ssh": true, "move-task": true },
+  "machines": [{ "id": "box", "host": "me@box.local", "repos": { "/Users/me/src/app": "/home/me/src/app" } }]
+}
+```
+
 `"plugins": true` loads WebAssembly plugins from the `plugins` folder in the Octo home. A plugin
 can add ACP agents and actions in a task's Plugins menu. A plugin cannot reach files, processes or
 the network. A broken one is skipped with a warning. See `docs/plugins.md` for the ABI.

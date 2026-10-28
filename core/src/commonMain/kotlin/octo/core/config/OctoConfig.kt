@@ -74,6 +74,11 @@ data class MachineConfig(
     val worktrees: String? = null,
     /** Live agents allowed on the machine; used only with the `queue` flag on. */
     val maxRunningAgents: Int? = null,
+    /**
+     * A repository's top-level path on this computer to its clone on the machine; used only with
+     * the `move-task` flag on.
+     */
+    val repos: Map<String, String> = emptyMap(),
 ) {
     /** Why this entry cannot be used, or null; checked before any value reaches `ssh`. */
     fun problem(): String? =
@@ -82,11 +87,14 @@ data class MachineConfig(
             !SshProcessLauncher.isValidHost(host) -> "Machine '$id' has an invalid host '$host'"
             port != null && !SshProcessLauncher.isValidPort(port) -> "Machine '$id' has an invalid port $port"
             worktrees != null && !worktrees.startsWith("/") -> "Machine '$id' needs an absolute worktrees path"
+            repos.any(::badRepo) -> "Machine '$id' needs an absolute clone path for every repository in repos"
             else -> null
         }
 
     private companion object {
         val ID = Regex("[a-z0-9][a-z0-9-]*")
+
+        fun badRepo(entry: Map.Entry<String, String>) = entry.key.isBlank() || !entry.value.startsWith("/")
     }
 }
 

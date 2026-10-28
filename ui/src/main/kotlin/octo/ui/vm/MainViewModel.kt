@@ -59,7 +59,7 @@ data class RepoGroup(
     val tasks: List<TaskRow>,
 )
 
-enum class TaskDialog { Publish, SwitchAgent }
+enum class TaskDialog { Publish, SwitchAgent, Move }
 
 data class MainUiState(
     val groups: List<RepoGroup> = emptyList(),
@@ -166,16 +166,18 @@ class MainViewModel(
     /** Runs a palette [command]; one that needs a task does nothing while none is selected. */
     fun run(command: Command) {
         val selected = state.value.selected
+        if (command.onTask && selected == null) return
         when (command) {
             Command.NewTask -> openNewTask()
             Command.Agents -> openAgents()
             Command.Usage -> openUsage()
             Command.Devices -> openDevices()
-            Command.Diff -> selected?.let { showDiff(!state.value.diffOpen) }
-            Command.Publish -> selected?.let { openTaskDialog(TaskDialog.Publish) }
-            Command.SwitchAgent -> selected?.let { openTaskDialog(TaskDialog.SwitchAgent) }
-            Command.Fork -> selected?.let(::fork)
-            Command.Stop -> selected?.let(::stop)
+            Command.Diff -> showDiff(!state.value.diffOpen)
+            Command.Publish -> openTaskDialog(TaskDialog.Publish)
+            Command.SwitchAgent -> openTaskDialog(TaskDialog.SwitchAgent)
+            Command.Move -> openTaskDialog(TaskDialog.Move)
+            Command.Fork -> fork(checkNotNull(selected))
+            Command.Stop -> stop(checkNotNull(selected))
         }
     }
 

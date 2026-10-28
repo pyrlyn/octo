@@ -4,6 +4,9 @@ import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
 import kotlinx.io.files.Path
 import octo.core.agent.AdapterRegistry
+import octo.core.agent.AgentId
+import octo.core.git.GitRemote
+import octo.core.git.GitRemotes
 import octo.core.git.Workspace
 import octo.core.process.ProcessLauncher
 import octo.core.process.ProcessSpec
@@ -19,6 +22,15 @@ interface Machine {
         repo: String,
         slug: String,
     ): String
+
+    /** This machine's clone of the repository at [local] on this computer; null when it has none. */
+    fun repo(local: String): String?
+
+    /** The path on this computer of the repository whose clone here is at [repo]; null when unknown. */
+    fun local(repo: String): String?
+
+    /** Where git on another machine reaches [repo] here; null for this computer, which git reaches by path. */
+    suspend fun gitRemote(repo: String): GitRemote? = null
 }
 
 /** This computer. */
@@ -31,6 +43,10 @@ class LocalMachine(
         repo: String,
         slug: String,
     ) = Path(worktrees, Path(repo).name, slug).toString()
+
+    override fun repo(local: String) = local
+
+    override fun local(repo: String) = repo
 }
 
 /**
@@ -43,7 +59,11 @@ class RemoteMachine(
     override val workspace: Workspace,
     private val launcher: ProcessLauncher,
     private val worktrees: String? = null,
+    /** Repository paths on this computer to their clones here, from the machine's `repos` in config. */
+    repos: Map<String, String> = emptyMap(),
+    private val remotes: GitRemotes? = null,
 ) : Machine {
+    private val repos = repos.entries.associate { (local, here) -> local.trimEnd('/') to here.trimEnd('/') }
     private val lock = Mutex()
     private var root: String? = worktrees
 
@@ -51,6 +71,12 @@ class RemoteMachine(
         repo: String,
         slug: String,
     ) = "${root()}/${repo.trimEnd('/').substringAfterLast('/')}/$slug"
+
+    override fun repo(local: String) = repos[local.trimEnd('/')]
+
+    override fun local(repo: String) = repos.entries.firstOrNull { it.value == repo.trimEnd('/') }?.key
+
+    override suspend fun gitRemote(repo: String) = remotes?.at(repo)
 
     private suspend fun root(): String =
         lock.withLock {
@@ -76,8 +102,17 @@ class Machines(
     private val remote: Map<String, Machine>,
 ) {
     operator fun get(id: String?): Machine = if (id == null) local else remote[id] ?: throw UnknownMachineException(id)
+
+    /** Every machine's id, null for this computer first. */
+    val ids: List<String?> get() = listOf(null) + remote.keys
 }
 
 class UnknownMachineException(
     id: String,
 ) : IllegalArgumentException("Machine '$id' is not configured or the remote-ssh flag is off")
+
+/** How notices name [machine]: its id, or this computer. */
+internal fun where(machine: String?) = machine?.let { "'$it'" } ?: "this computer"
+
+/** The adapter for [agent] on this machine; throws when it has none. */
+internal fun Machine.adapter(agent: AgentId) = registry[agent] ?: throw UnknownAgentException(agent)

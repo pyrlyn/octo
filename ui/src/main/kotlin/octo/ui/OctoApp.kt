@@ -155,6 +155,7 @@ private fun TaskPane(
         plugins = plugins,
         onSwitchAgent = if (models.canSwitchAgent) ({ main.openTaskDialog(TaskDialog.SwitchAgent) }) else null,
         onFork = if (models.canFork) ({ models.main.fork(id) }) else null,
+        onMove = if (models.canMove) ({ main.openTaskDialog(TaskDialog.Move) }) else null,
         places = models.main.takeIf { it.sections },
     )
     if (dialog == TaskDialog.SwitchAgent) {
@@ -162,6 +163,7 @@ private fun TaskPane(
         DisposableEffect(switch) { onDispose { switch.close() } }
         SwitchAgentDialog(switch, onDismiss = main::closeTaskDialog)
     }
+    if (dialog == TaskDialog.Move) MovePane(id, models)
     if (dialog == TaskDialog.Publish) {
         val title =
             vm.state.value.task
@@ -171,6 +173,16 @@ private fun TaskPane(
         DisposableEffect(publish) { onDispose { publish.close() } }
         PublishDialog(publish, onDismiss = main::closeTaskDialog)
     }
+}
+
+@Composable
+private fun MovePane(
+    id: TaskId,
+    models: ViewModels,
+) {
+    val move = remember(id) { models.moveTask(id) } ?: return
+    DisposableEffect(move) { onDispose { move.close() } }
+    MoveTaskDialog(move, onDismiss = models.main::closeTaskDialog)
 }
 
 @Composable

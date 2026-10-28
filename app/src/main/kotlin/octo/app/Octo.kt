@@ -88,6 +88,9 @@ class Octo private constructor(
     /** Whether the `checkpoints` flag lets a task be reverted to an earlier turn. */
     val checkpoints: Boolean get() = flags.isEnabled(CoreFlags.CHECKPOINTS)
 
+    /** Whether the `move-task` flag lets a task move between machines; they come with `remote-ssh`. */
+    val moveTask: Boolean get() = flags.isEnabled(CoreFlags.MOVE_TASK) && flags.isEnabled(CoreFlags.REMOTE_SSH)
+
     /** Where the remote API listens, e.g. `http://127.0.0.1:47470`. */
     val remoteUrl: String? get() = remoteServer?.url
 

@@ -64,6 +64,8 @@ internal fun TaskScreen(
     onSwitchAgent: (() -> Unit)? = null,
     /** Null while the `fork` flag is off, which hides the action. */
     onFork: (() -> Unit)? = null,
+    /** Null while the `move-task` flag is off, which hides the action. */
+    onMove: (() -> Unit)? = null,
     /** Null while the `sections` flag is off, which hides pinning, snoozing and settling. */
     places: MainViewModel? = null,
 ) {
@@ -71,7 +73,19 @@ internal fun TaskScreen(
     val task = state.task ?: return
     Column(Modifier.fillMaxSize().padding(LargeGap), verticalArrangement = Arrangement.spacedBy(Gap)) {
         // Publishing runs this computer's git and gh, which cannot reach a remote worktree.
-        Header(state, vm, onDiff, onPublish.takeIf { task.machine == null }, plugins, onSwitchAgent, onFork, places)
+        Header(
+            state,
+            vm,
+            onDiff,
+            onPublish.takeIf { task.machine == null },
+            plugins,
+            listOfNotNull(
+                onSwitchAgent?.let { "Switch agent" to it },
+                onFork?.let { "Fork" to it },
+                onMove?.let { "Move to…" to it },
+            ),
+            places,
+        )
         Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(Gap)) {
             Text(
                 task.machine?.let { "${task.branch} · on $it" } ?: task.branch,
@@ -101,8 +115,8 @@ private fun Header(
     onDiff: () -> Unit,
     onPublish: (() -> Unit)?,
     plugins: PluginActionsViewModel?,
-    onSwitchAgent: (() -> Unit)?,
-    onFork: (() -> Unit)?,
+    /** Actions that end or copy the running turn's work, so they wait until the agent is done. */
+    turnActions: List<Pair<String, () -> Unit>>,
     places: MainViewModel?,
 ) {
     val task = state.task ?: return
@@ -117,10 +131,10 @@ private fun Header(
         if (state.canStartNow) OutlinedButton(onClick = vm::startNow) { Text("Start now") }
         if (state.canStop) OutlinedButton(onClick = vm::stop) { Text("Stop") }
         if (state.canRestart) OutlinedButton(onClick = vm::restart) { Text("Restart") }
-        // A switch ends the running turn, so it waits until the agent is done.
-        onSwitchAgent?.let { OutlinedButton(onClick = it, enabled = !state.canCancel) { Text("Switch agent") } }
-        // A fork taken mid-turn would copy half-written files.
-        onFork?.let { OutlinedButton(onClick = it, enabled = !state.canCancel) { Text("Fork") } }
+        // A switch or a move ends the running turn, and a fork taken mid-turn would copy half-written files.
+        turnActions.forEach { (label, action) ->
+            OutlinedButton(onClick = action, enabled = !state.canCancel) { Text(label) }
+        }
         OutlinedButton(onClick = onDiff) { Text("Diff") }
         // Publishing while the agent writes would push half a change.
         onPublish?.let { OutlinedButton(onClick = it, enabled = !state.canCancel) { Text("Publish") } }
