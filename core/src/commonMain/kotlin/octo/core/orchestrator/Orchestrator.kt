@@ -109,10 +109,13 @@ class Orchestrator private constructor(
             }.distinctUntilChanged()
 
     override suspend fun createTask(request: NewTask): TaskId {
+        val parent = request.parentId?.let { view(it).task }
         val machine = machines[request.machine]
         val adapter = machine.adapter(request.agent)
         terms.requireAcknowledged(adapter)
-        val repo = machine.workspace.repoRoot(request.repo)
+        val elsewhere = parent?.takeIf { it.machine != request.machine }
+        val repo = machine.workspace.repoRoot(elsewhere?.let { move.repo(it, request.machine) } ?: request.repo)
+        val mode = request.permissionMode ?: defaultPermissionMode
         val id = uniqueId()
         val slug = slug(request.title, id)
         val worktree = machine.worktree(repo, slug)
@@ -129,7 +132,8 @@ class Orchestrator private constructor(
                 request.agent,
                 request.options,
                 machine = request.machine,
-                permissionMode = request.permissionMode ?: defaultPermissionMode,
+                permissionMode = parent?.let { mode.atMost(it.permissionMode) } ?: mode,
+                parentId = parent?.id,
                 group = request.group,
             )
         mutableState.update { it.copy(tasks = it.tasks + TaskView(task, AgentStatus.Starting)) }
