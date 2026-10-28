@@ -3,19 +3,12 @@ package octo.core.orchestrator
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.NonCancellable
-import kotlinx.coroutines.SupervisorJob
-import kotlinx.coroutines.cancelAndJoin
-import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.collectLatest
-import kotlinx.coroutines.flow.combine
-import kotlinx.coroutines.flow.conflate
 import kotlinx.coroutines.flow.distinctUntilChanged
-import kotlinx.coroutines.flow.drop
-import kotlinx.coroutines.flow.flow
 import kotlinx.coroutines.flow.flowOf
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.update
@@ -25,7 +18,6 @@ import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
 import kotlinx.coroutines.withContext
 import kotlinx.coroutines.withTimeoutOrNull
-import kotlinx.io.IOException
 import kotlinx.io.files.Path
 import octo.core.agent.AdapterRegistry
 import octo.core.agent.AgentEvent
@@ -44,16 +36,15 @@ import octo.core.git.TaskDiff
 import octo.core.git.Workspace
 import octo.core.handoff.Handoff
 import octo.core.messaging.McpProvider
-import octo.core.persist.PersistedState
 import octo.core.persist.StateStore
 import octo.core.process.ProcessMonitor
 import octo.core.process.ProcessUsage
+import octo.core.process.usage
 import octo.core.status.AgentState
 import octo.core.status.AgentStatus
 import octo.core.task.Layout
 import octo.core.task.NewTask
 import octo.core.task.OctoState
-import octo.core.task.QueuedPrompt
 import octo.core.task.Task
 import octo.core.task.TaskId
 import octo.core.task.TaskPlace
@@ -75,7 +66,7 @@ import kotlin.time.Clock
 )
 class Orchestrator private constructor(
     private val machines: Machines,
-    private val store: StateStore,
+    store: StateStore,
     private val terms: TermsGate,
     private val scope: CoroutineScope,
     private val newId: () -> String,
@@ -86,12 +77,13 @@ class Orchestrator private constructor(
     private val clock: Clock,
     recordCheckpoints: Boolean,
     agentLimits: Map<String?, Int>,
+    relay: String,
 ) : OctoCore {
     private val mutableState = MutableStateFlow(OctoState())
     private val transcripts = MutableStateFlow<Map<TaskId, List<TranscriptEntry>>>(emptyMap())
     private val runtimes = MutableStateFlow<Map<TaskId, Runtime>>(emptyMap())
     private val locks = MutableStateFlow<Map<TaskId, Mutex>>(emptyMap())
-    private var saver: Job? = null
+    private val saver = StateSaver(store, ::warn)
     private val starts =
         StartQueue(agentLimits, scope, mutableState, ::withTask, { running(it) != null }) {
             launchAgent(it.id, it.resume, it.forkFrom)
@@ -99,24 +91,10 @@ class Orchestrator private constructor(
     private val setup = WorktreeSetup(worktreeSetup, transcripts) { machines[it.machine].workspace }
     private val checkpoints =
         Checkpoints(recordCheckpoints, mutableState, transcripts) { machines[it.machine].workspace }
+    private val move = TaskMove(machines, relay)
+    private val queues = PromptQueues(mutableState, MAX_QUEUED)
 
     override val state: StateFlow<OctoState> = mutableState.asStateFlow()
-
-    /**
-     * One running agent; [scope] is the task's own supervisor, ended when the agent stops. [run]
-     * tells checkpoints of this session apart from those of an earlier one.
-     */
-    private class Runtime(
-        val session: AgentSession,
-        val agent: MutableStateFlow<AgentState>,
-        val capabilities: Set<Capability>,
-        parent: CoroutineScope,
-        val run: String = randomId(),
-    ) {
-        val supervisor = SupervisorJob(parent.coroutineContext[Job])
-        val scope = CoroutineScope(parent.coroutineContext + supervisor)
-        lateinit var job: Job
-    }
 
     override fun transcript(taskId: TaskId): Flow<List<TranscriptEntry>> =
         transcripts
@@ -126,7 +104,7 @@ class Orchestrator private constructor(
 
     override suspend fun createTask(request: NewTask): TaskId {
         val machine = machines[request.machine]
-        val adapter = machine.registry[request.agent] ?: throw UnknownAgentException(request.agent)
+        val adapter = machine.adapter(request.agent)
         terms.requireAcknowledged(adapter)
         val repo = machine.workspace.repoRoot(request.repo)
         val id = uniqueId()
@@ -164,7 +142,7 @@ class Orchestrator private constructor(
     override suspend fun forkTask(taskId: TaskId): TaskId {
         val parent = view(taskId).task
         val machine = machines[parent.machine]
-        val adapter = machine.registry[parent.agent] ?: throw UnknownAgentException(parent.agent)
+        val adapter = machine.adapter(parent.agent)
         terms.requireAcknowledged(adapter)
         val id = uniqueId()
         val title = "${parent.title} (fork)"
@@ -230,10 +208,10 @@ class Orchestrator private constructor(
         id: TaskId,
         text: String,
     ) {
-        if (view(id).status == AgentStatus.Queued) return enqueue(id, text)
+        if (view(id).status == AgentStatus.Queued) return queues.add(id, text)
         val runtime = running(id) ?: throw TaskNotRunningException(id)
         when (view(id).status) {
-            AgentStatus.Working, AgentStatus.Blocked -> if (!steer(id, runtime, text)) enqueue(id, text)
+            AgentStatus.Working, AgentStatus.Blocked -> if (!steer(id, runtime, text)) queues.add(id, text)
             else -> prompt(id, runtime, text)
         }
     }
@@ -292,33 +270,20 @@ class Orchestrator private constructor(
         return steered
     }
 
-    private fun enqueue(
-        id: TaskId,
-        text: String,
-    ) {
-        val queue = view(id).task.queue
-        check(queue.size < MAX_QUEUED) { "Task '${id.value}' already has $MAX_QUEUED messages waiting" }
-        val next = QueuedPrompt((queue.maxOfOrNull { it.id } ?: 0) + 1, text)
-        updateQueue(id) { it + next }
-    }
-
     override suspend fun editQueued(
         taskId: TaskId,
         queuedId: Int,
         text: String,
     ) {
         require(text.isNotBlank()) { "The message is empty" }
-        withTask(taskId) {
-            check(view(taskId).task.queue.any { it.id == queuedId }) { "That message was already sent" }
-            updateQueue(taskId) { queue -> queue.map { if (it.id == queuedId) it.copy(text = text) else it } }
-        }
+        withTask(taskId) { queues.edit(taskId, queuedId, text) }
     }
 
     override suspend fun removeQueued(
         taskId: TaskId,
         queuedId: Int,
     ) {
-        withTask(taskId) { updateQueue(taskId) { queue -> queue.filterNot { it.id == queuedId } } }
+        withTask(taskId) { queues.remove(taskId, queuedId) }
     }
 
     private fun deliverQueued(
@@ -343,22 +308,17 @@ class Orchestrator private constructor(
                 ?.task
                 ?.queue
                 ?.firstOrNull() ?: return
-        updateQueue(id) { queue -> queue.filterNot { it.id == head.id } }
+        queues.remove(id, head.id)
         try {
             prompt(id, runtime, head.text)
         } catch (e: CancellationException) {
             throw e
         } catch (e: Exception) {
             // Kept, so the user can send it again or remove it.
-            updateQueue(id) { listOf(head) + it }
+            queues.putBack(id, head)
             note(id, TranscriptEntry.Notice("A queued message was not sent: ${e.message}", error = true))
         }
     }
-
-    private fun updateQueue(
-        id: TaskId,
-        change: (List<QueuedPrompt>) -> List<QueuedPrompt>,
-    ) = updateView(id) { it.copy(task = it.task.copy(queue = change(it.task.queue))) }
 
     override suspend fun respond(
         taskId: TaskId,
@@ -375,8 +335,7 @@ class Orchestrator private constructor(
     ) {
         withTask(taskId) {
             val task = view(taskId).task
-            val registry = machines[task.machine].registry
-            val target = registry[agent] ?: throw UnknownAgentException(agent)
+            val target = machines[task.machine].adapter(agent)
             terms.requireAcknowledged(target)
             // Another agent's model name means nothing to this one, so the old choice never carries over.
             val options = task.options - MODEL_OPTION + listOfNotNull(model?.let { MODEL_OPTION to it })
@@ -390,14 +349,55 @@ class Orchestrator private constructor(
                 return@withTask
             }
             stopLocked(taskId, keepSlot = true)
-            val from = task.handoffFrom ?: registry[task.agent]?.displayName ?: task.agent.value
-            updateView(taskId) {
-                it.copy(task = it.task.copy(agent = agent, options = options, sessionRef = null, handoffFrom = from))
+            handOver(taskId, "Switched to ${target.displayName}${model?.let { " ($it)" }.orEmpty()}") {
+                it.copy(agent = agent, options = options)
             }
-            val name = target.displayName + model?.let { " ($it)" }.orEmpty()
-            note(taskId, TranscriptEntry.Notice("Switched to $name; the next prompt carries the conversation over"))
             startAgent(taskId, resume = false)
         }
+    }
+
+    override fun moveTargets(taskId: TaskId): List<String?> = move.targets(view(taskId).task)
+
+    // Whatever stops the move, the task stays where it was and its agent comes back.
+    @Suppress("TooGenericExceptionCaught")
+    override suspend fun moveTask(
+        taskId: TaskId,
+        machine: String?,
+    ) {
+        withTask(taskId) {
+            val task = view(taskId).task
+            val repo = move.repo(task, machine)
+            terms.requireAcknowledged(machines[machine].adapter(task.agent))
+            val wasRunning = running(taskId) != null
+            stopLocked(taskId)
+            val moved =
+                try {
+                    move.move(task, machine, repo)
+                } catch (e: Exception) {
+                    if (e is CancellationException) throw e
+                    note(taskId, TranscriptEntry.Notice("Not moved to ${where(machine)}: ${e.message}", error = true))
+                    if (wasRunning) startAgent(taskId, resume = true)
+                    throw e
+                }
+            checkpoints.forget(task)
+            handOver(taskId, "Moved to ${where(machine)}") {
+                it.copy(machine = machine, repo = moved.repo, worktree = moved.worktree, checkpoints = emptyList())
+            }
+            moved.leftBehind?.let { note(taskId, TranscriptEntry.Notice(it, error = true)) }
+            if (setUp(taskId)) startAgent(taskId, resume = false)
+        }
+    }
+
+    /** Starts the next session afresh after [change]: its first prompt carries the conversation over. */
+    private fun handOver(
+        id: TaskId,
+        what: String,
+        change: (Task) -> Task,
+    ) {
+        val task = view(id).task
+        val from = task.handoffFrom ?: machines[task.machine].registry[task.agent]?.displayName ?: task.agent.value
+        updateView(id) { it.copy(task = change(it.task).copy(sessionRef = null, handoffFrom = from)) }
+        note(id, TranscriptEntry.Notice("$what; the next prompt carries the conversation over"))
     }
 
     // Whatever the reason an agent refuses, the model still arrives through a fresh session.
@@ -519,25 +519,16 @@ class Orchestrator private constructor(
     }
 
     override val processUsage: Flow<Map<TaskId, ProcessUsage>> =
-        processes?.let { monitor ->
-            flow {
-                while (true) {
-                    // A remote task's local process is the ssh client, whose figures would mislead.
-                    val local =
-                        mutableState.value.tasks
-                            .filter { it.task.machine == null }
-                            .map { it.task.id }
-                            .toSet()
-                    val roots =
-                        runtimes.value
-                            .filterKeys { it in local }
-                            .mapNotNull { (id, runtime) -> runtime.session.processId?.let { id to it } }
-                            .toMap()
-                    val sampled = monitor.sample(roots.values.toSet())
-                    emit(roots.mapNotNull { (id, pid) -> sampled[pid]?.let { id to it } }.toMap())
-                    delay(PROCESS_SAMPLE_MS)
-                }
-            }
+        processes?.usage(PROCESS_SAMPLE_MS) {
+            // A remote task's local process is the ssh client, whose figures would mislead.
+            val local =
+                mutableState.value.tasks
+                    .filter { it.task.machine == null }
+                    .map { it.task.id }
+            runtimes.value
+                .filterKeys { it in local }
+                .mapNotNull { (id, runtime) -> runtime.session.processId?.let { id to it } }
+                .toMap()
         } ?: flowOf(emptyMap())
 
     /** Stops every agent and writes the state; owned by the app, not the UI, so it is not on [OctoCore]. */
@@ -545,8 +536,7 @@ class Orchestrator private constructor(
         // Emptied first, so stopping one agent does not start a waiting one on the way out.
         starts.close().forEach { id -> updateView(id) { it.copy(status = AgentStatus.Stopped) } }
         mutableState.value.tasks.forEach { stop(it.task.id) }
-        saver?.cancelAndJoin()
-        save(persistedState(mutableState.value, transcripts.value))
+        saver.close(mutableState.value, transcripts.value)
     }
 
     /** Starts the agent, or queues the task when its machine has no free slot. */
@@ -576,7 +566,7 @@ class Orchestrator private constructor(
         forkFrom: AgentSessionRef?,
     ) {
         val task = view(id).task
-        val adapter = machines[task.machine].registry[task.agent] ?: throw UnknownAgentException(task.agent)
+        val adapter = machines[task.machine].adapter(task.agent)
         terms.requireAcknowledged(adapter)
         val ref = forkFrom ?: task.sessionRef.takeIf { resume && Capability.Resume in adapter.capabilities }
         if (resume && task.sessionRef != null && ref == null) {
@@ -652,11 +642,8 @@ class Orchestrator private constructor(
             runtime.supervisor.cancel()
         }
         // The stream may end without an exit event; a stop the user asked for still reads as stopped.
-        if (view(id).status !=
-            AgentStatus.Failed
-        ) {
-            updateView(id) { it.copy(status = AgentStatus.Stopped, pending = emptyList()) }
-        }
+        val failed = view(id).status == AgentStatus.Failed
+        if (!failed) updateView(id) { it.copy(status = AgentStatus.Stopped, pending = emptyList()) }
         // Freed once the process is gone, so the next agent never runs beside it over the limit.
         if (!keepSlot) starts.free(id)
     }
@@ -721,7 +708,7 @@ class Orchestrator private constructor(
     }
 
     private suspend fun begin() {
-        val loaded = store.load()
+        val loaded = saver.load()
         val tasks = loaded.state.tasks
         // Cold start: nothing is running yet; a restart resumes through the stored session ref.
         mutableState.value =
@@ -731,26 +718,8 @@ class Orchestrator private constructor(
                 warnings = loaded.warnings,
             )
         transcripts.value = tasks.associate { it.task.id to it.transcript }
-        // Partial text is not persisted, so streaming alone never triggers a write; drop(1) keeps
-        // the backups from rotating on every launch.
-        saver =
-            scope.launch {
-                combine(mutableState, transcripts, ::persistedState)
-                    .distinctUntilChanged()
-                    .drop(1)
-                    .conflate()
-                    .collect { save(it) }
-            }
+        saver.watch(scope, mutableState, transcripts)
         scope.launch { mutableState.wakeSnoozed(clock) }
-    }
-
-    private suspend fun save(state: PersistedState) {
-        try {
-            store.save(state)
-        } catch (e: IOException) {
-            // Fail open: the session keeps running; the UI shows why nothing is being saved.
-            warn("Could not save state: ${e.message}")
-        }
     }
 
     companion object {
@@ -780,6 +749,8 @@ class Orchestrator private constructor(
             checkpoints: Boolean = false,
             /** Live agents allowed per machine (null for this computer); a machine left out has no limit. */
             agentLimits: Map<String?, Int> = emptyMap(),
+            /** A bare repository that carries a moving task between two remote machines. */
+            relay: Path = Path(worktrees.parent ?: worktrees, "relay.git"),
         ): Orchestrator =
             Orchestrator(
                 Machines(LocalMachine(registry, workspace, worktrees), machines),
@@ -794,6 +765,7 @@ class Orchestrator private constructor(
                 clock,
                 checkpoints,
                 agentLimits,
+                relay.toString(),
             ).also {
                 it.begin()
             }

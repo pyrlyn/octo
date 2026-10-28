@@ -27,6 +27,7 @@ enum class Command(
     Publish("Publish", onTask = true),
     SwitchAgent("Switch agent", onTask = true),
     Fork("Fork", onTask = true),
+    Move("Move to another machine", onTask = true),
     Stop("Stop agent", onTask = true),
     Agents("Open agents"),
     Usage("Open usage"),

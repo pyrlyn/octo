@@ -219,6 +219,15 @@ class SshProcessLauncherTest {
         }
 
     @Test
+    fun gitReachesAClonePathWithTheSameSshAndThePortInTheUrl() =
+        runBlocking {
+            assertFailsWith<IllegalArgumentException> { ssh.at("srv/app") }
+            val remote = ssh.at("/srv/app")
+            assertEquals("ssh://me@box:2222/srv/app", remote.url)
+            assertEquals("'${File(bin, "ssh").path}' '-o' 'BatchMode=yes'", remote.sshCommand)
+        }
+
+    @Test
     fun controlPathsSshWouldMisreadAreRejected() {
         assertTrue(SshProcessLauncher.isValidControlPath("/run/user/1000/octo/box-1"))
         assertTrue(SshProcessLauncher.isValidControlPath("/" + "a".repeat(85)))

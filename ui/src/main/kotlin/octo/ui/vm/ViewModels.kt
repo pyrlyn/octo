@@ -39,6 +39,8 @@ class ViewModels(
     private val usage: UsageReport? = null,
     /** False while the `checkpoints` flag is off, which hides reverting a task. */
     private val checkpoints: Boolean = false,
+    /** False while the `move-task` flag is off, which hides moving a task to another machine. */
+    private val moveTask: Boolean = false,
 ) {
     val main = MainViewModel(core, scope, startupWarnings, sections, limits = usage != null)
 
@@ -52,6 +54,8 @@ class ViewModels(
 
     val canFork: Boolean get() = fork
 
+    val canMove: Boolean get() = moveTask
+
     fun task(id: TaskId) = TaskViewModel(core, id, scope, limits = usage != null, checkpoints = checkpoints)
 
     fun pluginActions(id: TaskId): PluginActionsViewModel? =
@@ -62,6 +66,8 @@ class ViewModels(
 
     fun switchAgent(id: TaskId): SwitchAgentViewModel? =
         if (handoff) SwitchAgentViewModel(core, catalog, id, scope) else null
+
+    fun moveTask(id: TaskId): MoveTaskViewModel? = if (moveTask) MoveTaskViewModel(core, id, scope) else null
 
     fun diff(id: TaskId) = DiffViewModel(core, id, scope)
 
@@ -74,6 +80,7 @@ class ViewModels(
                     Command.Publish -> canPublish
                     Command.SwitchAgent -> canSwitchAgent
                     Command.Fork -> canFork
+                    Command.Move -> canMove
                     Command.Devices -> canPair
                     Command.Usage -> canShowUsage
                     else -> true

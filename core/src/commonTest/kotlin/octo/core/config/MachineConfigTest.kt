@@ -49,6 +49,20 @@ class MachineConfigTest {
         assertNotNull(MachineConfig("box", "box 2").problem())
         assertNotNull(MachineConfig("box", "box", port = 70_000).problem())
         assertNotNull(MachineConfig("box", "box", worktrees = "octo").problem())
+        assertNull(MachineConfig("box", "box", repos = mapOf("/src/app" to "/srv/app")).problem())
+        assertNotNull(MachineConfig("box", "box", repos = mapOf("/src/app" to "srv/app")).problem())
+        assertNotNull(MachineConfig("box", "box", repos = mapOf(" " to "/srv/app")).problem())
+    }
+
+    @Test
+    fun clonesLoadFromAMachineEntry() {
+        val parsed = OctoConfig.parse("""{"machines":[{"id":"box","host":"box","repos":{"/src/app":"/srv/app"}}]}""")
+        assertEquals(
+            mapOf("/src/app" to "/srv/app"),
+            parsed.config.machines
+                .single()
+                .repos,
+        )
     }
 
     @Test

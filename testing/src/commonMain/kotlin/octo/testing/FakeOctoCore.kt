@@ -43,6 +43,12 @@ class FakeOctoCore : OctoCore {
     val failingModels = mutableSetOf<String>()
     var diffResult = TaskDiff("main", "abc", emptyList())
     var branches = listOf("main", "dev", "origin/main")
+
+    /** Where a task can move, for every task. */
+    var moveTargets = listOf<String?>("box")
+
+    /** Why a move fails, or null for one that succeeds. */
+    var moveFailure: String? = null
     val usage = MutableStateFlow<Map<TaskId, ProcessUsage>>(emptyMap())
     private var next = 0
 
@@ -168,6 +174,17 @@ class FakeOctoCore : OctoCore {
     override suspend fun restart(taskId: TaskId) {
         calls += "restart"
         notRunning -= taskId
+    }
+
+    override fun moveTargets(taskId: TaskId) = moveTargets
+
+    override suspend fun moveTask(
+        taskId: TaskId,
+        machine: String?,
+    ) {
+        moveFailure?.let { error(it) }
+        calls += "move ${machine ?: "here"}"
+        state.value[taskId]?.let { put(it.copy(task = it.task.copy(machine = machine))) }
     }
 
     override suspend fun startNow(taskId: TaskId) {

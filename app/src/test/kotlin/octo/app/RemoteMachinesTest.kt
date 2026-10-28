@@ -75,6 +75,28 @@ class RemoteMachinesTest {
         assertEquals(emptyList(), remote.warnings)
     }
 
+    @Test
+    fun clonesAreKnownOnlyWithTheMoveFlag() {
+        val clones = box.copy(repos = mapOf("/src/app/" to "/srv/app"))
+        val moving = FeatureFlags(mapOf(CoreFlags.REMOTE_SSH.id to true, CoreFlags.MOVE_TASK.id to true))
+
+        assertEquals(
+            "/srv/app",
+            remoteMachines(
+                listOf(clones),
+                JvmProcessLauncher(emptyMap()),
+                moving,
+            ).machines.getValue("box").repo("/src/app"),
+        )
+        assertNull(
+            remoteMachines(
+                listOf(clones),
+                JvmProcessLauncher(emptyMap()),
+                flags,
+            ).machines.getValue("box").repo("/src/app"),
+        )
+    }
+
     private companion object {
         const val LONG_NAME = 90
     }

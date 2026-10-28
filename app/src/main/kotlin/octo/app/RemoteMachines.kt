@@ -3,6 +3,7 @@ package octo.app
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.io.files.Path
 import octo.core.config.MachineConfig
+import octo.core.flags.CoreFlags
 import octo.core.flags.FeatureFlags
 import octo.core.git.Git
 import octo.core.git.GitWorkspace
@@ -61,7 +62,10 @@ fun remoteMachines(
         val ssh = SshProcessLauncher(launcher, config.host, config.port, sharing = sharing)
         launchers += ssh
         val workspace = GitWorkspace(Git(ssh), ShellDirectories(ssh))
-        machines[config.id] = RemoteMachine(remoteAdapterRegistry(ssh, flags), workspace, ssh, config.worktrees)
+        // Without the clones a task has nowhere to move, so the flag needs no other check.
+        val repos = if (flags.isEnabled(CoreFlags.MOVE_TASK)) config.repos else emptyMap()
+        machines[config.id] =
+            RemoteMachine(remoteAdapterRegistry(ssh, flags), workspace, ssh, config.worktrees, repos, remotes = ssh)
     }
     return RemoteMachines(machines, warnings, launchers)
 }

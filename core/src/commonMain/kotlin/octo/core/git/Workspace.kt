@@ -13,12 +13,16 @@ interface Workspace {
     /** Local branches, then remote-tracking ones, by short name. */
     suspend fun branches(repo: String): List<String>
 
-    /** A new worktree at [path] on a new [branch] cut from [baseRef]. */
+    /**
+     * A new worktree at [path] on a new [branch] cut from [baseRef]. With [takeOver], a [branch]
+     * that is there already is moved to [baseRef] instead of failing.
+     */
     suspend fun createWorktree(
         repo: String,
         path: String,
         branch: String,
         baseRef: String,
+        takeOver: Boolean = false,
     )
 
     /**
@@ -76,10 +80,46 @@ interface Workspace {
     }
 }
 
+/** Copies refs between clones on different machines, for a task that moves between them. */
+interface RefTransfer {
+    /** Sends [refs] from [repo] to the same refs in the clone at [remote], replacing them. */
+    suspend fun pushRefs(
+        repo: String,
+        remote: GitRemote,
+        refs: List<String>,
+    )
+
+    /** Fetches [refs] from the clone at [remote] into the same refs in [repo], replacing them. */
+    suspend fun fetchRefs(
+        repo: String,
+        remote: GitRemote,
+        refs: List<String>,
+    )
+
+    /** A bare repository at [path]; one that is there already is kept. */
+    suspend fun initBare(path: String)
+}
+
+/**
+ * Another machine's clone as git reaches it: an ssh [url], with [sshCommand] as `GIT_SSH_COMMAND`
+ * so git uses the same ssh client, options and shared connection as the rest of Octo.
+ */
+data class GitRemote(
+    val url: String,
+    val sshCommand: String,
+)
+
+/** Where git reaches the clones on one machine. */
+fun interface GitRemotes {
+    /** The clone at [path], an absolute path on that machine. */
+    suspend fun at(path: String): GitRemote
+}
+
 class GitWorkspace(
     private val git: Git,
     private val dirs: Directories = LocalDirectories(),
-) : Workspace {
+) : Workspace,
+    RefTransfer {
     override suspend fun repoRoot(dir: String): String = git.run(dir, listOf("rev-parse", "--show-toplevel")).trim()
 
     // Refs come sorted by full name, so refs/heads lands before refs/remotes.
@@ -96,10 +136,39 @@ class GitWorkspace(
         path: String,
         branch: String,
         baseRef: String,
+        takeOver: Boolean,
     ) {
         Path(path).parent?.let { dirs.create(it.toString()) }
-        git.run(repo, listOf("worktree", "add", "-b", branch, path, baseRef))
+        git.run(repo, listOf("worktree", "add", if (takeOver) "-B" else "-b", branch, path, baseRef))
     }
+
+    override suspend fun pushRefs(
+        repo: String,
+        remote: GitRemote,
+        refs: List<String>,
+    ) {
+        git.run(
+            repo,
+            listOf("push", "--no-verify", "--quiet", remote.url) + refs.map { "+$it:$it" },
+            env = remote.env(),
+        )
+    }
+
+    override suspend fun fetchRefs(
+        repo: String,
+        remote: GitRemote,
+        refs: List<String>,
+    ) {
+        git.run(repo, listOf("fetch", "--no-tags", "--quiet", remote.url) + refs.map { "+$it:$it" }, env = remote.env())
+    }
+
+    override suspend fun initBare(path: String) {
+        dirs.create(path)
+        // Running it again on an existing repository only reinitialises it, which keeps its objects.
+        git.run(path, listOf("init", "--bare", "--quiet"))
+    }
+
+    private fun GitRemote.env() = mapOf("GIT_SSH_COMMAND" to sshCommand)
 
     // The snapshot goes through a separate index, so the source's own index and files stay as they
     // are while the agent there keeps working.

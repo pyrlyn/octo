@@ -20,6 +20,8 @@ import octo.core.agent.RequestResponse
 import octo.core.agent.SessionSpec
 import octo.core.agent.VendorTerms
 import octo.core.flags.FeatureFlags
+import octo.core.git.GitRemote
+import octo.core.git.RefTransfer
 import octo.core.git.TaskDiff
 import octo.core.git.Workspace
 import octo.core.io.AtomicFile
@@ -123,7 +125,9 @@ internal class FakeAdapter(
     }
 }
 
-internal class FakeWorkspace : Workspace {
+internal class FakeWorkspace :
+    Workspace,
+    RefTransfer {
     val worktrees = mutableMapOf<String, String>()
     val removed = mutableListOf<String>()
 
@@ -149,9 +153,14 @@ internal class FakeWorkspace : Workspace {
         path: String,
         branch: String,
         baseRef: String,
+        takeOver: Boolean,
     ) {
         worktrees[path] = branch
+        bases[path] = baseRef
     }
+
+    /** Each worktree's start point. */
+    val bases = mutableMapOf<String, String>()
 
     override suspend fun forkWorktree(
         repo: String,
@@ -213,6 +222,33 @@ internal class FakeWorkspace : Workspace {
         ref: String,
     ) {
         refs.keys.removeAll { it == ref || it.startsWith("$ref/") }
+    }
+
+    /** The other machines' workspaces, by the URL git reaches them at. */
+    val peers = mutableMapOf<String, FakeWorkspace>()
+    val bares = mutableListOf<String>()
+    var failTransfer = false
+
+    override suspend fun pushRefs(
+        repo: String,
+        remote: GitRemote,
+        refs: List<String>,
+    ) {
+        check(!failTransfer) { "Connection refused" }
+        refs.forEach { peers.getValue(remote.url).refs[it] = this.refs.getValue(it) }
+    }
+
+    override suspend fun fetchRefs(
+        repo: String,
+        remote: GitRemote,
+        refs: List<String>,
+    ) {
+        check(!failTransfer) { "Connection refused" }
+        refs.forEach { this.refs[it] = peers.getValue(remote.url).refs.getValue(it) }
+    }
+
+    override suspend fun initBare(path: String) {
+        bares += path
     }
 }
 
