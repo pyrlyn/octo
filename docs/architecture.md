@@ -144,6 +144,11 @@ from it, so nothing is counted twice; every other agent is counted from `UsageLo
 (`usage.json`), which records the growth of each task's `SessionStats` when a turn ends. A history
 that cannot be read becomes a warning on the screen.
 
+The task screen's context popup (`ContextSummary`) reads the task's `SessionStats`:
+`contextUsed` and `contextWindow`, and `contextParts`, the latest request's split that adds up to
+`contextUsed`. Claude counts input, cache read and cache write; Codex counts cached input, the
+rest of the input and output. An ACP agent reports only the total.
+
 **`app`** holds `main()`, the adapter list, platform paths and the Compose Desktop packaging.
 
 **`cli`** is the `octo` command (Clikt). It talks to a running Octo only through the

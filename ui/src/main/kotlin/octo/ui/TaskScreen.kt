@@ -93,6 +93,7 @@ internal fun TaskScreen(
                 style = MaterialTheme.typography.bodySmall,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
             )
+            state.context?.let { ContextMenu(it) }
             PermissionMenu(task.permissionMode, vm::setPermissionMode)
         }
         state.failure?.let { Text(it, color = MaterialTheme.colorScheme.error) }

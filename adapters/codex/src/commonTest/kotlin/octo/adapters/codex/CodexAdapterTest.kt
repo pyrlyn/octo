@@ -7,6 +7,7 @@ import octo.core.agent.AgentEvent
 import octo.core.agent.AgentSessionRef
 import octo.core.agent.AuthState
 import octo.core.agent.Capability
+import octo.core.agent.ContextParts
 import octo.core.agent.LogStream
 import octo.core.agent.PermissionKind
 import octo.core.agent.PermissionMode
@@ -109,6 +110,7 @@ class CodexAdapterTest {
                         inputTokens = 500,
                         outputTokens = 90,
                         cacheReadTokens = 400,
+                        contextParts = ContextParts(input = 120, output = 30),
                     ),
                 ),
                 events.filterIsInstance<AgentEvent.StatsUpdated>().map { it.stats },

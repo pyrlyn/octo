@@ -6,6 +6,7 @@ import kotlinx.coroutines.test.runTest
 import octo.core.agent.AgentEvent
 import octo.core.agent.AgentSessionRef
 import octo.core.agent.AuthState
+import octo.core.agent.ContextParts
 import octo.core.agent.LogStream
 import octo.core.agent.McpServer
 import octo.core.agent.PermissionKind
@@ -168,7 +169,10 @@ class ClaudeAdapterTest {
             assertEquals(
                 listOf(
                     SessionStats(model = "claude-opus-5-5"),
-                    SessionStats(contextUsed = 1208),
+                    SessionStats(
+                        contextUsed = 1208,
+                        contextParts = ContextParts(cacheRead = 1000, cacheWrite = 200, input = 8),
+                    ),
                     SessionStats(
                         contextWindow = 200_000,
                         inputTokens = 120,

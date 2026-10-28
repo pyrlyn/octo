@@ -25,6 +25,7 @@ import octo.adapters.base.plusTokens
 import octo.adapters.base.string
 import octo.core.agent.AgentEvent
 import octo.core.agent.AgentSessionRef
+import octo.core.agent.ContextParts
 import octo.core.agent.LogStream
 import octo.core.agent.PermissionKind
 import octo.core.agent.PermissionMode
@@ -236,10 +237,17 @@ internal class ClaudeSession(
     }
 
     // Every request resends the whole context, so the latest prompt size is what the window holds.
+    // Its output only joins the context on the next request.
     private fun contextUsed(usage: JsonObject?) {
-        val parts = listOf("input_tokens", "cache_read_input_tokens", "cache_creation_input_tokens")
-        val used = parts.mapNotNull { usage?.long(it) }.takeIf { it.isNotEmpty() }?.sum() ?: return
-        emit(AgentEvent.StatsUpdated(SessionStats(contextUsed = used)))
+        val parts =
+            ContextParts(
+                cacheRead = usage?.long("cache_read_input_tokens"),
+                cacheWrite = usage?.long("cache_creation_input_tokens"),
+                input = usage?.long("input_tokens"),
+            )
+        val used =
+            listOfNotNull(parts.cacheRead, parts.cacheWrite, parts.input).takeIf { it.isNotEmpty() }?.sum() ?: return
+        emit(AgentEvent.StatsUpdated(SessionStats(contextUsed = used, contextParts = parts)))
     }
 
     private suspend fun toolUse(content: JsonObject) {

@@ -153,7 +153,9 @@ days or all time. Claude Code and Codex are counted from their own local session
 (`$CLAUDE_CONFIG_DIR` or `~/.claude`, `$CODEX_HOME` or `~/.codex`), so work outside Octo counts
 too; other agents are counted from what Octo saw in its own runs. Octo reads only token counts,
 never credentials. When an agent hits its usage limit the task says "Limited until HH:MM" and
-offers Resume, which sends "Continue"; Octo never resumes on its own.
+offers Resume, which sends "Continue"; Octo never resumes on its own. The task screen also gets a
+Context button: how full the agent's context window is, and how its latest request splits into
+cache read, cache write, input and output, as far as the agent reports it.
 
 `"checkpoints": true` records each task's worktree before its first prompt and after every turn,
 on hidden git refs under `refs/octo/`, without touching the index, the branch or the stash. A
