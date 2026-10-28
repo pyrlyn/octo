@@ -138,7 +138,7 @@ class Octo private constructor(
                     defaultPermissionMode = config.defaultPermissionMode,
                     worktreeSetup = config.worktreeSetup,
                     checkpoints = flags.isEnabled(CoreFlags.CHECKPOINTS),
-                    compactIdle = flags.isEnabled(CoreFlags.COMPACT_IDLE),
+                    compactIdle = flags.ifOn(CoreFlags.COMPACT_IDLE) { config.compactIdleMinTokens },
                     agentLimits = limits.limits,
                 )
             messaging?.attach(orchestrator)

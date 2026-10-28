@@ -394,7 +394,8 @@ agent and writes the state. `close()` belongs to `app`, so it is not on the inte
   `SessionStats.promptCacheTtlMs` as each request starts (Claude reads it from `message_start`'s
   `cache_creation`). `IdleCompaction` sets the task's time two minutes before that lifetime ends
   and wakes at the earliest one. Under the task's lock the orchestrator checks the task again
-  (idle, nothing queued or pending, active or pinned, 200K tokens or more in the context) and calls
+  (idle, nothing queued or pending, active or pinned, at least `compactIdleMinTokens` in the
+  context, 200K by default) and calls
   `AgentSession.compact()`, which Claude takes as `/compact`. A prompt or a stop cancels the time,
   and the compaction's own requests set none. The times live in memory only.
 - **Prompts while busy.** `sendPrompt` runs under the task's lock. An idle agent gets the prompt

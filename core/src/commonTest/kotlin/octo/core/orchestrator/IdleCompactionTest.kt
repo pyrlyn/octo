@@ -23,7 +23,7 @@ class IdleCompactionTest {
         NewTask(repo = "/src/app", baseRef = "main", agent = AgentId("fake"), title = "Fix", prompt = "Go")
 
     private suspend fun TestScope.started(
-        compactIdle: Boolean = true,
+        compactIdle: Long? = 200_000,
         capabilities: Set<Capability> = setOf(Capability.Compact),
     ): Pair<Setup, TaskId> {
         val s = setup(adapter = FakeAdapter(capabilities), compactIdle = compactIdle)
@@ -103,6 +103,15 @@ class IdleCompactionTest {
         }
 
     @Test
+    fun aLowerThresholdCompactsASmallerContext() =
+        runTest {
+            val (s, _) = started(compactIdle = 50_000)
+            endTurn(s, context = 100_000)
+            after(180_000)
+            assertEquals(1, s.session.compactions)
+        }
+
+    @Test
     fun aSnoozedTaskIsLeftAlone() =
         runTest {
             val (s, id) = started()
@@ -115,7 +124,7 @@ class IdleCompactionTest {
     @Test
     fun nothingHappensWithTheFlagOffOrAnAgentThatCannotCompact() =
         runTest {
-            val (off, _) = started(compactIdle = false)
+            val (off, _) = started(compactIdle = null)
             endTurn(off)
             val (unable, _) = started(capabilities = emptySet())
             endTurn(unable)

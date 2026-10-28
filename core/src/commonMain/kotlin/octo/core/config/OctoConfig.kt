@@ -27,6 +27,11 @@ data class OctoConfig(
     val triggers: List<TriggerConfig> = emptyList(),
     /** Live agents allowed on this computer; used only with the `queue` flag on. */
     val maxRunningAgents: Int? = null,
+    /**
+     * Tokens in the context from which an idle conversation is compacted before its prompt cache
+     * expires; used only with the `compact-idle` flag on. 0 compacts every idle conversation.
+     */
+    val compactIdleMinTokens: Long = DEFAULT_COMPACT_IDLE_MIN_TOKENS,
 ) {
     fun featureFlags(): FeatureFlags = FeatureFlags(flags)
 
@@ -46,6 +51,9 @@ data class OctoConfig(
     }
 
     companion object {
+        /** T3 Code's threshold: with a 200K window Claude compacts on its own before it gets there. */
+        const val DEFAULT_COMPACT_IDLE_MIN_TOKENS = 200_000L
+
         private val json = Json { ignoreUnknownKeys = true }
 
         /** A broken file must not stop Octo from starting, so it falls back to defaults and says why. */
