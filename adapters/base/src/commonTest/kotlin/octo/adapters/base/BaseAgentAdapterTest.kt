@@ -12,6 +12,7 @@ import octo.core.agent.AgentSessionRef
 import octo.core.agent.AuthState
 import octo.core.agent.Capability
 import octo.core.agent.LogStream
+import octo.core.agent.PromptImage
 import octo.core.agent.RequestResponse
 import octo.core.agent.Role
 import octo.core.agent.SessionSpec
@@ -58,7 +59,10 @@ class BaseAgentAdapterTest {
                     lines.collect { emit(AgentEvent.Message(Role.Assistant, it)) }
                 }
 
-                override suspend fun prompt(text: String) = process.writeLine(text)
+                override suspend fun prompt(
+                    text: String,
+                    images: List<PromptImage>,
+                ) = process.writeLine(text)
 
                 override suspend fun respond(
                     requestId: String,

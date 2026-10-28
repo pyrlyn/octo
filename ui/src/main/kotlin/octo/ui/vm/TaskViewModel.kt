@@ -14,6 +14,7 @@ import octo.core.orchestrator.OctoCore
 import octo.core.orchestrator.TaskNotRunningException
 import octo.core.orchestrator.WorktreeDirtyException
 import octo.core.status.AgentStatus
+import octo.core.task.NewAttachment
 import octo.core.task.PendingRequest
 import octo.core.task.QueuedPrompt
 import octo.core.task.SidebarStatus
@@ -40,12 +41,16 @@ data class TaskUiState(
     val transcript: List<TranscriptEntry> = emptyList(),
     val pending: List<PendingRequest> = emptyList(),
     val draft: String = "",
+    /** Files going out with the draft. */
+    val attachments: List<NewAttachment> = emptyList(),
     /** Prompts waiting for the agent, oldest first. */
     val queue: List<QueuedPrompt> = emptyList(),
     /** A queued prompt being rewritten; its text is the edit in progress. */
     val editing: QueuedPrompt? = null,
     /** Answers being filled in, by request id and then question id. */
     val answers: Map<String, Map<String, List<String>>> = emptyMap(),
+    /** Files going out with a free-text answer, by request id and then question id. */
+    val answerFiles: Map<String, Map<String, List<NewAttachment>>> = emptyMap(),
     val remove: RemoveStep? = null,
     val error: String? = null,
     /** The agent hit its usage limit; always null while the `usage` flag is off. */
@@ -62,7 +67,7 @@ data class TaskUiState(
     val sidebarStatus: SidebarStatus get() = task?.let { TaskView(it, status).sidebarStatus } ?: SidebarStatus.Stopped
 
     /** A busy or queued agent still takes text: the core steers the turn or queues it. */
-    val canSend: Boolean get() = status in LIVE && draft.isNotBlank()
+    val canSend: Boolean get() = status in LIVE && (draft.isNotBlank() || attachments.isNotEmpty())
 
     val busy: Boolean get() = status == AgentStatus.Working || status == AgentStatus.Blocked
     val canCancel: Boolean get() = status == AgentStatus.Working || status == AgentStatus.Blocked
@@ -110,14 +115,17 @@ class TaskViewModel(
 
     fun editDraft(text: String) = mutable.update { it.copy(draft = text) }
 
+    fun attach(files: List<NewAttachment>) = mutable.update { it.copy(attachments = it.attachments + files) }
+
+    fun detach(index: Int) =
+        mutable.update { it.copy(attachments = it.attachments.filterIndexed { i, _ -> i != index }) }
+
     fun send() {
-        val text =
-            state.value
-                .takeIf { it.canSend }
-                ?.draft
-                ?.trim() ?: return
-        mutable.update { it.copy(draft = "") }
-        act({ mutable.update { it.copy(draft = text) } }) { core.sendPrompt(taskId, text) }
+        val ready = state.value.takeIf { it.canSend } ?: return
+        val text = ready.draft.trim()
+        val files = ready.attachments
+        mutable.update { it.copy(draft = "", attachments = emptyList()) }
+        act({ mutable.update { it.copy(draft = text, attachments = files) } }) { core.sendPrompt(taskId, text, files) }
     }
 
     fun editQueued(prompt: QueuedPrompt) = mutable.update { it.copy(editing = prompt) }
@@ -163,14 +171,39 @@ class TaskViewModel(
         l.copy(answers = l.answers + (requestId to request + (questionId to next)))
     }
 
+    fun attachToAnswer(
+        requestId: String,
+        questionId: String,
+        files: List<NewAttachment>,
+    ) = changeAnswerFiles(requestId, questionId) { it + files }
+
+    fun detachFromAnswer(
+        requestId: String,
+        questionId: String,
+        index: Int,
+    ) = changeAnswerFiles(requestId, questionId) { files -> files.filterIndexed { i, _ -> i != index } }
+
+    private fun changeAnswerFiles(
+        requestId: String,
+        questionId: String,
+        change: (List<NewAttachment>) -> List<NewAttachment>,
+    ) = mutable.update { l ->
+        val request = l.answerFiles[requestId].orEmpty()
+        l.copy(
+            answerFiles =
+                l.answerFiles + (requestId to request + (questionId to change(request[questionId].orEmpty()))),
+        )
+    }
+
     fun submitAnswers(requestId: String) {
         val answers =
             state.value.answers[requestId]
                 .orEmpty()
                 .mapValues { (_, values) -> values.joinToString(RequestResponse.Answers.SEPARATOR) }
+        val files = state.value.answerFiles[requestId].orEmpty()
         act {
-            core.respond(taskId, requestId, RequestResponse.Answers(answers))
-            mutable.update { it.copy(answers = it.answers - requestId) }
+            core.respond(taskId, requestId, RequestResponse.Answers(answers), files)
+            mutable.update { it.copy(answers = it.answers - requestId, answerFiles = it.answerFiles - requestId) }
         }
     }
 
@@ -226,6 +259,9 @@ class TaskViewModel(
             core.removeTask(taskId, deleteWorktree = true, force = true)
             mutable.update { it.copy(remove = null) }
         }
+
+    /** Shows a problem found outside the core, such as a file that could not be read. */
+    fun showError(message: String) = mutable.update { it.copy(error = message) }
 
     fun dismissError() = mutable.update { it.copy(error = null) }
 

@@ -29,6 +29,7 @@ import octo.core.agent.Capability
 import octo.core.agent.PermissionKind
 import octo.core.agent.PermissionOption
 import octo.core.agent.PlanEntry
+import octo.core.agent.PromptImage
 import octo.core.agent.RequestResponse
 import octo.core.agent.Role
 import octo.core.agent.SessionSpec
@@ -84,7 +85,10 @@ private class DemoSession(
     }
 
     // Returns at once like a real adapter; the turn runs until the user answers.
-    override suspend fun prompt(text: String) {
+    override suspend fun prompt(
+        text: String,
+        images: List<PromptImage>,
+    ) {
         scope.launch { turn(text) }
     }
 

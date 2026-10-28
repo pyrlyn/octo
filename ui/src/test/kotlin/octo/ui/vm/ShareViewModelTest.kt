@@ -60,6 +60,7 @@ class ShareViewModelTest {
                     override suspend fun sendPrompt(
                         taskId: TaskId,
                         text: String,
+                        attachments: List<octo.core.task.NewAttachment>,
                     ): Unit = error("agent went away")
                 }
             val shares = Shares.open(AtomicFile(file), JvmSecrets, failing)

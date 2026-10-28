@@ -6,11 +6,13 @@ import kotlinx.coroutines.test.runTest
 import octo.core.agent.AgentEvent
 import octo.core.agent.AgentSessionRef
 import octo.core.agent.AuthState
+import octo.core.agent.Capability
 import octo.core.agent.LogStream
 import octo.core.agent.McpServer
 import octo.core.agent.PermissionKind
 import octo.core.agent.PermissionMode
 import octo.core.agent.PlanEntry
+import octo.core.agent.PromptImage
 import octo.core.agent.RequestResponse
 import octo.core.agent.Role
 import octo.core.agent.SessionSpec
@@ -179,6 +181,22 @@ class ClaudeAdapterTest {
                 ),
                 events.filterIsInstance<AgentEvent.StatsUpdated>().map { it.stats },
             )
+        }
+
+    @Test
+    fun picturesGoOutAsImageBlocks() =
+        runTest {
+            val (adapter, _) = fixture("image.transcript")
+            assertTrue(Capability.Images in adapter.capabilities)
+            val session = adapter.start(SessionSpec("/repo"))
+            val events = Events(backgroundScope, session)
+            val png = PromptImage("/home/a/shot.png", "image/png", byteArrayOf(1, 2, 3))
+            val bmp = PromptImage("/home/a/old.bmp", "image/bmp", byteArrayOf(4))
+            session.prompt("What is this?", listOf(png, bmp))
+            events.next<AgentEvent.TurnEnded>()
+            session.prompt("Only a bitmap", listOf(bmp))
+            val ends = events.drain().filterIsInstance<AgentEvent.TurnEnded>()
+            assertEquals(listOf(StopReason.EndTurn, StopReason.EndTurn), ends.map { it.stopReason })
         }
 
     @Test
