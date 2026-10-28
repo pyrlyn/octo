@@ -10,6 +10,8 @@
 | ci-diffuser | sibling checkout at `../ci-diffuser` (or `CI_DIFFUSER_DIR`), local included build | Shared ktlint, detekt and settings conventions | `apps/ci-diffuser` (no remote) |
 | kotlin-wasm | checkout at `../../packages/kotlin-wasm` (or `KOTLIN_WASM_DIR`), local included build | The `wasm` interface and its Chasm adapter, shared with rtok | https://github.com/pyrlyn/kotlin-wasm |
 | Rust (cargo, `wasm32-unknown-unknown` target) | rustup | Builds the demo plugin test fixtures (`core/src/commonTest/fixtures/plugins/build.sh`); not needed to build Octo | https://github.com/rust-lang/rust |
+| sqlite3 | system (optional) | Reads SQLite databases for the `previews` flag; without it they are not previewed | https://sqlite.org |
+| mermaid-cli (`mmdc`) | npm (optional) | Draws Mermaid diagrams for the `previews` flag; without it the source shows | https://github.com/mermaid-js/mermaid-cli |
 
 ## Gradle
 
@@ -18,7 +20,7 @@
 | org.jetbrains.kotlinx:kotlinx-coroutines-core 1.11.0 | local | https://github.com/Kotlin/kotlinx.coroutines | Concurrency, flows |
 | org.jetbrains.kotlinx:kotlinx-coroutines-swing 1.11.0 | local | https://github.com/Kotlin/kotlinx.coroutines | Main dispatcher for the desktop app |
 | org.jetbrains.kotlinx:kotlinx-coroutines-test 1.11.0 | local | https://github.com/Kotlin/kotlinx.coroutines | Tests |
-| org.jetbrains.kotlinx:kotlinx-serialization-json 1.12.0 | local | https://github.com/Kotlin/kotlinx.serialization | Agent protocols, config, state |
+| org.jetbrains.kotlinx:kotlinx-serialization-json 1.12.0 | local | https://github.com/Kotlin/kotlinx.serialization | Agent protocols, config, state, notebook previews |
 | org.jetbrains.kotlinx:kotlinx-io-core 0.9.1 | local | https://github.com/Kotlin/kotlinx-io | Files and paths in common code |
 | com.github.ajalt.clikt:clikt 5.1.0 | local | https://github.com/ajalt/clikt | Arguments, help and errors of the `octo` command |
 | dev.inmo:krontab 3.1.0 | local | https://github.com/InsanusMokrassar/krontab | Matching cron schedules of triggers (JVM only) |
