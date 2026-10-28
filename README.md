@@ -214,12 +214,18 @@ conversation over; checkpoints stay behind. A move that fails leaves the task wh
 }
 ```
 
-`"compact-idle": true` compacts a large idle Claude conversation (200K tokens or more in its
-context) two minutes before its prompt cache expires; each request tells Octo whether the cache
+`"compact-idle": true` compacts a large idle Claude conversation two minutes before its prompt
+cache expires; each request tells Octo whether the cache
 lasts five minutes or an hour. The summary reads the context while it is still cached,
 so the next prompt after a long pause does not pay to cache the whole conversation again. A
 prompt or a stop cancels it, a snoozed or settled task is left alone, and each turn is compacted
-at most once. The transcript says when it happens.
+at most once. The transcript says when it happens. `compactIdleMinTokens` sets how many tokens
+the context must hold, 200K when it is left out; with a 200K context window Claude compacts on its
+own before it gets there, so lower it for such models. 0 compacts every idle conversation.
+
+```json
+{ "flags": { "compact-idle": true }, "compactIdleMinTokens": 120000 }
+```
 
 `"plugins": true` loads WebAssembly plugins from the `plugins` folder in the Octo home. A plugin
 can add ACP agents and actions in a task's Plugins menu. A plugin cannot reach files, processes or

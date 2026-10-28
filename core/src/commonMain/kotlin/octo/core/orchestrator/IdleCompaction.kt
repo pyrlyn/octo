@@ -19,6 +19,8 @@ import kotlin.time.Clock
  */
 internal class IdleCompaction(
     private val clock: Clock,
+    // Smaller contexts are cheap to cache again, and a summary loses detail.
+    private val minTokens: Long,
 ) {
     private val due = MutableStateFlow<Map<TaskId, Long>>(emptyMap())
 
@@ -58,19 +60,16 @@ internal class IdleCompaction(
             }
     }
 
+    /** A snoozed or settled task is out of the user's way, so a pause there is no reason to pay. */
+    fun worthIt(view: TaskView) =
+        view.status == AgentStatus.Idle &&
+            view.task.queue.isEmpty() &&
+            view.pending.isEmpty() &&
+            (view.task.place == TaskPlace.Active || view.task.place == TaskPlace.Pinned) &&
+            (view.stats.contextUsed ?: 0) >= minTokens
+
     companion object {
         /** Early enough that a slow summary still starts inside the cache's lifetime, as T3 Code does. */
         const val LEAD_MS = 2 * 60_000L
-
-        /** Smaller contexts are cheap to cache again, and a summary loses detail. */
-        const val MIN_TOKENS = 200_000L
-
-        /** A snoozed or settled task is out of the user's way, so a pause there is no reason to pay. */
-        fun worthIt(view: TaskView) =
-            view.status == AgentStatus.Idle &&
-                view.task.queue.isEmpty() &&
-                view.pending.isEmpty() &&
-                (view.task.place == TaskPlace.Active || view.task.place == TaskPlace.Pinned) &&
-                (view.stats.contextUsed ?: 0) >= MIN_TOKENS
     }
 }

@@ -78,7 +78,7 @@ class Orchestrator private constructor(
     recordCheckpoints: Boolean,
     agentLimits: Map<String?, Int>,
     relay: String,
-    compactIdle: Boolean,
+    compactIdle: Long?,
 ) : OctoCore {
     private val mutableState = MutableStateFlow(OctoState())
     private val transcripts = MutableStateFlow<Map<TaskId, List<TranscriptEntry>>>(emptyMap())
@@ -94,7 +94,7 @@ class Orchestrator private constructor(
         Checkpoints(recordCheckpoints, mutableState, transcripts) { machines[it.machine].workspace }
     private val move = TaskMove(machines, relay)
     private val queues = PromptQueues(mutableState, MAX_QUEUED)
-    private val compaction = if (compactIdle) IdleCompaction(clock) else null
+    private val compaction = compactIdle?.let { IdleCompaction(clock, it) }
 
     override val state: StateFlow<OctoState> = mutableState.asStateFlow()
 
@@ -265,8 +265,9 @@ class Orchestrator private constructor(
     private suspend fun compactIdle(id: TaskId) =
         withTask(id) {
             val runtime = running(id)?.takeIf { Capability.Compact in it.capabilities }
-            if (runtime == null || mutableState.value[id]?.let(IdleCompaction::worthIt) != true) return@withTask
-            compaction?.started(id)
+            val view = mutableState.value[id]
+            if (runtime == null || view == null || compaction?.worthIt(view) != true) return@withTask
+            compaction.started(id)
             note(id, TranscriptEntry.Notice("Compacting the idle conversation before its prompt cache expires"))
             runCatching { startTurn(id, runtime) { runtime.session.compact() } }.onFailure {
                 if (it is CancellationException) throw it
@@ -761,8 +762,11 @@ class Orchestrator private constructor(
             agentLimits: Map<String?, Int> = emptyMap(),
             /** A bare repository that carries a moving task between two remote machines. */
             relay: Path = Path(worktrees.parent ?: worktrees, "relay.git"),
-            /** Whether the `compact-idle` flag compacts a large idle conversation before its cache expires. */
-            compactIdle: Boolean = false,
+            /**
+             * With the `compact-idle` flag on, the tokens in the context from which an idle
+             * conversation is compacted before its prompt cache expires; null when the flag is off.
+             */
+            compactIdle: Long? = null,
         ): Orchestrator =
             Orchestrator(
                 Machines(LocalMachine(registry, workspace, worktrees), machines),

@@ -26,6 +26,12 @@ class MachineConfigTest {
     }
 
     @Test
+    fun theIdleCompactionThresholdLoadsFromConfigWithADefault() {
+        assertEquals(50_000L, OctoConfig.parse("""{"compactIdleMinTokens":50000}""").config.compactIdleMinTokens)
+        assertEquals(200_000L, OctoConfig.parse("""{"flags":{}}""").config.compactIdleMinTokens)
+    }
+
+    @Test
     fun agentLimitsComeFromTheConfigAndBadOnesAreWarnedAbout() {
         val config =
             OctoConfig
