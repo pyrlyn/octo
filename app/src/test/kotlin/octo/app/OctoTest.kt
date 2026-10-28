@@ -12,6 +12,7 @@ import octo.core.paths.OctoPaths
 import octo.core.process.JvmProcessLauncher
 import java.io.File
 import java.net.ConnectException
+import java.net.HttpURLConnection
 import java.net.InetAddress
 import java.net.ServerSocket
 import java.net.URI
@@ -122,6 +123,32 @@ class OctoTest {
             val bad = open("""{$flag, "remoteAccess": {"port": 70000}}""")
             assertNull(bad.remoteUrl)
             assertTrue(bad.warnings.single().contains("70000"), bad.warnings.toString())
+        }
+    }
+
+    @Test
+    fun triggersNeedTheirFlagAndWebhooksNeedRemoteAccess() {
+        val task = """"task": {"repo": "/src/app", "baseRef": "main", "agent": "claude", "title": "Review"}"""
+        val triggers = """"triggers": [{"id": "pr", "webhook": {"secret": "${"s".repeat(16)}"}, $task}]"""
+        val off = open("{$triggers}")
+        assertEquals(emptyList(), off.warnings, "nothing is checked while the feature is off")
+
+        val alone = open("""{"flags": {"${CoreFlags.TRIGGERS.id}": true}, $triggers}""")
+        assertTrue(alone.warnings.single().contains(CoreFlags.REMOTE_ACCESS.id), alone.warnings.toString())
+
+        val port = ServerSocket(0).use { it.localPort }
+        val flags = """"flags": {"${CoreFlags.TRIGGERS.id}": true, "${CoreFlags.REMOTE_ACCESS.id}": true}"""
+        File(home, "config.json").writeText("""{$flags, "remoteAccess": {"port": $port}, $triggers}""")
+        val octo = runBlocking { Octo.open(OctoPaths(Path(home.path)), JvmProcessLauncher(emptyMap()), scope) }
+        try {
+            assertEquals(emptyList(), octo.warnings)
+            val hook = URI("${octo.remoteUrl}/api/v1/hooks/pr").toURL().openConnection() as HttpURLConnection
+            hook.requestMethod = "POST"
+            hook.doOutput = true
+            hook.outputStream.use { it.write("{}".toByteArray()) }
+            assertEquals(401, hook.responseCode, "the route is there and wants the secret")
+        } finally {
+            runBlocking { octo.close() }
         }
     }
 

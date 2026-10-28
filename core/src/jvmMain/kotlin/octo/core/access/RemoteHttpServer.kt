@@ -16,7 +16,9 @@ class RemoteHttpServer(
         LoopbackHttpServer(port) { request ->
             val body = request.body.takeIf { it.isNotEmpty() }?.decodeToString()
             val response =
-                runBlocking { api.handle(ApiRequest(request.method, request.path, request.authorization, body)) }
+                runBlocking {
+                    api.handle(ApiRequest(request.method, request.path, request.authorization, body, request.headers))
+                }
             LoopbackHttpServer.Response(
                 response.status,
                 response.body?.toString(),

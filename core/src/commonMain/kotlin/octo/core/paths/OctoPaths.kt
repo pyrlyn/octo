@@ -25,6 +25,9 @@ data class OctoPaths(
     /** The `octo` command's paired URL and token. */
     val cli: Path get() = Path(home, "cli.json")
 
+    /** When each trigger last ran and the webhook deliveries it already handled. */
+    val triggers: Path get() = Path(home, "triggers.json")
+
     companion object {
         fun resolve(
             env: Map<String, String>,

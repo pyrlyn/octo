@@ -129,6 +129,9 @@ interface OctoCore {
 
     suspend fun updateLayout(layout: Layout)
 
+    /** Adds [warning] to [OctoState.warnings], for a problem found while Octo runs. */
+    suspend fun warn(warning: String) = Unit
+
     /** Clears the "done" mark once the user has looked at the task. */
     suspend fun markSeen(taskId: TaskId)
 

@@ -15,6 +15,8 @@ import octo.core.orchestrator.Orchestrator
 import octo.core.persist.StateStore
 import octo.core.tempDir
 import octo.core.terms.TermsGate
+import octo.core.triggers.Delivery
+import octo.core.triggers.Webhooks
 import java.net.BindException
 import java.net.URI
 import java.net.http.HttpClient
@@ -43,7 +45,13 @@ class RemoteHttpServerTest {
                 scope,
             )
         }
-    private val server = RemoteHttpServer(RemoteApi(core, devices), 0).start()
+    private val delivered = mutableListOf<Map<String, String>>()
+    private val hooks =
+        Webhooks { id, headers, _ ->
+            delivered += headers
+            if (id == "pr") Delivery.Accepted else Delivery.NotFound
+        }
+    private val server = RemoteHttpServer(RemoteApi(core, devices, hooks), 0).start()
     private val client = HttpClient.newHttpClient()
 
     @AfterTest
@@ -58,6 +66,7 @@ class RemoteHttpServerTest {
         body: String? = null,
         token: String? = null,
         origin: String? = null,
+        headers: Map<String, String> = emptyMap(),
     ): HttpResponse<String> {
         val request =
             HttpRequest
@@ -68,6 +77,7 @@ class RemoteHttpServerTest {
                 )
         token?.let { request.header("Authorization", "Bearer $it") }
         origin?.let { request.header("Origin", it) }
+        headers.forEach { (name, value) -> request.header(name, value) }
         return client.send(request.build(), HttpResponse.BodyHandlers.ofString())
     }
 
@@ -123,5 +133,23 @@ class RemoteHttpServerTest {
             JvmSecrets.sha256("abc".encodeToByteArray()).toHexString(),
         )
         assertEquals(32, JvmSecrets.randomBytes(32).size)
+        // RFC 4231, test case 2.
+        assertEquals(
+            "5bdcc146bf60754e6a042426089575c75a003f089d2739839dec58b964ec3843",
+            JvmSecrets
+                .hmacSha256(
+                    "Jefe".encodeToByteArray(),
+                    "what do ya want for nothing?".encodeToByteArray(),
+                ).toHexString(),
+        )
+    }
+
+    @Test
+    fun aWebhookGetsItsHeadersWithoutADeviceToken() {
+        val accepted = send("POST", "/api/v1/hooks/pr", "{}", headers = mapOf("X-GitHub-Event" to "push"))
+        assertEquals(202, accepted.statusCode())
+        assertEquals("push", delivered.single()["x-github-event"])
+        assertEquals(404, send("POST", "/api/v1/hooks/other", "{}").statusCode())
+        assertEquals(403, send("POST", "/api/v1/hooks/pr", "{}", origin = "https://evil.example").statusCode())
     }
 }

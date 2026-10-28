@@ -25,6 +25,8 @@ class LoopbackHttpServer(
         val path: String,
         val authorization: String?,
         val body: ByteArray,
+        /** Lowercase names, first values. */
+        val headers: Map<String, String> = emptyMap(),
     )
 
     /** A null [body] sends no content; a non-null one is sent as JSON. */
@@ -64,8 +66,15 @@ class LoopbackHttpServer(
             if (body.size > maxBody) {
                 Response(TOO_LARGE)
             } else {
+                val first = headers.entries.associate { (name, values) -> name.lowercase() to values.first() }
                 handle(
-                    Request(exchange.requestMethod, exchange.requestURI.path, headers.getFirst("Authorization"), body),
+                    Request(
+                        exchange.requestMethod,
+                        exchange.requestURI.path,
+                        headers.getFirst("Authorization"),
+                        body,
+                        first,
+                    ),
                 )
             }
         send(exchange, response)

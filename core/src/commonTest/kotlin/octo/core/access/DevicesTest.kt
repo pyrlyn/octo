@@ -24,6 +24,11 @@ internal class FakeSecrets : Secrets {
     override fun randomBytes(size: Int) = ByteArray(size) { (next++).toByte() }
 
     override fun sha256(bytes: ByteArray) = bytes.reversedArray() + 0
+
+    override fun hmacSha256(
+        key: ByteArray,
+        bytes: ByteArray,
+    ) = sha256(key + bytes)
 }
 
 class DevicesTest {

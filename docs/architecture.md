@@ -272,6 +272,7 @@ class FeatureFlags(config: Map<String, Boolean>) {
 | `palette` (Cmd+K: find tasks by title or message text and run the app's actions) | T30 |
 | `usage` (token use per agent and model; a usage limit shows when it lifts, with Resume) | T29 |
 | `checkpoints` (worktree snapshots on hidden refs after every turn, with revert) | T27 |
+| `triggers` (tasks from `config.json` on a cron schedule or from a signed webhook) | T32 |
 | `queue` (`maxRunningAgents` per machine; later tasks wait as Queued, with Start now) | T33 |
 | `pty-terminal` | Reserved |
 
@@ -379,6 +380,17 @@ agent and writes the state. `close()` belongs to `app`, so it is not on the inte
   steered when its adapter declares `Steer` and the steer succeeds; otherwise the text joins
   `Task.queue` (at most 20, persisted with the task). Each time the agent turns idle the head of
   the queue is sent; a send that fails puts it back with a notice.
+- **Triggers.** `Triggers` (common) starts `TriggerConfig.task` through `OctoCore.createTask`. A
+  schedule is a `Cron` from a `CronParser`; the JVM one, `KrontabCronParser`, expands standard
+  cron into a krontab template, because krontab has no macOS arm64 build and counts days and
+  months from 0. Each schedule is one coroutine that naps at most a minute at a time against the
+  wall clock, so a computer that slept catches up; `lastRun` in `triggers.json` (a
+  `JsonListFile`) turns every missed run into one. A webhook is `Webhooks.deliver`, reached
+  through `RemoteApi`'s `hooks/{id}` route before the device-token check: the HMAC-SHA256 of the
+  body or a bearer secret, both compared through SHA-256 so timing says nothing, then the event
+  and filters, then the delivery id (`X-GitHub-Delivery`, else the body's hash), of which the last
+  100 are kept. The answer (202) goes out before the task starts; a start that fails releases the
+  delivery id and becomes a warning through `OctoCore.warn`.
 
 ## 8. Persistence
 

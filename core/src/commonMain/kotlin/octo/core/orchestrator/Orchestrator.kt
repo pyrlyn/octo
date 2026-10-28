@@ -498,6 +498,10 @@ class Orchestrator private constructor(
         withTask(taskId) { running(taskId).let { checkpoints.revert(view(taskId), ref, it?.run, it?.session) } }
     }
 
+    override suspend fun warn(warning: String) {
+        mutableState.update { if (warning in it.warnings) it else it.copy(warnings = it.warnings + warning) }
+    }
+
     override suspend fun updateLayout(layout: Layout) {
         mutableState.update { it.copy(layout = layout) }
     }
@@ -745,8 +749,7 @@ class Orchestrator private constructor(
             store.save(state)
         } catch (e: IOException) {
             // Fail open: the session keeps running; the UI shows why nothing is being saved.
-            val warning = "Could not save state: ${e.message}"
-            mutableState.update { if (warning in it.warnings) it else it.copy(warnings = it.warnings + warning) }
+            warn("Could not save state: ${e.message}")
         }
     }
 
