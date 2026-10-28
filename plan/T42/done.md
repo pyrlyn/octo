@@ -20,7 +20,7 @@ and `wait_for_idle`.
 - The model and base ref must not start with a dash, because both reach a command line.
 - Docs: the `agent-messaging` row in `docs/architecture.md` §6 and the README section.
 
-PR: see the `T42: let agents start tasks through the messaging MCP server` PR in `pyrlyn/octo`.
+PR: https://github.com/pyrlyn/octo/pull/52
 
 ## How it was checked
 
