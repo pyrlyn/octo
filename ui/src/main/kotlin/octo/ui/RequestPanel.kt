@@ -15,10 +15,12 @@ import androidx.compose.material3.RadioButton
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import octo.core.agent.PermissionKind
 import octo.core.agent.Question
+import octo.core.task.NewAttachment
 import octo.core.task.PendingRequest
 import octo.ui.vm.TaskViewModel
 
@@ -27,13 +29,15 @@ import octo.ui.vm.TaskViewModel
 internal fun RequestPanel(
     request: PendingRequest,
     answers: Map<String, List<String>>,
+    /** Files attached to free-text answers, by question id. */
+    files: Map<String, List<NewAttachment>>,
     vm: TaskViewModel,
 ) {
     Card(Modifier.fillMaxWidth()) {
         Column(Modifier.padding(LargeGap), verticalArrangement = Arrangement.spacedBy(Gap)) {
             when (request) {
                 is PendingRequest.Permission -> Permission(request, vm)
-                is PendingRequest.Questions -> Questions(request, answers, vm)
+                is PendingRequest.Questions -> Questions(request, answers, files, vm)
             }
         }
     }
@@ -61,9 +65,10 @@ private fun Permission(
 private fun Questions(
     request: PendingRequest.Questions,
     answers: Map<String, List<String>>,
+    files: Map<String, List<NewAttachment>>,
     vm: TaskViewModel,
 ) {
-    request.questions.forEach { Question(request.id, it, answers[it.id].orEmpty(), vm) }
+    request.questions.forEach { Question(request.id, it, answers[it.id].orEmpty(), files[it.id].orEmpty(), vm) }
     Row(horizontalArrangement = Arrangement.spacedBy(Gap)) {
         Button(onClick = { vm.submitAnswers(request.id) }) { Text("Answer") }
         TextButton(onClick = { vm.dismiss(request.id) }) { Text("Dismiss") }
@@ -75,15 +80,24 @@ private fun Question(
     requestId: String,
     question: Question,
     values: List<String>,
+    files: List<NewAttachment>,
     vm: TaskViewModel,
 ) {
     Text(question.text, style = MaterialTheme.typography.titleSmall)
     if (question.options.isEmpty()) {
-        OutlinedTextField(
-            value = values.firstOrNull().orEmpty(),
-            onValueChange = { vm.answer(requestId, question.id, it) },
-            modifier = Modifier.fillMaxWidth(),
-        )
+        val input =
+            remember(vm, requestId, question.id) {
+                AttachmentInput({ vm.attachToAnswer(requestId, question.id, it) }, vm::showError)
+            }
+        PendingAttachments(files) { vm.detachFromAnswer(requestId, question.id, it) }
+        Row(verticalAlignment = Alignment.Bottom, horizontalArrangement = Arrangement.spacedBy(Gap)) {
+            OutlinedTextField(
+                value = values.firstOrNull().orEmpty(),
+                onValueChange = { vm.answer(requestId, question.id, it) },
+                modifier = Modifier.weight(1f).takesAttachments(input),
+            )
+            AttachButton(input)
+        }
         return
     }
     question.options.forEach { option ->

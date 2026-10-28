@@ -2,6 +2,7 @@ package octo.core.access
 
 import kotlinx.coroutines.runBlocking
 import octo.core.http.LoopbackHttpServer
+import octo.core.task.NewAttachment
 
 /**
  * [RemoteApi] over HTTP on `127.0.0.1:[port]`. Devices reach it through the user's own tunnel
@@ -17,7 +18,7 @@ class RemoteHttpServer(
     private val guestPage: Boolean = false,
 ) : AutoCloseable {
     private val server =
-        LoopbackHttpServer(port, publicOrigin = publicOrigin) { request ->
+        LoopbackHttpServer(port, MAX_BODY, publicOrigin) { request ->
             if (guestPage && request.path == Shares.SHARE_PATH) return@LoopbackHttpServer page(request.method)
             val body = request.body.takeIf { it.isNotEmpty() }?.decodeToString()
             val response =
@@ -48,6 +49,9 @@ class RemoteHttpServer(
     companion object {
         private const val OK = 200
         private const val METHOD_NOT_ALLOWED = 405
+
+        /** Room for one file at [NewAttachment.MAX_BYTES] in base64, with the JSON around it. */
+        internal const val MAX_BODY = NewAttachment.MAX_BYTES * 3 / 2
 
         private val PAGE: String by lazy {
             checkNotNull(RemoteHttpServer::class.java.getResource("share.html")) { "share.html is missing" }.readText()

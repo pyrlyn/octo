@@ -1,29 +1,19 @@
-# T40. OS notifications — done
+# T40. Done
 
-PR: https://github.com/pyrlyn/octo/pull/51
+PR: https://github.com/pyrlyn/octo/pull/53
 
 ## What was done
 
-- `notifications` flag in `CoreFlags`; `notifications` settings in `OctoConfig` (`blocked`,
-  `failed`, `done`, each on by default).
-- `octo.core.notify.NotificationRule` (common code): a task's entry into Blocked, Failed or Done
-  starts a burst; the burst notifies once, with its latest event, after 2 s of quiet; a burst that
-  ends where nothing awaits the user is dropped; a task notifies at most once per 20 s; the task
-  the user is looking at in a focused window stays quiet; start-up only sets the baseline.
-- `NotificationsViewModel` (ui) feeds `OctoCore.state` and the window focus into the rule and opens
-  the last notified task on a click through `MainViewModel.select`.
-- `NotificationTray` shows the notifications with Compose Desktop's `Tray` and
-  `TrayState.sendNotification`; a click brings the window to the front. No new dependency.
-- `Octo.notifications` and `Main.kt` wire it; README and `docs/architecture.md` describe it.
-
-## Limits
-
-AWT does not report which notification was clicked, so a click opens the task notified last. A
-desktop without a system tray runs without notifications.
+- **Flag and settings.** The `notifications` flag. `notifications` in `config.json` (`blocked`, `failed`, `done`, all on by default) chooses which events notify.
+- **Rule.** `taskAlerts` (`core/notify`, common code) turns the state stream into alerts for a task that moves into Blocked, Failed or Done. Each task's alert waits 1.5 s. A newer one replaces it, and one whose state is gone by then is dropped, so a burst shows once. The first state is only a baseline.
+- **UI.** `NotificationsViewModel` posts an alert unless the window is focused on that task. A click opens the alerted task. macOS only activates the app on a click, so the window gaining focus after an alert posted in the background opens that task once.
+- **App.** A Compose `Tray` posts the notifications and brings the window forward on its action. No new dependency.
+- **Docs.** The README and the architecture note.
 
 ## How it was checked
 
-- `NotificationRuleTest` (8 tests), `NotificationsViewModelTest` (3 tests) and
-  `OctoTest.notificationsNeedTheirFlagAndReadTheirSettings`.
-- `./gradlew check` passed locally: ktlint, detekt and every test (GitHub Actions is not running).
-- Not checked by hand in the running app: the tray notification on each OS.
+`./gradlew check` is green: ktlint, detekt and all tests.
+- `TaskAlertsTest` covers the quiet period, the start-up baseline, bursts, stale events and the config.
+- `NotificationsViewModelTest` covers focus, the open task, clicks and the flag.
+- `MachineConfigTest` parses the key and its defaults.
+- `./gradlew :app:run` with the flag on in a temp `OCTO_HOME` started without errors. A real notification and a click on it were not tried.

@@ -21,11 +21,13 @@ import octo.adapters.base.obj
 import octo.adapters.base.string
 import octo.core.agent.AgentEvent
 import octo.core.agent.AgentSessionRef
+import octo.core.agent.ContextParts
 import octo.core.agent.LogStream
 import octo.core.agent.PermissionKind
 import octo.core.agent.PermissionMode
 import octo.core.agent.PermissionOption
 import octo.core.agent.PlanEntry
+import octo.core.agent.PromptImage
 import octo.core.agent.Question
 import octo.core.agent.RequestResponse
 import octo.core.agent.Role
@@ -95,7 +97,10 @@ internal class CodexSession(
         thread.obj()?.string("model")?.let { emit(AgentEvent.StatsUpdated(SessionStats(model = it))) }
     }
 
-    override suspend fun prompt(text: String) {
+    override suspend fun prompt(
+        text: String,
+        images: List<PromptImage>,
+    ) {
         val thread = lock.withLock { threadId } ?: error("No Codex thread")
         val (newModel, switched) =
             lock.withLock {
@@ -299,6 +304,16 @@ internal class CodexSession(
         emit(AgentEvent.PlanUpdated(entries))
     }
 
+    // Codex counts cached input inside the input and the turn's output inside totalTokens.
+    private fun contextParts(last: JsonObject): ContextParts {
+        val cached = last.long("cachedInputTokens")
+        return ContextParts(
+            cacheRead = cached,
+            input = last.long("inputTokens")?.let { it - (cached ?: 0) },
+            output = last.long("outputTokens"),
+        )
+    }
+
     private suspend fun tokenUsage(p: JsonObject) {
         val tokens = p.obj("tokenUsage") ?: return
         val total = tokens.obj("total")
@@ -311,6 +326,7 @@ internal class CodexSession(
                     outputTokens = total?.long("outputTokens"),
                     cacheReadTokens = total?.long("cachedInputTokens"),
                     cacheWriteTokens = total?.long("cacheWriteInputTokens"),
+                    contextParts = tokens.obj("last")?.let(::contextParts),
                 ),
             ),
         )

@@ -65,6 +65,8 @@ octo/
 │   ├── cursor/           "
 │   ├── grok/             "
 │   ├── kimi/             "
+│   ├── mimo/             "
+│   ├── zcode/            "
 │   ├── antigravity/      "
 │   └── plugin/           " (the generic ACP adapter for agents plugins declare)
 ├── ui/                   JVM + Compose; depends on core
@@ -95,8 +97,10 @@ own process, so `ps` supplies it there. Native targets compile
 not an `expect`, so nothing is missing at link time.
 
 **`adapters:base`** holds the shared logic for building adapters:
-- `BaseAgentAdapter` — binary lookup on `PATH`, version probe with a verified-version drift
-  warning, environment building, an auth-check hook, capability declaration, and session start;
+- `CliAgentAdapter` — binary lookup on `PATH`, version probe with a verified-version drift
+  warning, an auth-check hook and a look-alike binary check, for any agent that is a local CLI;
+- `BaseAgentAdapter` — on top of it, for a session that is one long-running process: launch
+  arguments, environment building and session start;
 - `LineChannel` — newline-framed stdin/stdout over a spawned process, with stderr captured as log
   events;
 - `JsonRpcPeer` — requests, responses, notifications and server-to-client requests, with an option
@@ -116,6 +120,8 @@ event mapping, extensions and fixtures.
 | `cursor` | ACP `cursor-agent acp` plus `cursor/*` extensions | `cursor-agent` (`agent` collides with Grok's binary) |
 | `grok` | ACP `grok agent stdio` | `grok` (the official xAI build; refuses the community CLI) |
 | `kimi` | ACP `kimi acp` | `kimi` (Kimi Code CLI; refuses the archived Python `kimi-cli`) |
+| `mimo` | ACP `mimo acp` | `mimo` (Xiaomi MiMo Code) |
+| `zcode` | One `zcode --prompt=… --output-format stream-json` run per turn, resumed with `--resume` | `zcode` (Z.ai ZCode, built from source) |
 | `antigravity` | ACP `agy_acp_server` | Behind the `antigravity` flag, with a terms notice |
 | `demo` | In-process, no binary | Behind the `demo-agent` flag; asks for permission and writes `octo-demo.md` |
 | `plugin` | ACP, with the arguments a plugin's manifest gives | The bare command the manifest names, on `PATH` |
@@ -144,10 +150,10 @@ from it, so nothing is counted twice; every other agent is counted from `UsageLo
 (`usage.json`), which records the growth of each task's `SessionStats` when a turn ends. A history
 that cannot be read becomes a warning on the screen.
 
-OS notifications (`NotificationsViewModel`) feed `OctoCore.state` and the window's focus into
-the common `NotificationRule`, which turns a task's entry into Blocked, Failed or Done into one
-notification per burst. Compose Desktop's tray shows them; AWT does not say which notification
-was clicked, so a click opens the task notified last.
+The task screen's context popup (`ContextSummary`) reads the task's `SessionStats`:
+`contextUsed` and `contextWindow`, and `contextParts`, the latest request's split that adds up to
+`contextUsed`. Claude counts input, cache read and cache write; Codex counts cached input, the
+rest of the input and output. An ACP agent reports only the total.
 
 **`app`** holds `main()`, the adapter list, platform paths and the Compose Desktop packaging.
 
@@ -218,7 +224,7 @@ interface AgentSession {
 **Registry.** `AdapterRegistry` is built in `app` from a list:
 
 ```kotlin
-listOf(ClaudeAdapter(...), CodexAdapter(...), CursorAdapter(...), GrokAdapter(...), KimiAdapter(...), AntigravityAdapter(...))
+listOf(ClaudeAdapter(...), CodexAdapter(...), CursorAdapter(...), GrokAdapter(...), KimiAdapter(...), MimoAdapter(...), ZCodeAdapter(...), AntigravityAdapter(...))
 ```
 
 Adding an agent means a new module and one line in that list. The registry drops adapters whose
@@ -266,7 +272,7 @@ class FeatureFlags(config: Map<String, Boolean>) {
 | `antigravity` | T8 |
 | `git-publish` (commit, push, PR) | T11 |
 | `remote-ssh` (tasks on machines from `config.json`, through the user's `ssh`; one shared connection per machine since T18) | T12 |
-| `agent-messaging` (an MCP server on loopback: `list_tasks`, `send_message`, `wait_for_idle`) | T13 |
+| `agent-messaging` (an MCP server on loopback: `list_tasks`, `send_message`, `wait_for_idle`, `create_task`) | T13, T42 |
 | `presets` (teams of agents with roles and prompts, kept in `presets.json`) | T14 |
 | `remote-access` (a token-paired JSON API on `127.0.0.1`, reached through the user's tunnel) | T15 |
 | `plugins` (WebAssembly plugins that add ACP agents and task actions; see `docs/plugins.md`) | T16 |
@@ -283,7 +289,7 @@ class FeatureFlags(config: Map<String, Boolean>) {
 | `compact-idle` (compact a large idle conversation just before its prompt cache expires) | T35 |
 | `previews` (preview images, notebooks, archives, SQLite and Mermaid files in the diff view) | T36 |
 | `guest-share` (a guest watches a task by link and proposes messages; needs `remote-access`) | T37 |
-| `notifications` (an OS notification when a task is blocked, fails or finishes a turn, one per burst) | T40 |
+| `notifications` (an OS notification when a task out of sight blocks, fails or finishes a turn) | T40 |
 | `pty-terminal` | Reserved |
 
 ## 7. Core API and orchestration
@@ -412,6 +418,14 @@ agent and writes the state. `close()` belongs to `app`, so it is not on the inte
   an archive is listed from its central directory without inflating it, and SQLite is read by
   the `sqlite3` CLI in read-only safe mode. Mermaid goes through `mmdc` to PNG, since Skia's SVG
   renderer drops Mermaid's HTML labels. Remote tasks keep the plain diff.
+- **OS notifications.** With the `notifications` flag on, `taskAlerts` (`core/notify`) turns
+  the state stream into alerts: a task that moves into Blocked, Failed or Done, if
+  `config.json`'s `notifications` allows that event. Each task's alert waits 1.5 s; a newer one
+  replaces it and one whose state is gone by then is dropped, so a burst shows once. The first
+  state is only a baseline. `NotificationsViewModel` posts an alert unless the window is focused
+  on that task; the app posts it through a Compose `Tray`. A click (Windows sends one, and so does
+  the tray icon) opens the alerted task. macOS only activates the app, so the window gaining focus
+  after an alert posted in the background opens that task once.
 - **Guest links.** With `guest-share` and `remote-access` on, `Shares` (`core/access`) keeps one
   link per task in `shares.json` as a SHA-256 of its 256-bit token, and the guests' proposals in
   memory: at most 10 waiting and 50 kept per link, 4000 characters each. `RemoteApi` serves

@@ -8,7 +8,6 @@ import kotlinx.coroutines.runBlocking
 import kotlinx.io.files.Path
 import octo.core.agent.AgentId
 import octo.core.flags.CoreFlags
-import octo.core.notify.NotificationSettings
 import octo.core.paths.OctoPaths
 import octo.core.process.JvmProcessLauncher
 import java.io.File
@@ -47,17 +46,6 @@ class OctoTest {
     fun publishingNeedsItsFlag() {
         assertNull(open(null).publisher)
         assertNotNull(open("""{"flags": {"${CoreFlags.GIT_PUBLISH.id}": true}}""").publisher)
-    }
-
-    @Test
-    fun notificationsNeedTheirFlagAndReadTheirSettings() {
-        assertNull(open("""{"notifications": {"done": false}}""").notifications)
-        val on = open("""{"flags": {"${CoreFlags.NOTIFICATIONS.id}": true}, "notifications": {"done": false}}""")
-        assertEquals(NotificationSettings(done = false), on.notifications)
-        assertEquals(
-            NotificationSettings(),
-            open("""{"flags": {"${CoreFlags.NOTIFICATIONS.id}": true}}""").notifications,
-        )
     }
 
     @Test

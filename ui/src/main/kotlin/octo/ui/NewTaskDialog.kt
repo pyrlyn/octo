@@ -223,9 +223,7 @@ private fun SingleAgent(
     vm: NewTaskViewModel,
 ) {
     TitleAndPrompt(state, vm)
-    Text("Agent", style = MaterialTheme.typography.titleSmall)
-    if (state.loadingAgents) Text("Looking for installed agents…")
-    state.agents.forEach { AgentChoice(it, selected = it.id == state.agent, onSelect = { vm.selectAgent(it.id) }) }
+    AgentSelect(state, vm)
     if (state.permissionModes.size > 1) PermissionChoice(state, vm)
 }
 
@@ -271,13 +269,18 @@ private fun TitleAndPrompt(
         placeholder = { Text(state.effectiveTitle.ifEmpty { "Taken from the prompt when empty" }) },
         singleLine = true,
     )
+    val input = remember(vm) { AttachmentInput(vm::attach, vm::showError) }
     OutlinedTextField(
         state.prompt,
         vm::editPrompt,
-        Modifier.fillMaxWidth(),
+        Modifier.fillMaxWidth().takesAttachments(input),
         label = { Text("First prompt") },
         minLines = 3,
     )
+    Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(Gap)) {
+        AttachButton(input)
+        PendingAttachments(state.attachments, vm::detach)
+    }
 }
 
 @Composable
@@ -368,24 +371,84 @@ internal fun AgentChoice(
     /** A checkbox, for picking several agents, instead of a radio button. */
     check: Boolean = false,
 ) {
-    val probe = agent.probe
-    val note =
-        when {
-            !probe.installed -> "not installed"
-            probe.auth == AuthState.LoggedOut -> "${probe.version.orEmpty()} · log in with its own CLI first"
-            probe.versionDrift -> "${probe.version} · tested with ${probe.verifiedVersion}"
-            else -> probe.version.orEmpty()
-        }
+    val installed = agent.probe.installed
     Row(verticalAlignment = Alignment.CenterVertically) {
         if (check) {
-            Checkbox(checked = selected, onCheckedChange = { onSelect() }, enabled = probe.installed)
+            Checkbox(checked = selected, onCheckedChange = { onSelect() }, enabled = installed)
         } else {
-            RadioButton(selected = selected, onClick = onSelect, enabled = probe.installed)
+            RadioButton(selected = selected, onClick = onSelect, enabled = installed)
         }
         Column {
             Text(agent.displayName)
-            Text(note, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+            Text(
+                agentNote(agent),
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
         }
+    }
+}
+
+/** A select rather than a list, so every agent stays reachable however short the window is. */
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+private fun AgentSelect(
+    state: NewTaskUiState,
+    vm: NewTaskViewModel,
+) {
+    var open by remember { mutableStateOf(false) }
+    val selected = state.selectedAgent
+    val note =
+        when {
+            state.loadingAgents -> "Looking for installed agents…"
+            selected != null -> agentNote(selected)
+            state.agents.isNotEmpty() -> "No agent is installed here"
+            else -> null
+        }
+    ExposedDropdownMenuBox(open, onExpandedChange = { open = it && state.agents.isNotEmpty() }) {
+        OutlinedTextField(
+            selected?.displayName.orEmpty(),
+            {},
+            Modifier.menuAnchor(ExposedDropdownMenuAnchorType.PrimaryNotEditable).fillMaxWidth(),
+            readOnly = true,
+            label = { Text("Agent") },
+            trailingIcon = { ExposedDropdownMenuDefaults.TrailingIcon(open) },
+            supportingText = note?.let { { Text(it) } },
+            isError = !state.loadingAgents && selected == null && state.agents.isNotEmpty(),
+            singleLine = true,
+        )
+        ExposedDropdownMenu(open, onDismissRequest = { open = false }) {
+            state.agents.forEach { agent ->
+                DropdownMenuItem(
+                    text = {
+                        Column {
+                            Text(agent.displayName)
+                            Text(
+                                agentNote(agent),
+                                style = MaterialTheme.typography.bodySmall,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            )
+                        }
+                    },
+                    onClick = {
+                        vm.selectAgent(agent.id)
+                        open = false
+                    },
+                    // Shown anyway, so the user sees which agents Octo knows and that this one needs installing.
+                    enabled = agent.probe.installed,
+                )
+            }
+        }
+    }
+}
+
+private fun agentNote(agent: AgentInfo): String {
+    val probe = agent.probe
+    return when {
+        !probe.installed -> "not installed"
+        probe.auth == AuthState.LoggedOut -> "${probe.version.orEmpty()} · log in with its own CLI first"
+        probe.versionDrift -> "${probe.version} · tested with ${probe.verifiedVersion}"
+        else -> probe.version.orEmpty()
     }
 }
 

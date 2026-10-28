@@ -89,28 +89,41 @@ internal fun TaskScreen(
             ),
             places,
         )
-        Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(Gap)) {
-            Text(
-                task.machine?.let { "${task.branch} · on $it" } ?: task.branch,
-                Modifier.weight(1f),
-                style = MaterialTheme.typography.bodySmall,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
-            )
-            share?.let { ShareButton(it) }
-            PermissionMenu(task.permissionMode, vm::setPermissionMode)
-        }
+        BranchRow(state, vm, share)
         state.failure?.let { Text(it, color = MaterialTheme.colorScheme.error) }
         state.limit?.let { LimitBanner(it, onResume = vm::resume) }
         state.error?.let { Banner(it, error = true, onDismiss = vm::dismissError) }
         HorizontalDivider()
         Transcript(state, vm, Modifier.weight(1f).fillMaxWidth())
         Queue(state, vm)
-        state.pending.forEach { RequestPanel(it, state.answers[it.id].orEmpty(), vm) }
+        state.pending.forEach {
+            RequestPanel(it, state.answers[it.id].orEmpty(), state.answerFiles[it.id].orEmpty(), vm)
+        }
         share?.let { GuestProposals(it) }
         PromptBox(state, vm)
     }
     RemoveDialog(state.remove, vm)
     state.reverting?.let { RevertDialog(it, vm) }
+}
+
+@Composable
+private fun BranchRow(
+    state: TaskUiState,
+    vm: TaskViewModel,
+    share: ShareViewModel?,
+) {
+    val task = state.task ?: return
+    Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(Gap)) {
+        Text(
+            task.machine?.let { "${task.branch} · on $it" } ?: task.branch,
+            Modifier.weight(1f),
+            style = MaterialTheme.typography.bodySmall,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+        )
+        state.context?.let { ContextMenu(it) }
+        share?.let { ShareButton(it) }
+        PermissionMenu(task.permissionMode, vm::setPermissionMode)
+    }
 }
 
 @Composable
@@ -204,10 +217,7 @@ private fun Entry(entry: TranscriptEntry) {
     val muted = MaterialTheme.colorScheme.onSurfaceVariant
     when (entry) {
         is TranscriptEntry.Text -> {
-            Column(Modifier.alpha(if (entry.partial) PARTIAL_ALPHA else 1f)) {
-                Text(if (entry.role == Role.User) "You" else "Agent", fontWeight = FontWeight.SemiBold)
-                Text(entry.text)
-            }
+            Message(entry)
         }
 
         is TranscriptEntry.Thought -> {
@@ -226,7 +236,10 @@ private fun Entry(entry: TranscriptEntry) {
         }
 
         is TranscriptEntry.Request -> {
-            Text("Asked: ${entry.title}" + if (entry.resolved) " (answered)" else "", color = muted)
+            Column {
+                Text("Asked: ${entry.title}" + if (entry.resolved) " (answered)" else "", color = muted)
+                AttachedFiles(entry.attachments)
+            }
         }
 
         is TranscriptEntry.Notice -> {
@@ -236,6 +249,16 @@ private fun Entry(entry: TranscriptEntry) {
         is TranscriptEntry.Checkpoint -> {
             Text("Checkpoint ${entry.id}", color = muted)
         }
+    }
+}
+
+@Composable
+private fun Message(entry: TranscriptEntry.Text) {
+    Column(Modifier.alpha(if (entry.partial) PARTIAL_ALPHA else 1f)) {
+        Text(if (entry.role == Role.User) "You" else "Agent", fontWeight = FontWeight.SemiBold)
+        // A message can be files alone, and an empty line above them would look like a lost text.
+        if (entry.text.isNotEmpty()) Text(entry.text)
+        AttachedFiles(entry.attachments)
     }
 }
 
@@ -285,7 +308,12 @@ private fun Queue(
         Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(Gap)) {
             Text("Queued", color = muted, fontWeight = FontWeight.SemiBold)
             if (editing == null) {
-                Text(queued.text, Modifier.weight(1f), color = muted, maxLines = 2)
+                val files =
+                    queued.attachments
+                        .takeIf { it.isNotEmpty() }
+                        ?.let { " · ${it.label()}" }
+                        .orEmpty()
+                Text(queued.text + files, Modifier.weight(1f), color = muted, maxLines = 2)
                 TextButton(onClick = { vm.editQueued(queued) }) { Text("Edit") }
             } else {
                 OutlinedTextField(editing.text, vm::editQueuedText, Modifier.weight(1f), maxLines = 4)
@@ -341,17 +369,23 @@ private fun PromptBox(
     state: TaskUiState,
     vm: TaskViewModel,
 ) {
+    val input = remember(vm) { AttachmentInput(vm::attach, vm::showError) }
+    PendingAttachments(state.attachments, vm::detach)
     Row(verticalAlignment = Alignment.Bottom, horizontalArrangement = Arrangement.spacedBy(Gap)) {
         OutlinedTextField(
             value = state.draft,
             onValueChange = vm::editDraft,
             modifier =
-                Modifier.weight(1f).onPreviewKeyEvent {
-                    val send =
-                        it.type == KeyEventType.KeyDown && it.key == Key.Enter && (it.isMetaPressed || it.isCtrlPressed)
-                    if (send) vm.send()
-                    send
-                },
+                Modifier
+                    .weight(1f)
+                    .onPreviewKeyEvent {
+                        val send =
+                            it.type == KeyEventType.KeyDown &&
+                                it.key == Key.Enter &&
+                                (it.isMetaPressed || it.isCtrlPressed)
+                        if (send) vm.send()
+                        send
+                    }.takesAttachments(input),
             placeholder = {
                 Text(
                     if (state.busy) {
@@ -364,6 +398,7 @@ private fun PromptBox(
             minLines = 2,
             maxLines = 8,
         )
+        AttachButton(input)
         Button(onClick = vm::send, enabled = state.canSend) { Text("Send") }
     }
 }

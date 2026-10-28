@@ -11,8 +11,11 @@ import kotlinx.serialization.json.JsonNull
 import kotlinx.serialization.json.JsonObject
 import kotlinx.serialization.json.JsonObjectBuilder
 import kotlinx.serialization.json.JsonPrimitive
+import kotlinx.serialization.json.addJsonObject
 import kotlinx.serialization.json.buildJsonObject
 import kotlinx.serialization.json.put
+import kotlinx.serialization.json.putJsonArray
+import kotlinx.serialization.json.putJsonObject
 import octo.adapters.base.ProcessAgentSession
 import octo.adapters.base.array
 import octo.adapters.base.bool
@@ -25,11 +28,13 @@ import octo.adapters.base.plusTokens
 import octo.adapters.base.string
 import octo.core.agent.AgentEvent
 import octo.core.agent.AgentSessionRef
+import octo.core.agent.ContextParts
 import octo.core.agent.LogStream
 import octo.core.agent.PermissionKind
 import octo.core.agent.PermissionMode
 import octo.core.agent.PermissionOption
 import octo.core.agent.PlanEntry
+import octo.core.agent.PromptImage
 import octo.core.agent.Question
 import octo.core.agent.RequestResponse
 import octo.core.agent.Role
@@ -40,6 +45,7 @@ import octo.core.agent.ToolStatus
 import octo.core.agent.Usage
 import octo.core.process.RunningProcess
 import kotlin.coroutines.CoroutineContext
+import kotlin.io.encoding.Base64
 
 /** Maps Claude's stream-json messages and control requests to [AgentEvent]s. */
 internal class ClaudeSession(
@@ -83,9 +89,14 @@ internal class ClaudeSession(
         emit(AgentEvent.SessionReady(ref))
     }
 
-    override suspend fun prompt(text: String) {
+    override suspend fun prompt(
+        text: String,
+        images: List<PromptImage>,
+    ) {
         lock.withLock { cancelling = false }
         emit(AgentEvent.TurnStarted)
+        // The API takes only these formats and sizes; any other picture stays a path in the text.
+        val sent = images.filter { it.mimeType in IMAGE_TYPES && it.data.size <= MAX_IMAGE_BYTES }
         send {
             put("type", "user")
             put("session_id", "")
@@ -93,12 +104,32 @@ internal class ClaudeSession(
                 "message",
                 buildJsonObject {
                     put("role", "user")
-                    put("content", text)
+                    if (sent.isEmpty()) {
+                        put("content", text)
+                    } else {
+                        putJsonArray("content") {
+                            sent.forEach { add(imageBlock(it)) }
+                            addJsonObject {
+                                put("type", "text")
+                                put("text", text)
+                            }
+                        }
+                    }
                 },
             )
             put("parent_tool_use_id", JsonNull)
         }
     }
+
+    private fun imageBlock(image: PromptImage) =
+        buildJsonObject {
+            put("type", "image")
+            putJsonObject("source") {
+                put("type", "base64")
+                put("media_type", image.mimeType)
+                put("data", Base64.encode(image.data))
+            }
+        }
 
     override suspend fun compact() = prompt("/compact")
 
@@ -236,10 +267,17 @@ internal class ClaudeSession(
     }
 
     // Every request resends the whole context, so the latest prompt size is what the window holds.
+    // Its output only joins the context on the next request.
     private fun contextUsed(usage: JsonObject?) {
-        val parts = listOf("input_tokens", "cache_read_input_tokens", "cache_creation_input_tokens")
-        val used = parts.mapNotNull { usage?.long(it) }.takeIf { it.isNotEmpty() }?.sum() ?: return
-        emit(AgentEvent.StatsUpdated(SessionStats(contextUsed = used)))
+        val parts =
+            ContextParts(
+                cacheRead = usage?.long("cache_read_input_tokens"),
+                cacheWrite = usage?.long("cache_creation_input_tokens"),
+                input = usage?.long("input_tokens"),
+            )
+        val used =
+            listOfNotNull(parts.cacheRead, parts.cacheWrite, parts.input).takeIf { it.isNotEmpty() }?.sum() ?: return
+        emit(AgentEvent.StatsUpdated(SessionStats(contextUsed = used, contextParts = parts)))
     }
 
     private suspend fun toolUse(content: JsonObject) {
@@ -407,6 +445,8 @@ internal class ClaudeSession(
         private const val DETAIL_LIMIT = 4_000
         private const val HOUR_MS = 3_600_000L
         private const val FIVE_MINUTES_MS = 300_000L
+        private val IMAGE_TYPES = setOf("image/png", "image/jpeg", "image/gif", "image/webp")
+        private const val MAX_IMAGE_BYTES = 5 * 1024 * 1024
 
         /** The lifetime the request wrote its cache with; null when it wrote none. */
         private fun cacheTtl(usage: JsonObject?): Long? {

@@ -19,7 +19,7 @@ import octo.core.git.GitWorkspace
 import octo.core.io.AtomicFile
 import octo.core.messaging.AgentMessaging
 import octo.core.messaging.HttpMcpServer
-import octo.core.notify.NotificationSettings
+import octo.core.notify.NotificationConfig
 import octo.core.orchestrator.AgentCatalog
 import octo.core.orchestrator.OctoCore
 import octo.core.orchestrator.Orchestrator
@@ -64,7 +64,7 @@ class Octo private constructor(
     /** Empty unless the `plugins` flag is on. */
     val plugins: List<Plugin>,
     private val remote: RemoteMachines,
-    private val config: OctoConfig,
+    private val flags: FeatureFlags,
     /** Null unless the `usage` flag is on. */
     val usage: UsageReport?,
     /** Null unless the `triggers` flag is on. */
@@ -73,9 +73,9 @@ class Octo private constructor(
     val shares: Shares?,
     /** Where guest links point: the user's tunnel, or loopback for a guest on `ssh -L`; null with [shares]. */
     val shareBase: String?,
+    /** Null unless the `notifications` flag is on. */
+    val notifications: NotificationConfig?,
 ) {
-    private val flags = config.featureFlags()
-
     val core: OctoCore get() = orchestrator
 
     /** Whether the `handoff` flag lets a task switch its agent or model. */
@@ -101,9 +101,6 @@ class Octo private constructor(
 
     /** Whether the `previews` flag lets the diff view preview images, notebooks and other files. */
     val previews: Boolean get() = flags.isEnabled(CoreFlags.PREVIEWS)
-
-    /** Which events show an OS notification; null unless the `notifications` flag is on. */
-    val notifications: NotificationSettings? get() = flags.ifOn(CoreFlags.NOTIFICATIONS) { config.notifications }
 
     /** Where the remote API listens, e.g. `http://127.0.0.1:47470`. */
     val remoteUrl: String? get() = remoteServer?.url
@@ -137,7 +134,7 @@ class Octo private constructor(
                     ?: RemoteMachines(emptyMap(), emptyList())
             val limits = flags.ifOn(CoreFlags.QUEUE) { config.agentLimits() } ?: AgentLimits()
             val (messaging, mcpServer, mcpWarning) =
-                if (flags.isEnabled(CoreFlags.AGENT_MESSAGING)) startMessaging(scope) else Messaging()
+                flags.ifOn(CoreFlags.AGENT_MESSAGING) { startMessaging(scope, config.maxChildTasks) } ?: Messaging()
             val orchestrator =
                 Orchestrator.open(
                     registry,
@@ -164,8 +161,7 @@ class Octo private constructor(
             val access = remoteAccess(config, flags, paths, orchestrator, triggers?.first)
             val warnings =
                 listOfNotNull(warning, mcpWarning, presets?.warning, access.warning, usage?.second) + remote.warnings +
-                    plugins.loaded.warnings + plugins.agents.warnings + triggers?.second.orEmpty() +
-                    limits.warnings
+                    plugins.loaded.warnings + plugins.agents.warnings + triggers?.second.orEmpty() + limits.warnings
             return Octo(
                 orchestrator,
                 catalog,
@@ -177,11 +173,12 @@ class Octo private constructor(
                 access.devices,
                 plugins.loaded.plugins,
                 remote,
-                config,
+                flags,
                 usage?.first,
                 triggers?.first,
                 access.shares,
                 access.shareBase,
+                flags.ifOn(CoreFlags.NOTIFICATIONS) { config.notifications },
             )
         }
 
@@ -320,8 +317,11 @@ class Octo private constructor(
         )
 
         // Without its server agents simply get no messaging tools; the rest of Octo works as before.
-        private fun startMessaging(scope: CoroutineScope): Messaging {
-            val messaging = AgentMessaging(scope)
+        private fun startMessaging(
+            scope: CoroutineScope,
+            maxChildTasks: Int,
+        ): Messaging {
+            val messaging = AgentMessaging(scope, maxChildTasks = maxChildTasks)
             val server =
                 try {
                     HttpMcpServer(messaging).start()

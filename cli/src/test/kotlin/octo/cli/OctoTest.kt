@@ -45,12 +45,13 @@ class OctoTest {
     private fun octo(
         args: String,
         env: Map<String, String> = mapOf("OCTO_HOME" to home, "OCTO_URL" to server.url),
+        cwd: String = "/src",
         onSleep: () -> Unit = {},
     ): CliktCommandTestResult =
         Octo(
             env,
             userHome = "$home/not-home",
-            cwd = "/src",
+            cwd = cwd,
             os = HostOs.Linux,
             sleep = {
                 clock += it
@@ -142,6 +143,26 @@ class OctoTest {
             octo("task read t9").stdout,
         )
         assertTrue("\"entries\"" in octo("task read t9 --json").stdout)
+    }
+
+    @Test
+    fun filesGoAlongFromTheCallersDirectory() {
+        pair()
+        status(AgentStatus.Idle)
+        val dir = File(home, "work").apply { mkdirs() }
+        File(dir, "log.txt").writeText("boom")
+
+        fun octoIn(args: String) = octo(args, cwd = dir.path)
+
+        assertEquals(0, octoIn("task start --base main --agent claude --title Fix --attach log.txt").statusCode)
+        assertEquals("create Fix +log.txt", core.calls.last())
+        assertEquals(0, octoIn("task send t9 --attach log.txt").statusCode, "files alone are a message")
+        assertEquals("prompt  +log.txt", core.calls.last())
+
+        val missing = octoIn("task send t9 hi --attach nope.txt")
+        assertEquals(1, missing.statusCode)
+        assertTrue("No such file: nope.txt" in missing.stderr, missing.stderr)
+        assertEquals(1, octoIn("task send t9").statusCode)
     }
 
     @Test

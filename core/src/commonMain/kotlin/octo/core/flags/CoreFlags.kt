@@ -32,5 +32,5 @@ object CoreFlags {
     val PREVIEWS =
         FeatureFlag("previews", "Preview images, notebooks, archives, SQLite and Mermaid files in the diff view")
     val NOTIFICATIONS =
-        FeatureFlag("notifications", "Show an OS notification when a task is blocked, fails or finishes a turn")
+        FeatureFlag("notifications", "Show an OS notification when a task blocks, fails or finishes out of sight")
 }

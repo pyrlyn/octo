@@ -1,71 +1,70 @@
 package octo.ui.vm
 
 import kotlinx.coroutines.CoroutineScope
-import kotlinx.coroutines.channels.Channel
-import kotlinx.coroutines.delay
-import kotlinx.coroutines.flow.Flow
-import kotlinx.coroutines.flow.collectLatest
-import kotlinx.coroutines.flow.receiveAsFlow
+import kotlinx.coroutines.flow.MutableSharedFlow
+import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.SharedFlow
+import kotlinx.coroutines.flow.asSharedFlow
+import kotlinx.coroutines.flow.getAndUpdate
 import kotlinx.coroutines.launch
-import octo.core.notify.Attention
-import octo.core.notify.NotificationRule
-import octo.core.notify.NotificationSettings
-import octo.core.notify.TaskNotification
+import octo.core.notify.ALERT_QUIET_MS
+import octo.core.notify.Alert
+import octo.core.notify.NotificationConfig
+import octo.core.notify.taskAlerts
 import octo.core.orchestrator.OctoCore
 import octo.core.task.TaskId
 
-/** OS notifications for tasks that need the user while they look elsewhere; exists only with the `notifications` flag on. */
+/** OS notifications for tasks the user is not looking at; only built while the `notifications` flag is on. */
 class NotificationsViewModel(
     core: OctoCore,
     private val main: MainViewModel,
     scope: CoroutineScope,
-    settings: NotificationSettings,
-    private val now: () -> Long = System::currentTimeMillis,
-    quietMs: Long = NotificationRule.DEFAULT_QUIET_MS,
+    config: NotificationConfig,
+    quietMs: Long = ALERT_QUIET_MS,
 ) {
-    private val rule = NotificationRule(settings, quietMs)
+    private val posted = MutableSharedFlow<Alert>(extraBufferCapacity = BUFFER)
 
-    // Buffered, so a notification raised before the tray starts collecting is still shown.
-    private val channel = Channel<TaskNotification>(Channel.BUFFERED)
+    /** What the window should show as OS notifications. */
+    val notifications: SharedFlow<Alert> = posted.asSharedFlow()
 
-    /** Notifications to show, each once. */
-    val shown: Flow<TaskNotification> = channel.receiveAsFlow()
+    private val focused = MutableStateFlow(false)
+    private val last = MutableStateFlow<TaskId?>(null)
 
-    @Volatile
-    private var focused = true
-
-    @Volatile
-    private var last: TaskId? = null
+    // macOS brings the app forward when its notification is clicked but tells the app nothing, so
+    // the window gaining focus after a background alert counts as that click.
+    private val unanswered = MutableStateFlow<TaskId?>(null)
 
     init {
-        // collectLatest cancels the wait for a burst as soon as the tasks change again, and runs
-        // one block at a time, so the rule always has a single caller.
         scope.launch {
-            core.state.collectLatest { state ->
-                rule.observe(state.tasks, now())
-                while (true) {
-                    val due = rule.nextDueMs() ?: break
-                    delay((due - now()).coerceAtLeast(0))
-                    rule.release(now(), attention()).forEach {
-                        last = it.task
-                        channel.send(it)
-                    }
+            core.state.taskAlerts(config, quietMs).collect { alert ->
+                val background = !focused.value
+                if (background || !showing(alert.task)) {
+                    last.value = alert.task
+                    if (background) unanswered.value = alert.task
+                    posted.emit(alert)
                 }
             }
         }
     }
 
-    fun windowFocused(focused: Boolean) {
-        this.focused = focused
+    /** The window gained or lost focus. */
+    fun focused(focused: Boolean) {
+        this.focused.value = focused
+        if (focused) unanswered.getAndUpdate { null }?.let(main::select)
     }
 
-    /** A click on a notification: AWT does not say which one, so the latest one's task opens. */
-    fun open() {
-        last?.let(main::select)
+    /** A notification was clicked: opens the task it was about. */
+    fun clicked() {
+        unanswered.value = null
+        last.value?.let(main::select)
     }
 
-    private fun attention(): Attention {
-        val s = main.state.value
-        return Attention(focused, s.selected.takeUnless { s.agentsOpen || s.usageOpen })
+    private fun showing(id: TaskId) =
+        main.state.value.let {
+            it.selected == id && !it.agentsOpen && !it.usageOpen
+        }
+
+    private companion object {
+        const val BUFFER = 16
     }
 }

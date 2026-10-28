@@ -1,0 +1,14 @@
+# A first turn with reasoning, a tool call and usage (synthetic; event envelopes follow
+# `packages/bootstrap/src/zcode-protocol/session-mapper.ts` and the result line
+# `packages/cli/src/prompt-command.ts` of zai-org/ZCode 3c5b227, ZCode 3.16.2).
+< {"eventId":"evt_1","payload":{"title":"New session"},"seq":1,"sessionId":"sess_1","timestamp":1793000000000,"traceId":"trace_1","type":"session.created"}
+< {"eventId":"evt_2","payload":{"inputId":"in_1"},"seq":2,"sessionId":"sess_1","timestamp":1793000000001,"traceId":"trace_1","turnId":"turn_1","type":"turn.started"}
+< {"eventId":"evt_3","payload":{"delta":"Check the files.","done":false,"kind":"reasoning_delta"},"seq":3,"sessionId":"sess_1","timestamp":1793000000002,"traceId":"trace_1","turnId":"turn_1","type":"model.streaming"}
+< {"eventId":"evt_4","payload":{"toolCallId":"call_1","toolName":"Bash","input":{"command":"ls"},"schedule":{},"kind":"scheduled"},"seq":4,"sessionId":"sess_1","timestamp":1793000000003,"traceId":"trace_1","turnId":"turn_1","type":"tool.updated"}
+< {"eventId":"evt_5","payload":{"toolCallId":"call_1","toolName":"Bash","startedAt":1793000000004,"kind":"started"},"seq":5,"sessionId":"sess_1","timestamp":1793000000004,"traceId":"trace_1","turnId":"turn_1","type":"tool.updated"}
+< {"eventId":"evt_6","payload":{"toolCallId":"call_1","result":{"success":true,"content":"README.md"},"duration":12,"kind":"result"},"seq":6,"sessionId":"sess_1","timestamp":1793000000005,"traceId":"trace_1","turnId":"turn_1","type":"tool.updated"}
+< {"eventId":"evt_7","payload":{"delta":"Only ","done":false,"kind":"text_delta"},"seq":7,"sessionId":"sess_1","timestamp":1793000000006,"traceId":"trace_1","turnId":"turn_1","type":"model.streaming"}
+< {"eventId":"evt_8","payload":{"delta":"README.md.","done":false,"kind":"text_delta"},"seq":8,"sessionId":"sess_1","timestamp":1793000000007,"traceId":"trace_1","turnId":"turn_1","type":"model.streaming"}
+< {"eventId":"evt_9","payload":{"response":"Only README.md.","tokenCount":150,"toolCallCount":1,"duration":900,"resultType":"success"},"seq":9,"sessionId":"sess_1","timestamp":1793000000008,"traceId":"trace_1","turnId":"turn_1","type":"turn.completed"}
+< {"type":"result","sessionId":"sess_1","traceId":"trace_1","turnId":"turn_1","response":"Only README.md.","usage":{"source":"provider","modelRequestCount":2,"inputTokens":100,"outputTokens":50,"totalTokens":150,"cacheReadTokens":40,"cacheWriteTokens":0,"reasoningTokens":5,"webSearchRequests":0,"webFetchRequests":0},"eventCount":9,"projection":{"status":"idle","turnCount":1,"totalTokenCount":150,"contextUsed":1500,"contextWindow":200000}}
+x 0

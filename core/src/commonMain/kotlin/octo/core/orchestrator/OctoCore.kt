@@ -8,6 +8,7 @@ import octo.core.agent.RequestResponse
 import octo.core.git.TaskDiff
 import octo.core.process.ProcessUsage
 import octo.core.task.Layout
+import octo.core.task.NewAttachment
 import octo.core.task.NewTask
 import octo.core.task.OctoState
 import octo.core.task.TaskId
@@ -40,11 +41,13 @@ interface OctoCore {
     /**
      * Sends [text] to an idle agent. A busy agent is steered when its adapter can take the text
      * into the running turn; otherwise the text waits in [octo.core.task.Task.queue] and is sent
-     * once the agent is idle.
+     * once the agent is idle. [attachments] are saved on the task's machine first; the agent gets
+     * their paths, and pictures as well when its adapter takes them.
      */
     suspend fun sendPrompt(
         taskId: TaskId,
         text: String,
+        attachments: List<NewAttachment> = emptyList(),
     )
 
     /** Replaces the text of a prompt that is still queued; throws when it was already sent. */
@@ -60,10 +63,15 @@ interface OctoCore {
         queuedId: Int,
     )
 
+    /**
+     * Answers a request. [attachments], by question id, go only with [RequestResponse.Answers]:
+     * they are saved on the task's machine and their paths added to that question's answer.
+     */
     suspend fun respond(
         taskId: TaskId,
         requestId: String,
         response: RequestResponse,
+        attachments: Map<String, List<NewAttachment>> = emptyMap(),
     )
 
     /**

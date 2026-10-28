@@ -5,7 +5,7 @@ import kotlinx.serialization.SerializationException
 import kotlinx.serialization.json.Json
 import octo.core.agent.PermissionMode
 import octo.core.flags.FeatureFlags
-import octo.core.notify.NotificationSettings
+import octo.core.notify.NotificationConfig
 import octo.core.remote.SshProcessLauncher
 import octo.core.triggers.TriggerConfig
 
@@ -33,8 +33,13 @@ data class OctoConfig(
      * expires; used only with the `compact-idle` flag on. 0 compacts every idle conversation.
      */
     val compactIdleMinTokens: Long = DEFAULT_COMPACT_IDLE_MIN_TOKENS,
-    /** Which events notify; used only with the `notifications` flag on. */
-    val notifications: NotificationSettings = NotificationSettings(),
+    /**
+     * Child tasks one task may have, forks included, so an agent that starts tasks through the
+     * messaging server cannot run away; 0 turns its `create_task` tool off.
+     */
+    val maxChildTasks: Int = DEFAULT_MAX_CHILD_TASKS,
+    /** Used only with the `notifications` flag on. */
+    val notifications: NotificationConfig = NotificationConfig(),
 ) {
     fun featureFlags(): FeatureFlags = FeatureFlags(flags)
 
@@ -56,6 +61,7 @@ data class OctoConfig(
     companion object {
         /** T3 Code's threshold: with a 200K window Claude compacts on its own before it gets there. */
         const val DEFAULT_COMPACT_IDLE_MIN_TOKENS = 200_000L
+        const val DEFAULT_MAX_CHILD_TASKS = 10
 
         private val json = Json { ignoreUnknownKeys = true }
 

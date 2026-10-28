@@ -6,6 +6,9 @@ subscriptions.
 
 Status: early development. See `docs/research.md`, `docs/architecture.md` and `plan/`.
 
+Agents: Claude Code, Codex, Cursor, Grok Build, Kimi Code, MiMo Code, ZCode and, behind a flag,
+Antigravity, each the CLI you installed and signed in to yourself. Plugins can add more.
+
 ## Build
 
 Needs JDK 21 and a checkout of the shared `ci-diffuser` build next to this one
@@ -37,8 +40,9 @@ the Octo home (`OCTO_HOME`, or the platform's app data folder):
 Each task runs in one of four permission modes: Supervised (the agent asks before commands and
 edits), Auto-accept edits, Auto (the agent's own review approves routine actions) and Full
 access. Pick one in the new-task dialog or change it on a running task. An agent without the
-chosen mode runs Supervised and says so in the transcript. Claude Code and Codex have all four;
-the ACP agents run Supervised. New tasks take `defaultPermissionMode` from `config.json`:
+chosen mode runs Supervised and says so in the transcript. Claude Code, Codex and ZCode have all four;
+the ACP agents run Supervised. ZCode runs each turn headless, so an action that would need your
+answer fails inside the turn instead of asking. New tasks take `defaultPermissionMode` from `config.json`:
 
 ```json
 { "defaultPermissionMode": "AutoAcceptEdits" }
@@ -80,11 +84,11 @@ quits. Its socket lives in a folder only you can read: `$TMPDIR/octo` on macOS,
 a separate connection per call, with a warning. Windows always uses a connection per call.
 
 `"agent-messaging": true` lets agents talk to each other. Octo runs an MCP server on
-`127.0.0.1` and gives each Claude, Cursor, Grok, Kimi Code and Antigravity session three tools:
-`list_tasks`, `send_message` and `wait_for_idle`. A message waits until its target is idle and
-then arrives as a prompt, so a busy agent is never interrupted. Each session gets its own token,
-passed through the environment, never on the command line. Tasks on remote machines and Codex
-get no tools yet.
+`127.0.0.1` and gives each Claude, Cursor, Grok, Kimi Code, MiMo Code and Antigravity session four
+tools: `list_tasks`, `send_message`, `wait_for_idle` and `create_task`. A message waits until its
+target is idle and then arrives as a prompt, so a busy agent is never interrupted. Each session
+gets its own token, passed through the environment, never on the command line. Tasks on remote
+machines, Codex and ZCode get no tools yet.
 
 `"presets": true` adds team presets. A preset is a named set of members, each with a role, an
 agent and a first prompt. Create, edit and delete presets from the new-task form, under Team
@@ -100,10 +104,13 @@ the traffic. Pair a device from Devices in the sidebar: Octo shows a one-time co
 five minutes and five tries. `POST /api/v1/pair` with `{"code", "name"}` returns the device's
 token; every other call sends it as `Authorization: Bearer <token>`. The calls:
 
-- `GET /tasks`, `POST /tasks` with `{repo, baseRef, agent, title, prompt?, options?, machine?, permissionMode?}`;
+- `GET /tasks`, `POST /tasks` with `{repo, baseRef, agent, title, prompt?, options?, machine?, permissionMode?, attachments?}`;
 - `GET /tasks/{id}/transcript`;
-- `POST /tasks/{id}/prompt` with `{text}`, and `POST /tasks/{id}/respond` with `{requestId}` plus
+- `POST /tasks/{id}/prompt` with `{text, attachments?}`, and `POST /tasks/{id}/respond` with `{requestId}` plus
   one of `optionId`, `answers` or `cancelled: true`;
+
+`attachments` is a list of `{name, mimeType?, data}` with each file's bytes in base64, at most 20 MB
+a file; a message may be files alone.
 - `POST /tasks/{id}/cancel`, `/stop` and `/restart`.
 
 Vendor terms are accepted only in the Octo window; until then creating a task answers 409.
@@ -124,8 +131,9 @@ The `octo` command drives the same API from a terminal or a script. Build it wit
 the token is sent only to the Octo it was paired with.
 
 - `octo task list`;
-- `octo task start --base main --agent claude --title "Fix the build" [--repo .] [--prompt …] [--mode auto] [--machine …] [--option key=value]`, which prints the new id;
-- `octo task send <id> <message>`;
+- `octo task start --base main --agent claude --title "Fix the build" [--repo .] [--prompt …] [--mode auto] [--machine …] [--option key=value] [--attach file]`, which prints the new id;
+- `octo task send <id> [message] [--attach file]`; repeat `--attach` for more files, read from
+  your current directory;
 - `octo task read <id>`, which prints the transcript one entry per line;
 - `octo task wait <id> [--timeout seconds]`, which returns when the turn ends: exit 0 when the task
   is idle, 1 when it failed or stopped, 2 when it waits for an answer, 124 on timeout.
@@ -161,7 +169,9 @@ days or all time. Claude Code and Codex are counted from their own local session
 (`$CLAUDE_CONFIG_DIR` or `~/.claude`, `$CODEX_HOME` or `~/.codex`), so work outside Octo counts
 too; other agents are counted from what Octo saw in its own runs. Octo reads only token counts,
 never credentials. When an agent hits its usage limit the task says "Limited until HH:MM" and
-offers Resume, which sends "Continue"; Octo never resumes on its own.
+offers Resume, which sends "Continue"; Octo never resumes on its own. The task screen also gets a
+Context button: how full the agent's context window is, and how its latest request splits into
+cache read, cache write, input and output, as far as the agent reports it.
 
 `"checkpoints": true` records each task's worktree before its first prompt and after every turn,
 on hidden git refs under `refs/octo/`, without touching the index, the branch or the stash. A
@@ -241,15 +251,16 @@ diagrams. A Diff button switches back. SQLite needs `sqlite3` on the PATH; Merma
 mermaid-cli (`mmdc`) and shows the source without it. Only files of 20 MB or less inside the
 task's worktree are read, and only for tasks on this computer.
 
-`"notifications": true` shows an OS notification, through a tray icon, when a task needs approval
-or an answer, fails, or finishes a turn, unless the window is focused on that task. A burst of
-events for one task, such as several approvals in a row, shows one notification once it has been
-quiet for two seconds, and a task notifies at most every 20 seconds. Clicking a notification, or
-the tray icon, opens the window on the task notified last. `notifications` in `config.json` turns
-each event off:
+`"notifications": true` shows an OS notification when a task needs you or is done while you
+look elsewhere: the agent waits for an approval or an answer, fails, or finishes its turn, and the
+window is not focused or another task is open. A burst of events for one task shows one
+notification, and one that is already answered or seen is skipped. Clicking it opens the task.
+`notifications` in `config.json` turns single events off; all three are on when it is left out.
+Octo shows a tray icon (on macOS, in the menu bar) while the flag is on, since that is how a
+desktop Java app posts notifications.
 
 ```json
-{ "flags": { "notifications": true }, "notifications": { "blocked": true, "failed": true, "done": false } }
+{ "flags": { "notifications": true }, "notifications": { "done": false } }
 ```
 
 `"plugins": true` loads WebAssembly plugins from the `plugins` folder in the Octo home. A plugin

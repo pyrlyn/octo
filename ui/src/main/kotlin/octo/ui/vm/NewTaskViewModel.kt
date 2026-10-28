@@ -20,6 +20,7 @@ import octo.core.orchestrator.OctoCore
 import octo.core.preset.Preset
 import octo.core.preset.PresetLibrary
 import octo.core.preset.startPreset
+import octo.core.task.NewAttachment
 import octo.core.task.NewTask
 import octo.core.task.TaskId
 import octo.core.terms.TermsNotAcknowledgedException
@@ -40,6 +41,8 @@ data class NewTaskUiState(
     val branchesError: String? = null,
     val title: String = "",
     val prompt: String = "",
+    /** Files that go with the first prompt. */
+    val attachments: List<NewAttachment> = emptyList(),
     /** Remote machines; the choice is shown only when there are some. */
     val machines: List<String> = emptyList(),
     /** Null runs the task on this computer. */
@@ -143,7 +146,10 @@ data class NewTaskUiState(
     }
 }
 
+// One small function per thing the form lets the user do; splitting them would split one form.
+
 /** The new-task form: repository, base branch, agent and the first prompt. */
+@Suppress("TooManyFunctions")
 class NewTaskViewModel(
     private val core: OctoCore,
     private val catalog: AgentCatalog,
@@ -279,6 +285,14 @@ class NewTaskViewModel(
 
     fun editPrompt(value: String) = mutable.update { it.copy(prompt = value) }
 
+    fun attach(files: List<NewAttachment>) = mutable.update { it.copy(attachments = it.attachments + files) }
+
+    fun detach(index: Int) =
+        mutable.update { it.copy(attachments = it.attachments.filterIndexed { i, _ -> i != index }) }
+
+    /** Shows a problem found outside the core, such as a file that could not be read. */
+    fun showError(message: String) = mutable.update { it.copy(error = message) }
+
     fun selectAgent(id: AgentId) = mutable.update { it.copy(agent = id) }
 
     /** Null goes back to the config default. */
@@ -313,6 +327,7 @@ class NewTaskViewModel(
                     title = s.effectiveTitle,
                     prompt = s.prompt.trim(),
                     machine = s.machine,
+                    attachments = s.attachments,
                 )
             val result = core.compare(request, picks)
             val failed = result.failures.joinToString("; ") { (pick, why) -> "${pick.label}: $why" }
@@ -361,6 +376,7 @@ class NewTaskViewModel(
                             prompt = s.prompt.trim().ifEmpty { null },
                             machine = s.machine,
                             permissionMode = s.chosenPermissionMode,
+                            attachments = s.attachments,
                         ),
                     )
                 mutable.update { it.copy(creating = false, created = id) }

@@ -6,10 +6,12 @@ import kotlinx.coroutines.test.runTest
 import octo.core.agent.AgentEvent
 import octo.core.agent.AgentSessionRef
 import octo.core.agent.AuthState
+import octo.core.agent.Capability
 import octo.core.agent.LogStream
 import octo.core.agent.McpServer
 import octo.core.agent.PermissionKind
 import octo.core.agent.PlanEntry
+import octo.core.agent.PromptImage
 import octo.core.agent.RequestResponse
 import octo.core.agent.Role
 import octo.core.agent.SessionSpec
@@ -35,6 +37,20 @@ class CursorAdapterTest {
     }
 
     private fun TestScope.fixture(name: String) = adapter { replay(readFixture("src/commonTest/fixtures/$name")) }
+
+    @Test
+    fun picturesGoOutAsImageContentWhenTheAgentTakesThem() =
+        runTest {
+            val image = PromptImage("/home/a/shot.png", "image/png", byteArrayOf(1, 2, 3))
+            for (name in listOf("image.transcript", "image-unsupported.transcript")) {
+                val (adapter, _) = fixture(name)
+                assertTrue(Capability.Images in adapter.capabilities)
+                val session = adapter.start(SessionSpec("/repo"))
+                val events = Events(backgroundScope, session)
+                session.prompt("What is this?", listOf(image))
+                assertEquals(StopReason.EndTurn, events.next<AgentEvent.TurnEnded>().stopReason, name)
+            }
+        }
 
     @Test
     fun turnMapsToEvents() =

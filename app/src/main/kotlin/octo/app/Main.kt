@@ -56,7 +56,7 @@ fun main() {
                 (octo.palette && isPaletteShortcut(event)).also { if (it) models.main.togglePalette() }
             },
         ) {
-            models.notifications?.let { NotificationTray(it, window) }
+            models.notifications?.let { this@application.NotificationTray(it, onOpen = window::toFront) }
             OctoApp(models)
         }
     }

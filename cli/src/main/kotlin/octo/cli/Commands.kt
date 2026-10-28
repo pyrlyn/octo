@@ -4,17 +4,20 @@ import com.github.ajalt.clikt.core.CliktCommand
 import com.github.ajalt.clikt.core.CliktError
 import com.github.ajalt.clikt.core.Context
 import com.github.ajalt.clikt.core.ProgramResult
+import com.github.ajalt.clikt.core.UsageError
 import com.github.ajalt.clikt.core.terminal
 import com.github.ajalt.clikt.parameters.arguments.argument
 import com.github.ajalt.clikt.parameters.arguments.multiple
 import com.github.ajalt.clikt.parameters.options.associate
 import com.github.ajalt.clikt.parameters.options.default
 import com.github.ajalt.clikt.parameters.options.flag
+import com.github.ajalt.clikt.parameters.options.multiple
 import com.github.ajalt.clikt.parameters.options.option
 import com.github.ajalt.clikt.parameters.options.required
 import com.github.ajalt.clikt.parameters.types.double
 import com.github.ajalt.clikt.parameters.types.enum
 import octo.core.access.ApiJson
+import octo.core.access.AttachmentBody
 import octo.core.access.CreatedBody
 import octo.core.access.NewTaskBody
 import octo.core.access.PairBody
@@ -25,7 +28,10 @@ import octo.core.access.TaskListBody
 import octo.core.access.TranscriptBody
 import octo.core.agent.PermissionMode
 import octo.core.status.AgentStatus
+import octo.core.task.NewAttachment
+import octo.core.task.read
 import java.io.File
+import java.io.IOException
 
 class PairCommand(
     private val octo: Octo,
@@ -81,6 +87,7 @@ class TaskStartCommand(
     private val mode by option("--mode", help = "The permission mode").enum<PermissionMode>(ignoreCase = true)
     private val machine by option("--machine", help = "A machine from Octo's config instead of this one")
     private val options by option("--option", help = "An agent option, as key=value").associate()
+    private val attach by attachOption()
     private val json by jsonFlag()
 
     override fun help(context: Context) = "Start a task and print its id"
@@ -98,6 +105,7 @@ class TaskStartCommand(
                 options = options,
                 machine = machine,
                 permissionMode = mode,
+                attachments = attachments(octo.cwd, attach),
             )
         val created = client.post("/tasks", NewTaskBody.serializer(), body)
         line(if (json) created else client.decode(created, CreatedBody.serializer()).id.value)
@@ -108,12 +116,15 @@ class TaskSendCommand(
     private val octo: Octo,
 ) : CliktCommand(name = "send") {
     private val id by argument(help = "The task's id")
-    private val text by argument(help = "The message; several words are joined with spaces").multiple(required = true)
+    private val text by argument(help = "The message; several words are joined with spaces").multiple()
+    private val attach by attachOption()
 
     override fun help(context: Context) = "Send a message; Octo queues it while the agent works"
 
     override fun run() {
-        octo.client().post("/tasks/$id/prompt", PromptBody.serializer(), PromptBody(text.joinToString(" ")))
+        if (text.isEmpty() && attach.isEmpty()) throw UsageError("Give a message, --attach or both")
+        val body = PromptBody(text.joinToString(" "), attachments(octo.cwd, attach))
+        octo.client().post("/tasks/$id/prompt", PromptBody.serializer(), body)
     }
 }
 
@@ -185,6 +196,26 @@ class TaskWaitCommand(
 }
 
 private fun CliktCommand.jsonFlag() = option("--json", help = "Print Octo's JSON instead of text").flag()
+
+private fun CliktCommand.attachOption() =
+    option("--attach", help = "A file to send with the message; repeat it for more").multiple()
+
+/** Reads the files on this computer, relative to [cwd], before anything reaches Octo. */
+private fun attachments(
+    cwd: String,
+    paths: List<String>,
+): List<AttachmentBody> =
+    paths.map { path ->
+        val file = File(cwd).resolve(path)
+        if (!file.isFile) throw CliktError("No such file: $path")
+        try {
+            AttachmentBody.of(NewAttachment.read(file))
+        } catch (e: IllegalArgumentException) {
+            throw CliktError(e.message, e)
+        } catch (e: IOException) {
+            throw CliktError("Could not read $path: ${e.message}", e)
+        }
+    }
 
 // Mordant, behind echo, turns tabs into spaces; scripts split these lines on tabs.
 private fun CliktCommand.line(text: String) = currentContext.terminal.rawPrint("$text\n")

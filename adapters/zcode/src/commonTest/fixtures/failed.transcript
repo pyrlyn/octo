@@ -1,0 +1,6 @@
+# A turn the provider refused: the run reports turn.failed and exits 1 without a result line
+# (synthetic, as in turn.transcript).
+< {"eventId":"evt_1","payload":{"inputId":"in_1"},"seq":1,"sessionId":"sess_2","timestamp":1793000000000,"traceId":"trace_1","turnId":"turn_1","type":"turn.started"}
+< {"eventId":"evt_2","payload":{"error":{"type":"provider_error","message":"No model provider configured"},"turnPhase":"model"},"seq":2,"sessionId":"sess_2","timestamp":1793000000001,"traceId":"trace_1","turnId":"turn_1","type":"turn.failed"}
+! Error: No model provider configured
+x 1

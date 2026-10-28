@@ -14,8 +14,9 @@ Taken by the creator after the Phase 1 research (`docs/research.md`):
 - **Vendor terms.** Octo spawns the agent CLI the user installed, under the user's own login. Octo
   never reads, stores or forwards agent credentials. Antigravity sits behind a feature flag that
   shows the vendor's terms before first use.
-- **Agent transport.** ACP is the base transport (Cursor, Grok Build, Kimi Code, Antigravity). Claude Code
-  uses its native stream-json control protocol and Codex its `app-server` protocol, so Node is not
+- **Agent transport.** ACP is the base transport (Cursor, Grok Build, Kimi Code, MiMo Code, Antigravity).
+  Claude Code uses its native stream-json control protocol, Codex its `app-server` protocol and
+  ZCode one stream-json `--prompt` run per turn, so Node is not
   a runtime dependency.
 - **Workflow.** The agent merges its own PR once tests and linters are green, then takes the next
   task.
