@@ -41,7 +41,17 @@ enum class Capability {
 
     /** Shrinks the conversation to a summary through [AgentSession.compact]. */
     Compact,
+
+    /** Takes pictures with a prompt through [AgentSession.prompt]; other agents get only their paths. */
+    Images,
 }
+
+/** A picture the user attached, saved at [path] on the agent's machine. */
+class PromptImage(
+    val path: String,
+    val mimeType: String,
+    val data: ByteArray,
+)
 
 enum class AuthState { LoggedIn, LoggedOut, Unknown }
 
@@ -126,7 +136,14 @@ interface AgentSession {
     /** Normalized events; single collector. Completes after [AgentEvent.Exited]. */
     val events: Flow<AgentEvent>
 
-    suspend fun prompt(text: String)
+    /**
+     * Starts a turn on [text]. [images] stay empty unless the adapter has [Capability.Images]; the
+     * text already names every attachment's path, so an image the agent cannot take may be left out.
+     */
+    suspend fun prompt(
+        text: String,
+        images: List<PromptImage> = emptyList(),
+    )
 
     /**
      * Adds [text] to the turn that is running; called only on adapters with [Capability.Steer].

@@ -21,6 +21,7 @@ import octo.core.orchestrator.WorktreeDirtyException
 import octo.core.process.ProcessUsage
 import octo.core.status.AgentStatus
 import octo.core.task.Layout
+import octo.core.task.NewAttachment
 import octo.core.task.NewTask
 import octo.core.task.OctoState
 import octo.core.task.QueuedPrompt
@@ -87,9 +88,10 @@ class FakeOctoCore : OctoCore {
     override suspend fun sendPrompt(
         taskId: TaskId,
         text: String,
+        attachments: List<NewAttachment>,
     ) {
         if (taskId in notRunning) throw TaskNotRunningException(taskId)
-        calls += "prompt $text"
+        calls += "prompt $text" + attachments.joinToString("") { " +${it.name}" }
     }
 
     override suspend fun editQueued(
@@ -131,8 +133,10 @@ class FakeOctoCore : OctoCore {
         taskId: TaskId,
         requestId: String,
         response: RequestResponse,
+        attachments: Map<String, List<NewAttachment>>,
     ) {
-        calls += "respond $requestId $response"
+        val files = attachments.entries.joinToString("") { (q, list) -> list.joinToString("") { " +$q:${it.name}" } }
+        calls += "respond $requestId $response$files"
     }
 
     override suspend fun forkTask(taskId: TaskId): TaskId {
