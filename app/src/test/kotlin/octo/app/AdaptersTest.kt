@@ -7,6 +7,8 @@ import octo.adapters.cursor.CursorAdapter
 import octo.adapters.demo.DemoAdapter
 import octo.adapters.grok.GrokAdapter
 import octo.adapters.kimi.KimiAdapter
+import octo.adapters.mimo.MimoAdapter
+import octo.adapters.zcode.ZCodeAdapter
 import octo.core.agent.AgentId
 import octo.core.flags.FeatureFlags
 import octo.core.plugins.PluginAgent
@@ -27,6 +29,8 @@ class AdaptersTest {
         assertNotNull(registry[CursorAdapter.ID])
         assertNotNull(registry[GrokAdapter.ID])
         assertNotNull(registry[KimiAdapter.ID])
+        assertNotNull(registry[MimoAdapter.ID])
+        assertNotNull(registry[ZCodeAdapter.ID])
         assertNull(registry[AntigravityAdapter.ID])
         assertNull(registry[DemoAdapter.ID])
     }

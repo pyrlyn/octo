@@ -8,7 +8,9 @@ import octo.adapters.cursor.CursorAdapter
 import octo.adapters.demo.DemoAdapter
 import octo.adapters.grok.GrokAdapter
 import octo.adapters.kimi.KimiAdapter
+import octo.adapters.mimo.MimoAdapter
 import octo.adapters.plugin.PluginAgentAdapter
+import octo.adapters.zcode.ZCodeAdapter
 import octo.core.agent.AdapterRegistry
 import octo.core.agent.AgentAdapter
 import octo.core.agent.AgentId
@@ -47,6 +49,8 @@ fun builtInAdapters(
         CursorAdapter(launcher),
         GrokAdapter(launcher),
         KimiAdapter(launcher),
+        MimoAdapter(launcher),
+        ZCodeAdapter(launcher),
         AntigravityAdapter(launcher, os),
         DemoAdapter(),
     )
