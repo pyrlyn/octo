@@ -1,5 +1,6 @@
 package octo.core.config
 
+import octo.core.notify.NotificationConfig
 import octo.core.remote.shellQuote
 import kotlin.test.Test
 import kotlin.test.assertEquals
@@ -29,6 +30,15 @@ class MachineConfigTest {
     fun theIdleCompactionThresholdLoadsFromConfigWithADefault() {
         assertEquals(50_000L, OctoConfig.parse("""{"compactIdleMinTokens":50000}""").config.compactIdleMinTokens)
         assertEquals(200_000L, OctoConfig.parse("""{"flags":{}}""").config.compactIdleMinTokens)
+    }
+
+    @Test
+    fun notificationEventsLoadFromConfigAllOnByDefault() {
+        assertEquals(
+            NotificationConfig(blocked = true, failed = true, done = false),
+            OctoConfig.parse("""{"notifications":{"done":false}}""").config.notifications,
+        )
+        assertEquals(NotificationConfig(), OctoConfig.parse("""{"flags":{}}""").config.notifications)
     }
 
     @Test

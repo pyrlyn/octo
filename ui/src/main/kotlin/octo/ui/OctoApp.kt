@@ -23,6 +23,7 @@ import androidx.compose.material3.darkColorScheme
 import androidx.compose.material3.lightColorScheme
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.key
@@ -34,6 +35,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.input.pointer.PointerIcon
 import androidx.compose.ui.input.pointer.pointerHoverIcon
 import androidx.compose.ui.platform.LocalDensity
+import androidx.compose.ui.platform.LocalWindowInfo
 import androidx.compose.ui.unit.dp
 import octo.core.task.TaskId
 import octo.ui.vm.MainUiState
@@ -46,6 +48,10 @@ import java.awt.Cursor
 fun OctoApp(models: ViewModels) {
     val main = models.main
     val state by main.state.collectAsState()
+    models.notifications?.let { vm ->
+        val focused = LocalWindowInfo.current.isWindowFocused
+        LaunchedEffect(vm, focused) { vm.focused(focused) }
+    }
     MaterialTheme(colorScheme = if (isSystemInDarkTheme()) darkColorScheme() else lightColorScheme()) {
         Surface(Modifier.fillMaxSize()) {
             Column(Modifier.fillMaxSize()) {
