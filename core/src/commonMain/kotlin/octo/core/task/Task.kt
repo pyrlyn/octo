@@ -32,6 +32,11 @@ data class NewTask(
     /** Null takes the default from the config. */
     val permissionMode: PermissionMode? = null,
     val group: TaskGroup? = null,
+    /**
+     * The task that starts this one. The new task never runs in a more permissive mode than its
+     * parent; [repo] is a path on the parent's machine, and Octo finds its clone on [machine].
+     */
+    val parentId: TaskId? = null,
     /** Files that go with [prompt], saved on the task's machine once its worktree exists. */
     val attachments: List<NewAttachment> = emptyList(),
 )
