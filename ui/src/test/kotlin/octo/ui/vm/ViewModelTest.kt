@@ -222,6 +222,7 @@ class ViewModelTest {
                     override suspend fun sendPrompt(
                         taskId: TaskId,
                         text: String,
+                        attachments: List<octo.core.task.NewAttachment>,
                     ): Unit = error("agent went away")
                 }
             core.put(view("a", AgentStatus.Idle))

@@ -56,6 +56,7 @@ class ClaudeAdapter(
             Capability.Fork,
             Capability.Mcp,
             Capability.Compact,
+            Capability.Images,
         )
     override val permissionModes = PermissionMode.entries.toSet()
     override val usageHistory = configDir?.let(::claudeHistory)

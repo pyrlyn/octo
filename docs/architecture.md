@@ -278,6 +278,7 @@ class FeatureFlags(config: Map<String, Boolean>) {
 | `compact-idle` (compact a large idle conversation just before its prompt cache expires) | T35 |
 | `previews` (preview images, notebooks, archives, SQLite and Mermaid files in the diff view) | T36 |
 | `guest-share` (a guest watches a task by link and proposes messages; needs `remote-access`) | T37 |
+| `notifications` (an OS notification when a task out of sight blocks, fails or finishes a turn) | T40 |
 | `pty-terminal` | Reserved |
 
 ## 7. Core API and orchestration
@@ -406,6 +407,14 @@ agent and writes the state. `close()` belongs to `app`, so it is not on the inte
   an archive is listed from its central directory without inflating it, and SQLite is read by
   the `sqlite3` CLI in read-only safe mode. Mermaid goes through `mmdc` to PNG, since Skia's SVG
   renderer drops Mermaid's HTML labels. Remote tasks keep the plain diff.
+- **OS notifications.** With the `notifications` flag on, `taskAlerts` (`core/notify`) turns
+  the state stream into alerts: a task that moves into Blocked, Failed or Done, if
+  `config.json`'s `notifications` allows that event. Each task's alert waits 1.5 s; a newer one
+  replaces it and one whose state is gone by then is dropped, so a burst shows once. The first
+  state is only a baseline. `NotificationsViewModel` posts an alert unless the window is focused
+  on that task; the app posts it through a Compose `Tray`. A click (Windows sends one, and so does
+  the tray icon) opens the alerted task. macOS only activates the app, so the window gaining focus
+  after an alert posted in the background opens that task once.
 - **Guest links.** With `guest-share` and `remote-access` on, `Shares` (`core/access`) keeps one
   link per task in `shares.json` as a SHA-256 of its 256-bit token, and the guests' proposals in
   memory: at most 10 waiting and 50 kept per link, 4000 characters each. `RemoteApi` serves

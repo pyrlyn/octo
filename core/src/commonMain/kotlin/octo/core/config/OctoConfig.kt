@@ -5,6 +5,7 @@ import kotlinx.serialization.SerializationException
 import kotlinx.serialization.json.Json
 import octo.core.agent.PermissionMode
 import octo.core.flags.FeatureFlags
+import octo.core.notify.NotificationConfig
 import octo.core.remote.SshProcessLauncher
 import octo.core.triggers.TriggerConfig
 
@@ -37,6 +38,8 @@ data class OctoConfig(
      * messaging server cannot run away; 0 turns its `create_task` tool off.
      */
     val maxChildTasks: Int = DEFAULT_MAX_CHILD_TASKS,
+    /** Used only with the `notifications` flag on. */
+    val notifications: NotificationConfig = NotificationConfig(),
 ) {
     fun featureFlags(): FeatureFlags = FeatureFlags(flags)
 

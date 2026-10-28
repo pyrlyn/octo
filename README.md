@@ -247,6 +247,18 @@ diagrams. A Diff button switches back. SQLite needs `sqlite3` on the PATH; Merma
 mermaid-cli (`mmdc`) and shows the source without it. Only files of 20 MB or less inside the
 task's worktree are read, and only for tasks on this computer.
 
+`"notifications": true` shows an OS notification when a task needs you or is done while you
+look elsewhere: the agent waits for an approval or an answer, fails, or finishes its turn, and the
+window is not focused or another task is open. A burst of events for one task shows one
+notification, and one that is already answered or seen is skipped. Clicking it opens the task.
+`notifications` in `config.json` turns single events off; all three are on when it is left out.
+Octo shows a tray icon (on macOS, in the menu bar) while the flag is on, since that is how a
+desktop Java app posts notifications.
+
+```json
+{ "flags": { "notifications": true }, "notifications": { "done": false } }
+```
+
 `"plugins": true` loads WebAssembly plugins from the `plugins` folder in the Octo home. A plugin
 can add ACP agents and actions in a task's Plugins menu. A plugin cannot reach files, processes or
 the network. A broken one is skipped with a warning. See `docs/plugins.md` for the ABI.

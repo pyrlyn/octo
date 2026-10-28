@@ -19,6 +19,7 @@ import octo.core.git.GitWorkspace
 import octo.core.io.AtomicFile
 import octo.core.messaging.AgentMessaging
 import octo.core.messaging.HttpMcpServer
+import octo.core.notify.NotificationConfig
 import octo.core.orchestrator.AgentCatalog
 import octo.core.orchestrator.OctoCore
 import octo.core.orchestrator.Orchestrator
@@ -72,6 +73,8 @@ class Octo private constructor(
     val shares: Shares?,
     /** Where guest links point: the user's tunnel, or loopback for a guest on `ssh -L`; null with [shares]. */
     val shareBase: String?,
+    /** Null unless the `notifications` flag is on. */
+    val notifications: NotificationConfig?,
 ) {
     val core: OctoCore get() = orchestrator
 
@@ -158,8 +161,7 @@ class Octo private constructor(
             val access = remoteAccess(config, flags, paths, orchestrator, triggers?.first)
             val warnings =
                 listOfNotNull(warning, mcpWarning, presets?.warning, access.warning, usage?.second) + remote.warnings +
-                    plugins.loaded.warnings + plugins.agents.warnings + triggers?.second.orEmpty() +
-                    limits.warnings
+                    plugins.loaded.warnings + plugins.agents.warnings + triggers?.second.orEmpty() + limits.warnings
             return Octo(
                 orchestrator,
                 catalog,
@@ -176,6 +178,7 @@ class Octo private constructor(
                 triggers?.first,
                 access.shares,
                 access.shareBase,
+                flags.ifOn(CoreFlags.NOTIFICATIONS) { config.notifications },
             )
         }
 

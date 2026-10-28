@@ -124,6 +124,7 @@ data class TaskGroup(
 data class QueuedPrompt(
     val id: Int,
     val text: String,
+    val attachments: List<Attachment> = emptyList(),
 )
 
 /** A request the agent is waiting on. */
