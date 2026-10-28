@@ -1,6 +1,6 @@
 # T42. Done
 
-PR: PR_LINK
+PR: https://github.com/pyrlyn/octo/pull/50
 
 ## What was done
 
