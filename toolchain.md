@@ -21,6 +21,8 @@
 | org.jetbrains.kotlinx:kotlinx-serialization-json 1.12.0 | local | https://github.com/Kotlin/kotlinx.serialization | Agent protocols, config, state |
 | org.jetbrains.kotlinx:kotlinx-io-core 0.9.1 | local | https://github.com/Kotlin/kotlinx-io | Files and paths in common code |
 | com.github.ajalt.clikt:clikt 5.1.0 | local | https://github.com/ajalt/clikt | Arguments, help and errors of the `octo` command |
+| dev.inmo:krontab 3.1.0 | local | https://github.com/InsanusMokrassar/krontab | Matching cron schedules of triggers (JVM only) |
+| com.soywiz.korge:korlibs-time 5.4.0 | local (through krontab) | https://github.com/korlibs/korlibs-time | The date type krontab takes and returns |
 | org.jetbrains.kotlin:kotlin-test | local | https://github.com/JetBrains/kotlin | Tests |
 | Compose Multiplatform 1.12.2 (`org.jetbrains.compose`) | local | https://github.com/JetBrains/compose-multiplatform | Desktop UI |
 | org.jlleitschuh.gradle.ktlint 14.2.0 (ktlint 1.8.0) | via ci-diffuser | https://github.com/JLLeitschuh/ktlint-gradle | Formatting lint (`ci.diffuser.ktlint`) |

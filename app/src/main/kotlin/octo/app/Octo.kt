@@ -35,6 +35,9 @@ import octo.core.publish.GitTaskPublisher
 import octo.core.publish.SettleMerged
 import octo.core.publish.TaskPublisher
 import octo.core.terms.TermsGate
+import octo.core.triggers.KrontabCronParser
+import octo.core.triggers.Triggers
+import octo.core.triggers.Webhooks
 import octo.core.usage.UsageLog
 import octo.core.usage.UsageReport
 import wasm.chasm.ChasmRuntime
@@ -61,6 +64,8 @@ class Octo private constructor(
     private val flags: FeatureFlags,
     /** Null unless the `usage` flag is on. */
     val usage: UsageReport?,
+    /** Null unless the `triggers` flag is on. */
+    private val triggers: Triggers?,
 ) {
     val core: OctoCore get() = orchestrator
 
@@ -87,6 +92,7 @@ class Octo private constructor(
 
     /** Stops every agent and writes the last state. */
     suspend fun close() {
+        triggers?.close()
         remoteServer?.close()
         orchestrator.close()
         remote.close()
@@ -134,11 +140,13 @@ class Octo private constructor(
             val catalog = RegistryAgentCatalog(registry, terms, remote.machines.mapValues { it.value.registry })
             val presets = flags.ifOn(CoreFlags.PRESETS) { FilePresetLibrary.open(AtomicFile(paths.presets)) }
             val usage = flags.ifOn(CoreFlags.USAGE) { usage(paths, orchestrator, registry, scope) }
+            val triggers = flags.ifOn(CoreFlags.TRIGGERS) { triggers(config, flags, paths, orchestrator, scope) }
             val access =
-                flags.ifOn(CoreFlags.REMOTE_ACCESS) { startRemoteAccess(config, paths, orchestrator) } ?: RemoteAccess()
+                flags.ifOn(CoreFlags.REMOTE_ACCESS) { startRemoteAccess(config, paths, orchestrator, triggers?.first) }
+                    ?: RemoteAccess()
             val warnings =
                 listOfNotNull(warning, mcpWarning, presets?.warning, access.warning, usage?.second) + remote.warnings +
-                    plugins.loaded.warnings + plugins.agents.warnings
+                    plugins.loaded.warnings + plugins.agents.warnings + triggers?.second.orEmpty()
             return Octo(
                 orchestrator,
                 catalog,
@@ -152,7 +160,32 @@ class Octo private constructor(
                 remote,
                 flags,
                 usage?.first,
+                triggers?.first,
             )
+        }
+
+        /** The triggers and their start-up warnings. */
+        private suspend fun triggers(
+            config: OctoConfig,
+            flags: FeatureFlags,
+            paths: OctoPaths,
+            orchestrator: Orchestrator,
+            scope: CoroutineScope,
+        ): Pair<Triggers, List<String>> {
+            val triggers =
+                Triggers.open(
+                    config.triggers,
+                    orchestrator,
+                    AtomicFile(paths.triggers),
+                    KrontabCronParser(),
+                    JvmSecrets,
+                    scope,
+                )
+            val unreachable =
+                "Webhook triggers need the ${CoreFlags.REMOTE_ACCESS.id} flag, which is off".takeIf {
+                    config.triggers.any { it.webhook != null } && !flags.isEnabled(CoreFlags.REMOTE_ACCESS)
+                }
+            return triggers to triggers.warnings + listOfNotNull(unreachable)
         }
 
         /** The report and, when `usage.json` cannot be read, why nothing is recorded. */
@@ -217,13 +250,14 @@ class Octo private constructor(
             config: OctoConfig,
             paths: OctoPaths,
             core: OctoCore,
+            hooks: Webhooks?,
         ): RemoteAccess {
             val port = config.remoteAccess.port
             val devices = Devices.open(AtomicFile(paths.devices), JvmSecrets)
             val problem = config.remoteAccess.problem() ?: devices.warning
             if (problem != null) return RemoteAccess(warning = "Remote access is off: $problem")
             return try {
-                RemoteAccess(RemoteHttpServer(RemoteApi(core, devices), port).start(), devices)
+                RemoteAccess(RemoteHttpServer(RemoteApi(core, devices, hooks), port).start(), devices)
             } catch (e: java.io.IOException) {
                 RemoteAccess(warning = "Remote access is off: port $port: ${e.message}")
             }

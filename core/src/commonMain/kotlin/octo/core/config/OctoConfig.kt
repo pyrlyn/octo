@@ -6,6 +6,7 @@ import kotlinx.serialization.json.Json
 import octo.core.agent.PermissionMode
 import octo.core.flags.FeatureFlags
 import octo.core.remote.SshProcessLauncher
+import octo.core.triggers.TriggerConfig
 
 /** User settings from `config.json` in the Octo home. */
 @Serializable
@@ -22,6 +23,8 @@ data class OctoConfig(
      * (installing dependencies, copying `.env` files) before the agent starts.
      */
     val worktreeSetup: Map<String, String> = emptyMap(),
+    /** Used only with the `triggers` flag on; webhooks also need `remote-access`. */
+    val triggers: List<TriggerConfig> = emptyList(),
 ) {
     fun featureFlags(): FeatureFlags = FeatureFlags(flags)
 
