@@ -1,4 +1,4 @@
-package octo.ui.vm
+package octo.testing
 
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow

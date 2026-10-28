@@ -8,6 +8,8 @@ import octo.core.agent.VendorTerms
 import octo.core.status.AgentStatus
 import octo.core.task.TaskId
 import octo.core.task.TaskView
+import octo.testing.FakeCatalog
+import octo.testing.FakeOctoCore
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertFalse

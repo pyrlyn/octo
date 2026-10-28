@@ -14,6 +14,8 @@ import octo.core.usage.UsageHistory
 import octo.core.usage.UsageLog
 import octo.core.usage.UsageRecord
 import octo.core.usage.UsageReport
+import octo.testing.FakeCatalog
+import octo.testing.FakeOctoCore
 import java.nio.file.Files
 import java.time.LocalDateTime
 import java.time.ZoneId

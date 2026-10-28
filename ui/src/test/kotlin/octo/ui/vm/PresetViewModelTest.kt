@@ -12,6 +12,8 @@ import octo.core.preset.Preset
 import octo.core.preset.PresetLibrary
 import octo.core.preset.PresetMember
 import octo.core.task.TaskId
+import octo.testing.FakeCatalog
+import octo.testing.FakeOctoCore
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertFalse

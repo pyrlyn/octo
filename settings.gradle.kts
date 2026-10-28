@@ -37,4 +37,5 @@ include(
     ":adapters:plugin",
     ":ui",
     ":app",
+    ":cli",
 )

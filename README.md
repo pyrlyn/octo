@@ -109,6 +109,21 @@ token; every other call sends it as `Authorization: Bearer <token>`. The calls:
 Vendor terms are accepted only in the Octo window; until then creating a task answers 409.
 `devices.json` keeps only a SHA-256 of each token, and Revoke locks a device out at once.
 
+The `octo` command drives the same API from a terminal or a script. Build it with
+`./gradlew :cli:installDist`; it lands in `cli/build/install/octo/bin/octo`. Turn on
+`remote-access`, then run `octo pair <code>` with a code from Devices. The URL and token go to
+`cli.json` in the Octo home, readable only by you; `OCTO_URL` and `OCTO_TOKEN` override them, and
+the token is sent only to the Octo it was paired with.
+
+- `octo task list`;
+- `octo task start --base main --agent claude --title "Fix the build" [--repo .] [--prompt …] [--mode auto] [--machine …] [--option key=value]`, which prints the new id;
+- `octo task send <id> <message>`;
+- `octo task read <id>`, which prints the transcript one entry per line;
+- `octo task wait <id> [--timeout seconds]`, which returns when the turn ends: exit 0 when the task
+  is idle, 1 when it failed or stopped, 2 when it waits for an answer, 124 on timeout.
+
+`--json` on `list`, `start`, `read` and `wait` prints Octo's JSON instead of text.
+
 `"handoff": true` adds Switch agent to each task: pick another agent or model for the same
 worktree and branch. A model change stays in the running session when the agent can switch live;
 otherwise a fresh session starts, and your next prompt carries the conversation over from Octo's
