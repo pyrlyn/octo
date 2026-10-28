@@ -1,6 +1,6 @@
 # T41. Done
 
-PR: see the T41 pull request on `pyrlyn/octo` (branch `t41-attachments-92be3d`).
+PR: https://github.com/pyrlyn/octo/pull/54
 
 ## What was done
 
