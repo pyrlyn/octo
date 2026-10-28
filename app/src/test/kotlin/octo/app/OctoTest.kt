@@ -48,6 +48,18 @@ class OctoTest {
     }
 
     @Test
+    fun agentLimitsAreReadOnlyWithTheQueueFlag() {
+        assertEquals(
+            emptyList(),
+            open("""{"maxRunningAgents": 0}""").warnings,
+            "the limit is not read while the flag is off",
+        )
+
+        val on = open("""{"flags": {"${CoreFlags.QUEUE.id}": true}, "maxRunningAgents": 0}""")
+        assertTrue(on.warnings.single().contains("maxRunningAgents 0"), on.warnings.toString())
+    }
+
+    @Test
     fun remoteMachinesNeedTheirFlagAndBadEntriesAreSkipped() {
         val machines = """"machines": [{"id": "box", "host": "me@box"}, {"id": "bad", "host": "-oProxyCommand=id"}]"""
         val off = open("{$machines}")

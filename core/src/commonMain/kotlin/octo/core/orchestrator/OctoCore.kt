@@ -102,6 +102,9 @@ interface OctoCore {
     /** Resumes the agent's own session when the adapter can, else starts a fresh one and says so. */
     suspend fun restart(taskId: TaskId)
 
+    /** Starts a task waiting for a free slot at once, over its machine's limit; nothing otherwise. */
+    suspend fun startNow(taskId: TaskId) = Unit
+
     /**
      * Stops the agent and forgets the task. The branch is always kept; a dirty worktree is only
      * deleted with [force], otherwise [WorktreeDirtyException] is thrown and nothing changes.

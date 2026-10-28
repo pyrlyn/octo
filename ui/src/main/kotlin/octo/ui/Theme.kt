@@ -32,6 +32,7 @@ internal val SidebarStatus.label: String
             SidebarStatus.Failed -> "Failed"
             SidebarStatus.Working -> "Working"
             SidebarStatus.Starting -> "Starting"
+            SidebarStatus.Queued -> "Queued"
             SidebarStatus.Done -> "Done"
             SidebarStatus.Idle -> "Idle"
             SidebarStatus.Stopped -> "Stopped"
@@ -44,6 +45,7 @@ internal fun statusColor(status: SidebarStatus): Color =
         SidebarStatus.Failed -> MaterialTheme.colorScheme.error
         SidebarStatus.Working -> MaterialTheme.colorScheme.primary
         SidebarStatus.Starting -> MaterialTheme.colorScheme.tertiary
+        SidebarStatus.Queued -> MaterialTheme.colorScheme.secondary
         SidebarStatus.Done -> Green
         SidebarStatus.Idle -> MaterialTheme.colorScheme.outline
         SidebarStatus.Stopped -> MaterialTheme.colorScheme.outlineVariant

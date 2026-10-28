@@ -170,6 +170,10 @@ class FakeOctoCore : OctoCore {
         notRunning -= taskId
     }
 
+    override suspend fun startNow(taskId: TaskId) {
+        calls += "start now"
+    }
+
     override suspend fun removeTask(
         taskId: TaskId,
         deleteWorktree: Boolean,

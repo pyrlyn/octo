@@ -114,6 +114,7 @@ private fun Header(
             Text("${task.agent.value} · ${status.label}", style = MaterialTheme.typography.bodySmall)
         }
         if (state.canCancel) OutlinedButton(onClick = vm::cancel) { Text("Cancel turn") }
+        if (state.canStartNow) OutlinedButton(onClick = vm::startNow) { Text("Start now") }
         if (state.canStop) OutlinedButton(onClick = vm::stop) { Text("Stop") }
         if (state.canRestart) OutlinedButton(onClick = vm::restart) { Text("Restart") }
         // A switch ends the running turn, so it waits until the agent is done.

@@ -272,6 +272,7 @@ class FeatureFlags(config: Map<String, Boolean>) {
 | `palette` (Cmd+K: find tasks by title or message text and run the app's actions) | T30 |
 | `usage` (token use per agent and model; a usage limit shows when it lifts, with Resume) | T29 |
 | `checkpoints` (worktree snapshots on hidden refs after every turn, with revert) | T27 |
+| `queue` (`maxRunningAgents` per machine; later tasks wait as Queued, with Start now) | T33 |
 | `pty-terminal` | Reserved |
 
 ## 7. Core API and orchestration
@@ -363,6 +364,16 @@ agent and writes the state. `close()` belongs to `app`, so it is not on the inte
   the first dropped turn's id). Otherwise `Task.revertNote` goes before the next prompt and the
   kept checkpoints lose their run, so no later revert rolls the agent back past turns it still
   remembers. `removeTask` deletes the task's refs.
+- **Agent limit.** With the `queue` flag on, `maxRunningAgents` caps the live agent processes per
+  machine. `StartQueue` holds the slots in one atomic `AgentSlots` value: a start without a free
+  slot leaves the task `Queued` (with a notice) and joins its machine's queue. A slot frees only
+  once the process is gone, when a stop finishes or the agent's event stream ends; restart and
+  switch keep theirs. The freed slot goes to the oldest waiting start on that machine, which runs
+  under its task's lock and only if the task still reads `Queued`. A start that fails passes the
+  slot on at once. Prompts to a queued task join `Task.queue` and go out once it is idle.
+  `startNow` starts a waiting task over the limit; `close()` empties the queue first, so stopping
+  agents on the way out starts none. Nothing waits across a restart of Octo: every task loads
+  stopped.
 - **Prompts while busy.** `sendPrompt` runs under the task's lock. An idle agent gets the prompt
   and reads as working at once, so a second sender never sees a stale idle. A busy agent is
   steered when its adapter declares `Steer` and the steer succeeds; otherwise the text joins

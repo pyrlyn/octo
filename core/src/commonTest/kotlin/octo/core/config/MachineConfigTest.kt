@@ -26,6 +26,22 @@ class MachineConfigTest {
     }
 
     @Test
+    fun agentLimitsComeFromTheConfigAndBadOnesAreWarnedAbout() {
+        val config =
+            OctoConfig
+                .parse(
+                    """{"maxRunningAgents":2,"machines":[{"id":"box","host":"box","maxRunningAgents":0},""" +
+                        """{"id":"pi","host":"pi","maxRunningAgents":1},{"id":"nas","host":"nas"}]}""",
+                ).config
+
+        val limits = config.agentLimits()
+
+        assertEquals(mapOf(null to 2, "pi" to 1), limits.limits)
+        assertEquals(listOf("Ignoring maxRunningAgents 0 for machine 'box': it must be 1 or more"), limits.warnings)
+        assertEquals(AgentLimits(), OctoConfig.parse("""{"flags":{}}""").config.agentLimits())
+    }
+
+    @Test
     fun badEntriesAreCaughtBeforeTheyReachSsh() {
         assertNull(MachineConfig("box-2", "box", worktrees = "/srv/octo").problem())
         assertNotNull(MachineConfig("Box", "box").problem())

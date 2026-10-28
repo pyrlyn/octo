@@ -7,6 +7,7 @@ import octo.core.access.JvmSecrets
 import octo.core.access.RemoteApi
 import octo.core.access.RemoteHttpServer
 import octo.core.agent.AdapterRegistry
+import octo.core.config.AgentLimits
 import octo.core.config.OctoConfig
 import octo.core.flags.CoreFlags
 import octo.core.flags.FeatureFlag
@@ -112,6 +113,7 @@ class Octo private constructor(
                 } else {
                     RemoteMachines(emptyMap(), emptyList())
                 }
+            val limits = flags.ifOn(CoreFlags.QUEUE) { config.agentLimits() } ?: AgentLimits()
             val (messaging, mcpServer, mcpWarning) =
                 if (flags.isEnabled(CoreFlags.AGENT_MESSAGING)) startMessaging(scope) else Messaging()
             val orchestrator =
@@ -128,6 +130,7 @@ class Octo private constructor(
                     defaultPermissionMode = config.defaultPermissionMode,
                     worktreeSetup = config.worktreeSetup,
                     checkpoints = flags.isEnabled(CoreFlags.CHECKPOINTS),
+                    agentLimits = limits.limits,
                 )
             messaging?.attach(orchestrator)
             val publisher = publishing(flags, orchestrator, launcher, scope)
@@ -138,7 +141,7 @@ class Octo private constructor(
                 flags.ifOn(CoreFlags.REMOTE_ACCESS) { startRemoteAccess(config, paths, orchestrator) } ?: RemoteAccess()
             val warnings =
                 listOfNotNull(warning, mcpWarning, presets?.warning, access.warning, usage?.second) + remote.warnings +
-                    plugins.loaded.warnings + plugins.agents.warnings
+                    plugins.loaded.warnings + plugins.agents.warnings + limits.warnings
             return Octo(
                 orchestrator,
                 catalog,

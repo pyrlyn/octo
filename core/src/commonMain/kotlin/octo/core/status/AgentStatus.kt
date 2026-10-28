@@ -5,7 +5,17 @@ import octo.core.agent.AgentEvent
 import octo.core.agent.StopReason
 
 @Serializable
-enum class AgentStatus { Starting, Working, Blocked, Idle, Failed, Stopped }
+enum class AgentStatus {
+    Starting,
+    Working,
+    Blocked,
+    Idle,
+    Failed,
+    Stopped,
+
+    /** Waiting for a free slot on its machine; set by the orchestrator, never by an agent. */
+    Queued,
+}
 
 private enum class Phase { Starting, Idle, Working, Failed, Stopped }
 

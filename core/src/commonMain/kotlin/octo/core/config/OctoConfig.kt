@@ -22,8 +22,25 @@ data class OctoConfig(
      * (installing dependencies, copying `.env` files) before the agent starts.
      */
     val worktreeSetup: Map<String, String> = emptyMap(),
+    /** Live agents allowed on this computer; used only with the `queue` flag on. */
+    val maxRunningAgents: Int? = null,
 ) {
     fun featureFlags(): FeatureFlags = FeatureFlags(flags)
+
+    /** Every `maxRunningAgents` that is set, keyed by machine id (null for this computer). */
+    fun agentLimits(): AgentLimits {
+        val given =
+            (listOf(null to maxRunningAgents) + machines.map { it.id to it.maxRunningAgents })
+                .mapNotNull { (machine, limit) -> limit?.let { machine to it } }
+        val (valid, invalid) = given.partition { it.second >= 1 }
+        return AgentLimits(
+            valid.toMap(),
+            invalid.map { (machine, limit) ->
+                val whose = machine?.let { "machine '$it'" } ?: "this computer"
+                "Ignoring maxRunningAgents $limit for $whose: it must be 1 or more"
+            },
+        )
+    }
 
     companion object {
         private val json = Json { ignoreUnknownKeys = true }
@@ -52,6 +69,8 @@ data class MachineConfig(
     val port: Int? = null,
     /** Absolute path on the machine; `$HOME/.octo/worktrees` there when left out. */
     val worktrees: String? = null,
+    /** Live agents allowed on the machine; used only with the `queue` flag on. */
+    val maxRunningAgents: Int? = null,
 ) {
     /** Why this entry cannot be used, or null; checked before any value reaches `ssh`. */
     fun problem(): String? =
@@ -80,6 +99,11 @@ data class RemoteAccessConfig(
         private const val MAX_PORT = 65535
     }
 }
+
+data class AgentLimits(
+    val limits: Map<String?, Int> = emptyMap(),
+    val warnings: List<String> = emptyList(),
+)
 
 data class ParsedConfig(
     val config: OctoConfig,
