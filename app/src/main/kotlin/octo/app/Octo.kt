@@ -58,20 +58,29 @@ class Octo private constructor(
     /** Empty unless the `plugins` flag is on. */
     val plugins: List<Plugin>,
     private val remote: RemoteMachines,
-    /** Whether the `handoff` flag lets a task switch its agent or model. */
-    val handoff: Boolean,
-    /** Whether the `fork` flag lets a task be forked. */
-    val fork: Boolean,
-    /** Whether the `compare` flag lets one prompt go to several agents. */
-    val compare: Boolean,
-    /** Whether the `sections` flag lets tasks be pinned, snoozed and settled. */
-    val sections: Boolean,
-    /** Whether the `palette` flag binds Cmd+K to the command palette. */
-    val palette: Boolean,
+    private val flags: FeatureFlags,
     /** Null unless the `usage` flag is on. */
     val usage: UsageReport?,
 ) {
     val core: OctoCore get() = orchestrator
+
+    /** Whether the `handoff` flag lets a task switch its agent or model. */
+    val handoff: Boolean get() = flags.isEnabled(CoreFlags.HANDOFF)
+
+    /** Whether the `fork` flag lets a task be forked. */
+    val fork: Boolean get() = flags.isEnabled(CoreFlags.FORK)
+
+    /** Whether the `compare` flag lets one prompt go to several agents. */
+    val compare: Boolean get() = flags.isEnabled(CoreFlags.COMPARE)
+
+    /** Whether the `sections` flag lets tasks be pinned, snoozed and settled. */
+    val sections: Boolean get() = flags.isEnabled(CoreFlags.SECTIONS)
+
+    /** Whether the `palette` flag binds Cmd+K to the command palette. */
+    val palette: Boolean get() = flags.isEnabled(CoreFlags.PALETTE)
+
+    /** Whether the `checkpoints` flag lets a task be reverted to an earlier turn. */
+    val checkpoints: Boolean get() = flags.isEnabled(CoreFlags.CHECKPOINTS)
 
     /** Where the remote API listens, e.g. `http://127.0.0.1:47470`. */
     val remoteUrl: String? get() = remoteServer?.url
@@ -118,6 +127,7 @@ class Octo private constructor(
                     processes = JvmProcessMonitor(launcher),
                     defaultPermissionMode = config.defaultPermissionMode,
                     worktreeSetup = config.worktreeSetup,
+                    checkpoints = flags.isEnabled(CoreFlags.CHECKPOINTS),
                 )
             messaging?.attach(orchestrator)
             val publisher = publishing(flags, orchestrator, launcher, scope)
@@ -140,11 +150,7 @@ class Octo private constructor(
                 access.devices,
                 plugins.loaded.plugins,
                 remote,
-                flags.isEnabled(CoreFlags.HANDOFF),
-                flags.isEnabled(CoreFlags.FORK),
-                flags.isEnabled(CoreFlags.COMPARE),
-                flags.isEnabled(CoreFlags.SECTIONS),
-                flags.isEnabled(CoreFlags.PALETTE),
+                flags,
                 usage?.first,
             )
         }

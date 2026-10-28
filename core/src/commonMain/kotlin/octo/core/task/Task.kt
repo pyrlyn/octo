@@ -62,6 +62,22 @@ data class Task(
     val group: TaskGroup? = null,
     /** Where the sidebar lists the task; only shown while the `sections` flag is on. */
     val place: TaskPlace = TaskPlace.Active,
+    /** Snapshots of the worktree, oldest first; recorded only while the `checkpoints` flag is on. */
+    val checkpoints: List<Checkpoint> = emptyList(),
+    /** Files were reverted but the agent's conversation was not; the next prompt tells it so. */
+    val revertNote: String? = null,
+)
+
+/** The worktree's files at one moment, kept as a commit on [ref] in the task's repository. */
+@Serializable
+data class Checkpoint(
+    val id: Int,
+    val ref: String,
+    /**
+     * The agent run that was live when this was recorded. A revert rolls the agent's conversation
+     * back only over checkpoints of the run still live; null once the two no longer line up.
+     */
+    val run: String? = null,
 )
 
 /** The sidebar section a task sits in. */

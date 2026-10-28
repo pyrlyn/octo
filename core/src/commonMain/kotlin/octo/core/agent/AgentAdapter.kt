@@ -150,6 +150,13 @@ interface AgentSession {
     suspend fun setPermissionMode(mode: PermissionMode): Unit =
         throw UnsupportedOperationException("This agent cannot change its permission mode while it runs")
 
+    /**
+     * Drops the last [turns] turns from the agent's own conversation after Octo reverted the files
+     * they changed. Throws when the agent cannot; Octo then tells it what was reverted instead.
+     */
+    suspend fun rollback(turns: Int): Unit =
+        throw UnsupportedOperationException("This agent cannot roll its conversation back")
+
     /** Cancels the current turn; the session stays usable. */
     suspend fun cancel()
 

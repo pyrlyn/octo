@@ -267,6 +267,7 @@ class FeatureFlags(config: Map<String, Boolean>) {
 | `sections` (pin, snooze and settle tasks; with `git-publish`, settle a task once its PR merges) | T28 |
 | `palette` (Cmd+K: find tasks by title or message text and run the app's actions) | T30 |
 | `usage` (token use per agent and model; a usage limit shows when it lifts, with Resume) | T29 |
+| `checkpoints` (worktree snapshots on hidden refs after every turn, with revert) | T27 |
 | `pty-terminal` | Reserved |
 
 ## 7. Core API and orchestration
@@ -347,6 +348,17 @@ agent and writes the state. `close()` belongs to `app`, so it is not on the inte
   (Claude's rejected `rate_limit_event`, Codex's `account/rateLimits/updated` with a reached
   limit). `TaskView.limit` holds it until the next turn starts. Resume is the user's: the UI
   sends "Continue", restarting the agent first if it stopped.
+- **Checkpoints.** `Checkpoints` snapshots the worktree before a task's first prompt and at every
+  `TurnEnded`, while the task still reads as working, so no new turn changes files under it. The
+  snapshot goes through a separate index (`read-tree HEAD`, `add --all`, `commit-tree` with a
+  fixed identity) onto `refs/octo/<task>/<n>`; the user's index, branch and stash stay as they are.
+  At most 100 are kept on `Task.checkpoints`. `revert` waits for the turn to end and restores the
+  files with a two-tree `read-tree -m -u` in that separate index, so files created since go away
+  and ignored files stay. Each checkpoint names the agent run that was live; when every later
+  turn ran in the live session, `AgentSession.rollback` drops them (Codex: `thread/revert` with
+  the first dropped turn's id). Otherwise `Task.revertNote` goes before the next prompt and the
+  kept checkpoints lose their run, so no later revert rolls the agent back past turns it still
+  remembers. `removeTask` deletes the task's refs.
 - **Prompts while busy.** `sendPrompt` runs under the task's lock. An idle agent gets the prompt
   and reads as working at once, so a second sender never sees a stale idle. A busy agent is
   steered when its adapter declares `Steer` and the steer succeeds; otherwise the text joins

@@ -182,6 +182,13 @@ class FakeOctoCore : OctoCore {
 
     override suspend fun diff(taskId: TaskId): TaskDiff = diffResult
 
+    override suspend fun revert(
+        taskId: TaskId,
+        ref: String,
+    ) {
+        calls += "revert ${taskId.value} $ref"
+    }
+
     override suspend fun updateLayout(layout: Layout) {
         state.update { it.copy(layout = layout) }
     }

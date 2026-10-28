@@ -50,6 +50,10 @@ data class TaskUiState(
     val error: String? = null,
     /** The agent hit its usage limit; always null while the `usage` flag is off. */
     val limit: UsageLimit? = null,
+    /** Refs of the checkpoints the task can go back to; always empty while the `checkpoints` flag is off. */
+    val revertable: Set<String> = emptySet(),
+    /** A revert waiting for the user to confirm it. */
+    val reverting: TranscriptEntry.Checkpoint? = null,
 ) {
     /** The task was removed while the screen was open. */
     val gone: Boolean get() = task == null
@@ -77,9 +81,12 @@ class TaskViewModel(
     parent: CoroutineScope,
     /** False while the `usage` flag is off, which hides usage limits. */
     private val limits: Boolean = false,
+    /** False while the `checkpoints` flag is off, which hides reverting. */
+    private val checkpoints: Boolean = false,
 ) {
+    private val flags = Shown(limits, checkpoints)
     private val scope = parent.childScope()
-    private val mutable = MutableStateFlow(TaskUiState().withCore(core.state.value[taskId], emptyList(), limits))
+    private val mutable = MutableStateFlow(TaskUiState().withCore(core.state.value[taskId], emptyList(), flags))
     val state: StateFlow<TaskUiState> = mutable.asStateFlow()
 
     init {
@@ -87,7 +94,7 @@ class TaskViewModel(
             val transcript = core.transcript(taskId).onStart { emit(emptyList()) }
             combine(core.state, transcript, ::Pair).collect { (octo, entries) ->
                 val view = octo[taskId]
-                mutable.update { it.withCore(view, entries, limits) }
+                mutable.update { it.withCore(view, entries, flags) }
                 // The screen is open, so a finished turn is seen as soon as it lands.
                 if (view?.unseen == true) core.markSeen(taskId)
             }
@@ -181,6 +188,15 @@ class TaskViewModel(
             }
         }
 
+    /** Asks to confirm a revert to [checkpoint]; null drops the question. */
+    fun askRevert(checkpoint: TranscriptEntry.Checkpoint?) = mutable.update { it.copy(reverting = checkpoint) }
+
+    fun revert() {
+        val checkpoint = state.value.reverting ?: return
+        mutable.update { it.copy(reverting = null) }
+        act { core.revert(taskId, checkpoint.ref) }
+    }
+
     fun requestRemove() = mutable.update { it.copy(remove = RemoveStep.Confirm) }
 
     fun cancelRemove() = mutable.update { it.copy(remove = null) }
@@ -219,10 +235,16 @@ class TaskViewModel(
     }
 }
 
+/** Which flag-gated parts of the task the screen shows. */
+private data class Shown(
+    val limits: Boolean,
+    val checkpoints: Boolean,
+)
+
 private fun TaskUiState.withCore(
     view: TaskView?,
     transcript: List<TranscriptEntry>,
-    limits: Boolean,
+    shown: Shown,
 ) = copy(
     task = view?.task,
     status = view?.status ?: AgentStatus.Stopped,
@@ -230,7 +252,15 @@ private fun TaskUiState.withCore(
     transcript = transcript,
     pending = view?.pending.orEmpty(),
     queue = view?.task?.queue.orEmpty(),
-    limit = view?.limit?.takeIf { limits },
+    limit = view?.limit?.takeIf { shown.limits },
+    revertable =
+        view
+            ?.task
+            ?.checkpoints
+            ?.takeIf { shown.checkpoints }
+            ?.map { it.ref }
+            .orEmpty()
+            .toSet(),
     // A prompt sent while it was being edited leaves nothing to save.
     editing =
         editing?.takeIf { edit ->
