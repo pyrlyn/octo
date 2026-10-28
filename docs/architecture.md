@@ -146,6 +146,10 @@ that cannot be read becomes a warning on the screen.
 
 **`app`** holds `main()`, the adapter list, platform paths and the Compose Desktop packaging.
 
+**`cli`** is the `octo` command (Clikt). It talks to a running Octo only through the
+`remote-access` API, as a paired device, so it needs no flag of its own. The request and response
+bodies (`access/ApiBodies.kt`) are shared with `RemoteApi`, so both ends read the same shapes.
+
 ## 4. The adapter SPI (core)
 
 ```kotlin

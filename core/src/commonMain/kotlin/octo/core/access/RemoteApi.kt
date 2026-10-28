@@ -4,25 +4,18 @@ import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.flow.first
 import kotlinx.serialization.KSerializer
 import kotlinx.serialization.Serializable
-import kotlinx.serialization.json.Json
 import kotlinx.serialization.json.JsonElement
 import kotlinx.serialization.json.buildJsonObject
 import kotlinx.serialization.json.put
 import octo.core.agent.AgentId
-import octo.core.agent.PermissionMode
-import octo.core.agent.PermissionOption
-import octo.core.agent.Question
 import octo.core.agent.RequestResponse
 import octo.core.http.bearerToken
 import octo.core.orchestrator.OctoCore
 import octo.core.orchestrator.UnknownTaskException
-import octo.core.status.AgentStatus
 import octo.core.task.NewTask
 import octo.core.task.PendingRequest
-import octo.core.task.SidebarStatus
 import octo.core.task.TaskId
 import octo.core.task.TaskView
-import octo.core.task.TranscriptEntry
 import octo.core.terms.TermsNotAcknowledgedException
 
 /** One call as the transport hands it over; [body] is null when there was none. */
@@ -102,21 +95,15 @@ class RemoteApi(
 
     private suspend fun pair(body: PairBody): ApiResponse {
         val token = devices.pair(body.code, body.name)
-        val device = devices.device(token)
-        return ok(
-            buildJsonObject {
-                put("token", token)
-                put("deviceId", device?.id)
-            },
-        )
+        return ok(PairedBody.serializer(), PairedBody(token, devices.device(token)?.id))
     }
 
     private suspend fun tasks(request: ApiRequest): ApiResponse =
         when (request.method) {
             GET -> {
                 ok(
-                    TaskList.serializer(),
-                    TaskList(
+                    TaskListBody.serializer(),
+                    TaskListBody(
                         core.state.value.tasks
                             .map { it.dto() },
                     ),
@@ -148,7 +135,7 @@ class RemoteApi(
                     permissionMode = body.permissionMode,
                 ),
             )
-        return ApiResponse(CREATED, buildJsonObject { put("id", id.value) })
+        return ApiResponse(CREATED, ApiJson.encodeToJsonElement(CreatedBody.serializer(), CreatedBody(id)))
     }
 
     private suspend fun task(
@@ -162,7 +149,7 @@ class RemoteApi(
                 if (request.method != GET) {
                     ApiResponse(METHOD_NOT_ALLOWED, allow = GET)
                 } else {
-                    ok(Transcript.serializer(), Transcript(core.transcript(id).first()))
+                    ok(TranscriptBody.serializer(), TranscriptBody(core.transcript(id).first()))
                 }
             }
 
@@ -208,32 +195,8 @@ class RemoteApi(
         if (request.method != POST) {
             ApiResponse(METHOD_NOT_ALLOWED, allow = POST)
         } else {
-            call(json.decodeFromString(serializer, request.body.orEmpty()))
+            call(ApiJson.decodeFromString(serializer, request.body.orEmpty()))
         }
-
-    @Serializable
-    private data class PairBody(
-        val code: String,
-        val name: String,
-    )
-
-    @Serializable
-    private data class NewTaskBody(
-        val repo: String,
-        val baseRef: String,
-        val agent: String,
-        val title: String,
-        val prompt: String? = null,
-        val options: Map<String, String> = emptyMap(),
-        val machine: String? = null,
-        /** One of [PermissionMode]'s names; left out, the config default. */
-        val permissionMode: PermissionMode? = null,
-    )
-
-    @Serializable
-    private data class PromptBody(
-        val text: String,
-    )
 
     /** Exactly one of [optionId], [answers] and [cancelled]. */
     @Serializable
@@ -254,42 +217,8 @@ class RemoteApi(
         }
     }
 
-    @Serializable
-    private data class TaskList(
-        val tasks: List<TaskDto>,
-    )
-
-    @Serializable
-    private data class Transcript(
-        val entries: List<TranscriptEntry>,
-    )
-
-    @Serializable
-    private data class TaskDto(
-        val id: TaskId,
-        val title: String,
-        val repo: String,
-        val branch: String,
-        val baseRef: String,
-        val agent: String,
-        val machine: String?,
-        val status: AgentStatus,
-        val sidebarStatus: SidebarStatus,
-        val failure: String?,
-        val pending: List<PendingDto>,
-    )
-
-    @Serializable
-    private data class PendingDto(
-        val id: String,
-        val kind: String,
-        val title: String? = null,
-        val options: List<PermissionOption> = emptyList(),
-        val questions: List<Question> = emptyList(),
-    )
-
     private fun TaskView.dto() =
-        TaskDto(
+        TaskBody(
             id = task.id,
             title = task.title,
             repo = task.repo,
@@ -303,8 +232,8 @@ class RemoteApi(
             pending =
                 pending.map {
                     when (it) {
-                        is PendingRequest.Permission -> PendingDto(it.id, "permission", it.title, options = it.options)
-                        is PendingRequest.Questions -> PendingDto(it.id, "questions", questions = it.questions)
+                        is PendingRequest.Permission -> PendingBody(it.id, "permission", it.title, options = it.options)
+                        is PendingRequest.Questions -> PendingBody(it.id, "questions", questions = it.questions)
                     }
                 },
         )
@@ -312,7 +241,7 @@ class RemoteApi(
     private fun <T> ok(
         serializer: KSerializer<T>,
         value: T,
-    ) = ok(json.encodeToJsonElement(serializer, value))
+    ) = ok(ApiJson.encodeToJsonElement(serializer, value))
 
     private fun ok(body: JsonElement) = ApiResponse(OK, body)
 
@@ -343,12 +272,5 @@ class RemoteApi(
         private const val METHOD_NOT_ALLOWED = 405
         private const val CONFLICT = 409
         private const val SERVER_ERROR = 500
-
-        private val json =
-            Json {
-                ignoreUnknownKeys = true
-                encodeDefaults = true
-                explicitNulls = false
-            }
     }
 }

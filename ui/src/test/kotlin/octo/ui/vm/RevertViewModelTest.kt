@@ -7,6 +7,7 @@ import octo.core.task.Checkpoint
 import octo.core.task.TaskId
 import octo.core.task.TaskView
 import octo.core.task.TranscriptEntry
+import octo.testing.FakeOctoCore
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertNull

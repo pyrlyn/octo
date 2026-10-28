@@ -22,6 +22,9 @@ data class OctoPaths(
     val plugins: Path get() = Path(home, "plugins")
     val usage: Path get() = Path(home, "usage.json")
 
+    /** The `octo` command's paired URL and token. */
+    val cli: Path get() = Path(home, "cli.json")
+
     companion object {
         fun resolve(
             env: Map<String, String>,
