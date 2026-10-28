@@ -267,7 +267,7 @@ class FeatureFlags(config: Map<String, Boolean>) {
 | `antigravity` | T8 |
 | `git-publish` (commit, push, PR) | T11 |
 | `remote-ssh` (tasks on machines from `config.json`, through the user's `ssh`; one shared connection per machine since T18) | T12 |
-| `agent-messaging` (an MCP server on loopback: `list_tasks`, `send_message`, `wait_for_idle`) | T13 |
+| `agent-messaging` (an MCP server on loopback: `list_tasks`, `send_message`, `wait_for_idle`, `create_task`) | T13, T42 |
 | `presets` (teams of agents with roles and prompts, kept in `presets.json`) | T14 |
 | `remote-access` (a token-paired JSON API on `127.0.0.1`, reached through the user's tunnel) | T15 |
 | `plugins` (WebAssembly plugins that add ACP agents and task actions; see `docs/plugins.md`) | T16 |

@@ -25,4 +25,7 @@ enum class PermissionMode(
 
     /** This mode when [supported] has it; otherwise Supervised, which every agent has. */
     fun within(supported: Set<PermissionMode>): PermissionMode = if (this in supported) this else Supervised
+
+    /** The less permissive of this and [limit]; the modes are declared from least to most permissive. */
+    fun atMost(limit: PermissionMode): PermissionMode = minOf(this, limit)
 }
