@@ -104,10 +104,13 @@ the traffic. Pair a device from Devices in the sidebar: Octo shows a one-time co
 five minutes and five tries. `POST /api/v1/pair` with `{"code", "name"}` returns the device's
 token; every other call sends it as `Authorization: Bearer <token>`. The calls:
 
-- `GET /tasks`, `POST /tasks` with `{repo, baseRef, agent, title, prompt?, options?, machine?, permissionMode?}`;
+- `GET /tasks`, `POST /tasks` with `{repo, baseRef, agent, title, prompt?, options?, machine?, permissionMode?, attachments?}`;
 - `GET /tasks/{id}/transcript`;
-- `POST /tasks/{id}/prompt` with `{text}`, and `POST /tasks/{id}/respond` with `{requestId}` plus
+- `POST /tasks/{id}/prompt` with `{text, attachments?}`, and `POST /tasks/{id}/respond` with `{requestId}` plus
   one of `optionId`, `answers` or `cancelled: true`;
+
+`attachments` is a list of `{name, mimeType?, data}` with each file's bytes in base64, at most 20 MB
+a file; a message may be files alone.
 - `POST /tasks/{id}/cancel`, `/stop` and `/restart`.
 
 Vendor terms are accepted only in the Octo window; until then creating a task answers 409.
@@ -128,8 +131,9 @@ The `octo` command drives the same API from a terminal or a script. Build it wit
 the token is sent only to the Octo it was paired with.
 
 - `octo task list`;
-- `octo task start --base main --agent claude --title "Fix the build" [--repo .] [--prompt …] [--mode auto] [--machine …] [--option key=value]`, which prints the new id;
-- `octo task send <id> <message>`;
+- `octo task start --base main --agent claude --title "Fix the build" [--repo .] [--prompt …] [--mode auto] [--machine …] [--option key=value] [--attach file]`, which prints the new id;
+- `octo task send <id> [message] [--attach file]`; repeat `--attach` for more files, read from
+  your current directory;
 - `octo task read <id>`, which prints the transcript one entry per line;
 - `octo task wait <id> [--timeout seconds]`, which returns when the turn ends: exit 0 when the task
   is idle, 1 when it failed or stopped, 2 when it waits for an answer, 124 on timeout.

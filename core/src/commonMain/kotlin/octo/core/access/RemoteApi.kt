@@ -209,6 +209,7 @@ class RemoteApi(
     private suspend fun create(body: NewTaskBody): ApiResponse {
         require(body.repo.isNotBlank() && body.baseRef.isNotBlank()) { "repo and baseRef are required" }
         require(body.agent.isNotBlank() && body.title.isNotBlank()) { "agent and title are required" }
+        val files = body.attachments.map { it.decode() }
         val id =
             core.createTask(
                 NewTask(
@@ -220,6 +221,7 @@ class RemoteApi(
                     options = body.options,
                     machine = body.machine,
                     permissionMode = body.permissionMode,
+                    attachments = files,
                 ),
             )
         return ApiResponse(CREATED, ApiJson.encodeToJsonElement(CreatedBody.serializer(), CreatedBody(id)))
@@ -242,8 +244,8 @@ class RemoteApi(
 
             "prompt" -> {
                 post(request, PromptBody.serializer()) {
-                    require(it.text.isNotBlank()) { "text is required" }
-                    core.sendPrompt(id, it.text)
+                    require(it.text.isNotBlank() || it.attachments.isNotEmpty()) { "text or attachments are required" }
+                    core.sendPrompt(id, it.text, it.attachments.map(AttachmentBody::decode))
                     ApiResponse(NO_CONTENT)
                 }
             }

@@ -271,13 +271,18 @@ private fun TitleAndPrompt(
         placeholder = { Text(state.effectiveTitle.ifEmpty { "Taken from the prompt when empty" }) },
         singleLine = true,
     )
+    val input = remember(vm) { AttachmentInput(vm::attach, vm::showError) }
     OutlinedTextField(
         state.prompt,
         vm::editPrompt,
-        Modifier.fillMaxWidth(),
+        Modifier.fillMaxWidth().takesAttachments(input),
         label = { Text("First prompt") },
         minLines = 3,
     )
+    Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(Gap)) {
+        AttachButton(input)
+        PendingAttachments(state.attachments, vm::detach)
+    }
 }
 
 @Composable

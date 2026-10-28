@@ -11,6 +11,7 @@ import octo.core.task.NewAttachment
 import octo.core.task.PendingRequest
 import octo.core.task.TaskId
 import octo.core.task.TaskView
+import octo.testing.FakeCatalog
 import octo.testing.FakeOctoCore
 import kotlin.test.Test
 import kotlin.test.assertEquals
@@ -55,6 +56,26 @@ class AttachmentsViewModelTest {
                 vm.state.value.attachments
                     .isEmpty(),
             )
+            vm.close()
+        }
+
+    @Test
+    fun aNewTaskTakesFilesWithItsFirstPrompt() =
+        runTest {
+            val vm = NewTaskViewModel(core, FakeCatalog(core), backgroundScope)
+            settle()
+            vm.editRepo("/src/octo")
+            testScheduler.advanceTimeBy(NewTaskUiState.BRANCH_LOOKUP_DELAY_MS)
+            settle()
+            vm.editTitle("Fix")
+            vm.attach(listOf(file("a.png"), file("b.png")))
+            vm.detach(0)
+            vm.showError("Could not attach: gone")
+            assertEquals("Could not attach: gone", vm.state.value.error)
+
+            vm.create()
+            settle()
+            assertTrue("create Fix +b.png" in core.calls, core.calls.toString())
             vm.close()
         }
 

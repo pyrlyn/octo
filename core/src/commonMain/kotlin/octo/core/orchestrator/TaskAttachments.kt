@@ -76,7 +76,7 @@ internal class TaskAttachments(
         val answers =
             response.answers +
                 saved.map { (question, list) ->
-                    question to withPaths(response.answers[question].orEmpty(), list).trimStart()
+                    question to withPaths(response.answers[question].orEmpty(), list)
                 }
         session.respond(requestId, RequestResponse.Answers(answers))
         answered(task.id, requestId, saved.values.flatten())
@@ -160,7 +160,8 @@ internal class TaskAttachments(
         ): String {
             if (attachments.isEmpty()) return text
             val list = attachments.joinToString("\n") { "- ${it.path}" }
-            return "$text\n\nAttached files, saved on the machine you run on:\n$list"
+            val lead = if (text.isBlank()) "" else "$text\n\n"
+            return "${lead}Attached files, saved on the machine you run on:\n$list"
         }
     }
 }

@@ -70,6 +70,26 @@ class AttachmentsTest {
         }
 
     @Test
+    fun theFirstPromptOfANewTaskTakesFilesToo() =
+        runTest {
+            val s = setup()
+            val id = s.core.createTask(NewTask("/src/app", "main", AgentId("fake"), "Fix", attachments = listOf(log)))
+            testScheduler.runCurrent()
+
+            val sent = s.userTexts(id).single()
+            assertEquals("", sent.text, "files alone are a message")
+            val file = sent.attachments.single()
+            assertTrue(exists(file.path))
+            assertTrue(
+                "- ${file.path}" in
+                    s.adapter.sessions
+                        .single()
+                        .prompts
+                        .single(),
+            )
+        }
+
+    @Test
     fun anAgentWithImagesGetsThePicturesToo() =
         runTest {
             val s = setup(adapter = FakeAdapter(capabilities = setOf(Capability.Resume, Capability.Images)))

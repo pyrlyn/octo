@@ -30,6 +30,19 @@ PR: https://github.com/pyrlyn/octo/pull/54
   files and an Attach button. Pending files show as removable chips. The transcript and the queue list
   the attached names.
 
+## Follow-up
+
+A second PR brings files to the rest of the places a prompt comes from:
+
+- the New task dialog's first prompt (`NewTask.attachments`; files alone start the first turn);
+- the Remote API: `attachments` of `{name, mimeType?, data}` in base64 on `POST /tasks` and
+  `POST /tasks/{id}/prompt`, checked before any task is touched; the HTTP body limit grows to fit
+  one 20 MB file;
+- `octo task start|send --attach <file>`, read relative to the caller's directory.
+
+It also shares the reading of a file from disk (`NewAttachment.read`) between the window and the CLI,
+and leaves out the empty lines before the file list when a message is files alone.
+
 ## How it was checked
 
 `./gradlew check` is green locally: ktlint, detekt and all tests.
