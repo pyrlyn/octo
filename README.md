@@ -241,6 +241,17 @@ diagrams. A Diff button switches back. SQLite needs `sqlite3` on the PATH; Merma
 mermaid-cli (`mmdc`) and shows the source without it. Only files of 20 MB or less inside the
 task's worktree are read, and only for tasks on this computer.
 
+`"notifications": true` shows an OS notification, through a tray icon, when a task needs approval
+or an answer, fails, or finishes a turn, unless the window is focused on that task. A burst of
+events for one task, such as several approvals in a row, shows one notification once it has been
+quiet for two seconds, and a task notifies at most every 20 seconds. Clicking a notification, or
+the tray icon, opens the window on the task notified last. `notifications` in `config.json` turns
+each event off:
+
+```json
+{ "flags": { "notifications": true }, "notifications": { "blocked": true, "failed": true, "done": false } }
+```
+
 `"plugins": true` loads WebAssembly plugins from the `plugins` folder in the Octo home. A plugin
 can add ACP agents and actions in a task's Plugins menu. A plugin cannot reach files, processes or
 the network. A broken one is skipped with a warning. See `docs/plugins.md` for the ABI.

@@ -5,6 +5,7 @@ import kotlinx.serialization.SerializationException
 import kotlinx.serialization.json.Json
 import octo.core.agent.PermissionMode
 import octo.core.flags.FeatureFlags
+import octo.core.notify.NotificationSettings
 import octo.core.remote.SshProcessLauncher
 import octo.core.triggers.TriggerConfig
 
@@ -32,6 +33,8 @@ data class OctoConfig(
      * expires; used only with the `compact-idle` flag on. 0 compacts every idle conversation.
      */
     val compactIdleMinTokens: Long = DEFAULT_COMPACT_IDLE_MIN_TOKENS,
+    /** Which events notify; used only with the `notifications` flag on. */
+    val notifications: NotificationSettings = NotificationSettings(),
 ) {
     fun featureFlags(): FeatureFlags = FeatureFlags(flags)
 

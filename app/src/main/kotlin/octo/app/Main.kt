@@ -9,6 +9,7 @@ import kotlinx.coroutines.runBlocking
 import octo.core.paths.OctoPaths
 import octo.core.paths.currentHostOs
 import octo.core.process.JvmProcessLauncher
+import octo.ui.NotificationTray
 import octo.ui.OctoApp
 import octo.ui.isPaletteShortcut
 import octo.ui.preview.FilePreviewer
@@ -42,6 +43,7 @@ fun main() {
             if (octo.previews) FilePreviewer(launcher) else null,
             octo.shares,
             octo.shareBase,
+            octo.notifications,
         )
     application {
         Window(
@@ -54,6 +56,7 @@ fun main() {
                 (octo.palette && isPaletteShortcut(event)).also { if (it) models.main.togglePalette() }
             },
         ) {
+            models.notifications?.let { NotificationTray(it, window) }
             OctoApp(models)
         }
     }

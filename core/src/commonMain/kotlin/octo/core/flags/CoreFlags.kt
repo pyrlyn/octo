@@ -31,4 +31,6 @@ object CoreFlags {
         FeatureFlag("guest-share", "Let a guest watch a task by link and propose messages; needs remote-access")
     val PREVIEWS =
         FeatureFlag("previews", "Preview images, notebooks, archives, SQLite and Mermaid files in the diff view")
+    val NOTIFICATIONS =
+        FeatureFlag("notifications", "Show an OS notification when a task is blocked, fails or finishes a turn")
 }

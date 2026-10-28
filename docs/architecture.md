@@ -144,6 +144,11 @@ from it, so nothing is counted twice; every other agent is counted from `UsageLo
 (`usage.json`), which records the growth of each task's `SessionStats` when a turn ends. A history
 that cannot be read becomes a warning on the screen.
 
+OS notifications (`NotificationsViewModel`) feed `OctoCore.state` and the window's focus into
+the common `NotificationRule`, which turns a task's entry into Blocked, Failed or Done into one
+notification per burst. Compose Desktop's tray shows them; AWT does not say which notification
+was clicked, so a click opens the task notified last.
+
 **`app`** holds `main()`, the adapter list, platform paths and the Compose Desktop packaging.
 
 **`cli`** is the `octo` command (Clikt). It talks to a running Octo only through the
@@ -278,6 +283,7 @@ class FeatureFlags(config: Map<String, Boolean>) {
 | `compact-idle` (compact a large idle conversation just before its prompt cache expires) | T35 |
 | `previews` (preview images, notebooks, archives, SQLite and Mermaid files in the diff view) | T36 |
 | `guest-share` (a guest watches a task by link and proposes messages; needs `remote-access`) | T37 |
+| `notifications` (an OS notification when a task is blocked, fails or finishes a turn, one per burst) | T40 |
 | `pty-terminal` | Reserved |
 
 ## 7. Core API and orchestration
