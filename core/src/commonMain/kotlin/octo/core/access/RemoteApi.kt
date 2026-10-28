@@ -17,13 +17,19 @@ import octo.core.task.PendingRequest
 import octo.core.task.TaskId
 import octo.core.task.TaskView
 import octo.core.terms.TermsNotAcknowledgedException
+import octo.core.triggers.Delivery
+import octo.core.triggers.Webhooks
 
-/** One call as the transport hands it over; [body] is null when there was none. */
+/**
+ * One call as the transport hands it over; [body] is null when there was none. [headers] have
+ * lowercase names and their first values.
+ */
 data class ApiRequest(
     val method: String,
     val path: String,
     val authorization: String?,
     val body: String?,
+    val headers: Map<String, String> = emptyMap(),
 )
 
 /** The answer; [allow] lists the methods a 405 accepts. */
@@ -35,12 +41,14 @@ data class ApiResponse(
 
 /**
  * The JSON API a paired device uses, kept free of any transport. Every call but `POST /pair`
- * needs a paired device's token; the device is the user's own, so it may do what the window
- * does, except accept vendor terms, which the user reads in the window.
+ * and `POST /hooks/{id}` needs a paired device's token; the device is the user's own, so it may
+ * do what the window does, except accept vendor terms, which the user reads in the window.
+ * A webhook proves itself with its own secret instead, and can only start its one task.
  */
 class RemoteApi(
     private val core: OctoCore,
     private val devices: Devices,
+    private val hooks: Webhooks? = null,
 ) {
     @Suppress("TooGenericExceptionCaught")
     suspend fun handle(request: ApiRequest): ApiResponse =
@@ -75,6 +83,10 @@ class RemoteApi(
                 post(request, PairBody.serializer()) { pair(it) }
             }
 
+            hooks != null && segments.size == HOOK_CALL && segments[0] == "hooks" -> {
+                hook(hooks, request, segments[1])
+            }
+
             devices.device(bearerToken(request.authorization)) == null -> {
                 error(UNAUTHORIZED, "This call needs a paired device's token")
             }
@@ -92,6 +104,26 @@ class RemoteApi(
             }
         }
     }
+
+    private suspend fun hook(
+        hooks: Webhooks,
+        request: ApiRequest,
+        id: String,
+    ): ApiResponse =
+        if (request.method != POST) {
+            ApiResponse(METHOD_NOT_ALLOWED, allow = POST)
+        } else {
+            when (val delivery = hooks.deliver(id, request.headers, request.body.orEmpty())) {
+                Delivery.Accepted -> ApiResponse(ACCEPTED)
+
+                // 200, not an error: a sender such as GitHub would otherwise retry a delivery it was told to skip.
+                is Delivery.Skipped -> ok(buildJsonObject { put("skipped", delivery.reason) })
+
+                Delivery.Unauthorized -> error(UNAUTHORIZED, "The webhook's signature or secret does not match")
+
+                Delivery.NotFound -> error(NOT_FOUND, "No webhook '$id'")
+            }
+        }
 
     private suspend fun pair(body: PairBody): ApiResponse {
         val token = devices.pair(body.code, body.name)
@@ -261,10 +293,14 @@ class RemoteApi(
 
         /** `tasks/{id}/{action}`. */
         private const val TASK_CALL = 3
+
+        /** `hooks/{id}`. */
+        private const val HOOK_CALL = 2
         private const val GET = "GET"
         private const val POST = "POST"
         private const val OK = 200
         private const val CREATED = 201
+        private const val ACCEPTED = 202
         private const val NO_CONTENT = 204
         private const val BAD_REQUEST = 400
         private const val UNAUTHORIZED = 401

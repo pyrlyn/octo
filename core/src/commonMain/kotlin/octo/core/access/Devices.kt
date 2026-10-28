@@ -14,11 +14,16 @@ import kotlin.time.Duration.Companion.minutes
 import kotlin.time.TimeMark
 import kotlin.time.TimeSource
 
-/** The platform's cryptography: a secure random source and SHA-256. */
+/** The platform's cryptography: a secure random source, SHA-256 and HMAC-SHA256. */
 interface Secrets {
     fun randomBytes(size: Int): ByteArray
 
     fun sha256(bytes: ByteArray): ByteArray
+
+    fun hmacSha256(
+        key: ByteArray,
+        bytes: ByteArray,
+    ): ByteArray
 }
 
 /** A device the user paired; only a hash of its token is kept, so the file alone lets nobody in. */

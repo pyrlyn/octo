@@ -162,6 +162,32 @@ checkpoint in the transcript offers "Revert to here", which brings the files bac
 its conversation; other agents are told what was reverted with their next prompt. The refs are
 deleted with the task.
 
+`"triggers": true` starts the tasks listed under `triggers` in `config.json` on their own. A
+trigger has an `id`, a `task` (`repo`, `baseRef`, `agent`, `title`, and optionally `prompt`,
+`options`, `machine`, `permissionMode`) and exactly one of:
+
+- `schedule`: standard five-field cron (`minute hour day month weekday`, numbers only) in the
+  computer's time zone, such as `"0 9 * * 1-5"`. A run missed while Octo was closed or the
+  computer slept happens once when Octo is back; a new trigger never runs for the past.
+- `webhook`: `{"secret": "...", "events": [...], "filters": {...}}`, called as
+  `POST /api/v1/hooks/<id>` on the `remote-access` API, so it also needs that flag and the user's
+  tunnel. The caller signs the body with the secret (16 characters or more) as GitHub does
+  (`X-Hub-Signature-256`) or sends `Authorization: Bearer <secret>`. `events` limits the
+  `X-GitHub-Event` values; `filters` maps a dotted path in the JSON body, such as
+  `"pull_request.base.ref"`, to the value it must have. A repeated delivery starts nothing.
+
+```json
+"triggers": [
+  {"id": "nightly", "schedule": "0 2 * * *",
+   "task": {"repo": "/src/app", "baseRef": "main", "agent": "claude", "title": "Nightly audit", "prompt": "Audit the dependencies"}},
+  {"id": "review", "webhook": {"secret": "<long random string>", "events": ["pull_request"]},
+   "task": {"repo": "/src/app", "baseRef": "main", "agent": "codex", "title": "Review the new PR"}}
+]
+```
+
+`triggers.json` in the Octo home keeps each trigger's last run and recent delivery ids. A broken
+trigger, or a task one cannot start, shows as a warning.
+
 `"plugins": true` loads WebAssembly plugins from the `plugins` folder in the Octo home. A plugin
 can add ACP agents and actions in a task's Plugins menu. A plugin cannot reach files, processes or
 the network. A broken one is skipped with a warning. See `docs/plugins.md` for the ABI.

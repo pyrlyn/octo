@@ -19,6 +19,8 @@ import octo.core.io.AtomicFile
 import octo.core.orchestrator.FakeAdapter
 import octo.core.orchestrator.Setup
 import octo.core.orchestrator.setup
+import octo.core.triggers.Delivery
+import octo.core.triggers.Webhooks
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertTrue
@@ -187,5 +189,42 @@ class RemoteApiTest {
                 t.s.workspace.worktrees.keys
                     .toList(),
             )
+        }
+
+    @Test
+    fun aWebhookAnswersForItselfWithoutADeviceToken() =
+        runTest {
+            val s = setup()
+            val devices = Devices.open(AtomicFile(Path(s.home, "devices.json")), FakeSecrets())
+            val hooks =
+                Webhooks { id, headers, body ->
+                    when {
+                        id != "pr" -> Delivery.NotFound
+                        headers["authorization"] != "Bearer secret" -> Delivery.Unauthorized
+                        body.isEmpty() -> Delivery.Skipped("empty")
+                        else -> Delivery.Accepted
+                    }
+                }
+            val api = RemoteApi(s.core, devices, hooks)
+
+            suspend fun call(
+                method: String,
+                id: String,
+                body: String? = "{}",
+                secret: String = "secret",
+            ) = api.handle(
+                ApiRequest(method, "/api/v1/hooks/$id", null, body, mapOf("authorization" to "Bearer $secret")),
+            )
+            assertEquals(202, call("POST", "pr").status)
+            assertEquals(
+                "empty",
+                (call("POST", "pr", body = null).body as JsonObject)["skipped"]!!.jsonPrimitive.content,
+            )
+            assertEquals(200, call("POST", "pr", body = null).status)
+            assertEquals(401, call("POST", "pr", secret = "guess").status)
+            assertEquals(404, call("POST", "other").status)
+            assertEquals(405, call("GET", "pr").status)
+            val withoutHooks = RemoteApi(s.core, devices).handle(ApiRequest("POST", "/api/v1/hooks/pr", null, "{}"))
+            assertEquals(401, withoutHooks.status, "with triggers off the route is a device call like any other")
         }
 }

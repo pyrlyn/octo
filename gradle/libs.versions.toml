@@ -5,6 +5,7 @@ coroutines = "1.11.0"
 serialization = "1.12.0"
 kotlinx-io = "0.9.1"
 clikt = "5.1.0"
+krontab = "3.1.0"
 
 [libraries]
 kotlinx-coroutines-core = { module = "org.jetbrains.kotlinx:kotlinx-coroutines-core", version.ref = "coroutines" }
@@ -13,6 +14,7 @@ kotlinx-coroutines-test = { module = "org.jetbrains.kotlinx:kotlinx-coroutines-t
 kotlinx-serialization-json = { module = "org.jetbrains.kotlinx:kotlinx-serialization-json", version.ref = "serialization" }
 kotlinx-io-core = { module = "org.jetbrains.kotlinx:kotlinx-io-core", version.ref = "kotlinx-io" }
 clikt = { module = "com.github.ajalt.clikt:clikt", version.ref = "clikt" }
+krontab = { module = "dev.inmo:krontab", version.ref = "krontab" }
 # From the included kotlin-wasm build, so they carry no version.
 wasm = { module = "pyrlyn.wasm:wasm" }
 wasm-chasm = { module = "pyrlyn.wasm:wasm-chasm" }
