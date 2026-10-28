@@ -9,6 +9,8 @@ import kotlinx.coroutines.runBlocking
 import octo.core.git.Git
 import octo.core.git.GitWorkspace
 import octo.core.git.ShellDirectories
+import octo.core.paths.HostOs
+import octo.core.paths.currentHostOs
 import octo.core.process.JvmProcessLauncher
 import octo.core.process.ProcessSpec
 import octo.core.process.run
@@ -33,14 +35,21 @@ class SshProcessLauncherTest {
     private val dies = File(root, "dies")
     private val masterPid = File(root, "master.pid")
 
+    // The stand-in ssh is a POSIX shell script, and Windows has no connection sharing anyway.
+    private val windows = currentHostOs() == HostOs.Windows
+
     // Short on purpose: the usual temp folder can leave no room under the socket path limit.
     private val sockets =
-        Files
-            .createTempDirectory(
-                java.nio.file.Path
-                    .of("/tmp"),
-                "os",
-            ).toFile()
+        if (windows) {
+            Files.createTempDirectory("os").toFile()
+        } else {
+            Files
+                .createTempDirectory(
+                    java.nio.file.Path
+                        .of("/tmp"),
+                    "os",
+                ).toFile()
+        }
     private val socket = File(sockets, "s").path
     private val scope = CoroutineScope(SupervisorJob() + Dispatchers.Default)
 
@@ -116,6 +125,7 @@ class SshProcessLauncherTest {
     @Test
     fun argumentsSurviveTheRemoteShellVerbatim() =
         runBlocking {
+            if (windows) return@runBlocking
             val dir = File(root, "it's a dir").apply { mkdirs() }
             val tricky = listOf("a b", "it's", "\$HOME", "`id`", "; rm -rf /", "-n", "")
             val result =
@@ -138,6 +148,7 @@ class SshProcessLauncherTest {
     @Test
     fun whichLooksOnTheRemoteMachineAndReportsAnUnreachableHost() =
         runBlocking {
+            if (windows) return@runBlocking
             assertTrue(ssh.which("sh")!!.endsWith("/sh"))
             assertNull(ssh.which("octo-no-such-command"))
             down.writeText("")
@@ -148,6 +159,7 @@ class SshProcessLauncherTest {
     @Test
     fun gitWorktreesWorkThroughTheLauncher() =
         runBlocking {
+            if (windows) return@runBlocking
             val git = Git(ssh)
             val repo = File(root, "repo").apply { mkdirs() }
             git.run(repo.path, listOf("init", "-q", "-b", "main"))
@@ -171,6 +183,7 @@ class SshProcessLauncherTest {
     @Test
     fun callsShareOneMasterThatCloseEnds() =
         runBlocking {
+            if (windows) return@runBlocking
             File(socket).writeText("left by a crash")
             val ssh = shared()
             try {
@@ -200,6 +213,7 @@ class SshProcessLauncherTest {
     @Test
     fun aMasterThatExitsIsStartedAgainButNotOnEveryCall() =
         runBlocking {
+            if (windows) return@runBlocking
             dies.writeText("")
             val eager = shared(retry = Duration.ZERO)
             eventually("a second master starts") {

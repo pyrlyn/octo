@@ -8,6 +8,8 @@ import kotlinx.io.files.Path
 import octo.core.config.MachineConfig
 import octo.core.flags.CoreFlags
 import octo.core.flags.FeatureFlags
+import octo.core.paths.HostOs
+import octo.core.paths.currentHostOs
 import octo.core.process.JvmProcessLauncher
 import java.io.File
 import java.nio.file.Files
@@ -24,6 +26,9 @@ class RemoteMachinesTest {
     private val flags = FeatureFlags(mapOf(CoreFlags.REMOTE_SSH.id to true))
     private val box = MachineConfig("box", "me@box")
 
+    // Windows gets no socket folder (its OpenSSH cannot share connections), so these checks are POSIX only.
+    private val windows = currentHostOs() == HostOs.Windows
+
     @AfterTest
     fun cleanUp() {
         scope.cancel()
@@ -32,6 +37,7 @@ class RemoteMachinesTest {
 
     @Test
     fun theSocketFolderIsPrivateToTheUser() {
+        if (windows) return
         val dir = File(root, "octo")
         val warnings = mutableListOf<String>()
 
@@ -46,6 +52,7 @@ class RemoteMachinesTest {
 
     @Test
     fun aSocketFolderThatCannotBeTrustedTurnsSharingOff() {
+        if (windows) return
         val file = File(root, "octo").apply { writeText("") }
         val link = File(root, "link").also { Files.createSymbolicLink(it.toPath(), root.toPath()) }
         val warnings = mutableListOf<String>()
@@ -59,6 +66,7 @@ class RemoteMachinesTest {
 
     @Test
     fun aSocketPathSshCannotUseIsReportedAndTheMachineStillWorks() {
+        if (windows) return
         val long = File(root, "o".repeat(LONG_NAME))
 
         val remote = remoteMachines(listOf(box), JvmProcessLauncher(emptyMap()), flags, Path(long.path), scope)

@@ -88,8 +88,9 @@ private class JvmRunningProcess(
     override suspend fun writeLine(line: String) {
         writeLock.withLock {
             withContext(Dispatchers.IO) {
+                // LF on every OS: on Windows a CRLF ends up inside git's --stdin values.
                 writer.write(line)
-                writer.newLine()
+                writer.write("\n")
                 writer.flush()
             }
         }

@@ -90,7 +90,10 @@ class OctoTest {
 
         pair()
         val file = File(home, "cli.json").toPath()
-        assertEquals("rw-------", PosixFilePermissions.toString(Files.getPosixFilePermissions(file)))
+        // Windows has no POSIX modes; there the file inherits the ACL of Octo's folder.
+        if ("posix" in file.fileSystem.supportedFileAttributeViews()) {
+            assertEquals("rw-------", PosixFilePermissions.toString(Files.getPosixFilePermissions(file)))
+        }
         assertEquals(1, devices.devices.value.size)
         assertEquals(0, octo("task list").statusCode)
         assertFalse(File(home, "not-home").exists(), "nothing is written to the user's home")
@@ -118,7 +121,7 @@ class OctoTest {
         assertEquals("t1\n", started.stdout, started.stderr)
         assertEquals("create Fix Go as Auto", core.calls.last())
         assertEquals(
-            "/src/app",
+            File("/src/app").path,
             core.state.value[TaskId("t1")]!!
                 .task.repo,
             "relative to the caller",

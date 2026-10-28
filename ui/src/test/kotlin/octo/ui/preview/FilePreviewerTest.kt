@@ -3,6 +3,8 @@ package octo.ui.preview
 import kotlinx.coroutines.test.StandardTestDispatcher
 import kotlinx.coroutines.test.TestScope
 import kotlinx.coroutines.test.runTest
+import octo.core.paths.HostOs
+import octo.core.paths.currentHostOs
 import octo.testing.FakeProcess
 import octo.testing.FakeProcessLauncher
 import org.jetbrains.skia.EncodedImageFormat
@@ -78,10 +80,13 @@ class FilePreviewerTest {
     fun onlyFilesInsideTheWorktreeUnderTheLimitAreRead() =
         runTest {
             val outside = Files.createTempFile("octo-secret", ".png")
-            Files.createSymbolicLink(worktree.resolve("link.png"), outside)
+            // Windows makes symlinks only with Developer Mode or admin rights.
+            val links = currentHostOs() != HostOs.Windows
+            if (links) Files.createSymbolicLink(worktree.resolve("link.png"), outside)
             file("big.png", ByteArray(64))
             val (previewer, _) = previewer(maxBytes = 32)
-            for (path in listOf("link.png", "../${outside.fileName}", outside.toString(), "big.png", "missing.png")) {
+            val paths = listOf("../${outside.fileName}", outside.toString(), "big.png", "missing.png")
+            for (path in paths + listOfNotNull("link.png".takeIf { links })) {
                 assertFailsWith<Exception>(path) { previewer.preview(worktree.toString(), path) }
             }
             Files.delete(outside)
