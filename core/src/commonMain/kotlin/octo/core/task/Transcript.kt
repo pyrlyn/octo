@@ -18,6 +18,8 @@ sealed interface TranscriptEntry {
         val text: String,
         /** Still streaming; never persisted. */
         val partial: Boolean = false,
+        /** Files the user sent with the message. */
+        val attachments: List<Attachment> = emptyList(),
     ) : TranscriptEntry
 
     @Serializable
@@ -48,6 +50,8 @@ sealed interface TranscriptEntry {
         val id: String,
         val title: String,
         val resolved: Boolean = false,
+        /** Files the user sent with the answer. */
+        val attachments: List<Attachment> = emptyList(),
     ) : TranscriptEntry
 
     /** The worktree as it was here can be brought back; see [octo.core.task.Task.checkpoints]. */

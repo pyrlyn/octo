@@ -19,6 +19,7 @@ import octo.core.agent.McpServer
 import octo.core.agent.PermissionKind
 import octo.core.agent.PermissionOption
 import octo.core.agent.PlanEntry
+import octo.core.agent.PromptImage
 import octo.core.agent.RequestResponse
 import octo.core.agent.Role
 import octo.core.agent.SessionSpec
@@ -28,6 +29,7 @@ import octo.core.agent.ToolStatus
 import octo.core.process.RunningProcess
 import kotlin.coroutines.CoroutineContext
 import kotlin.coroutines.cancellation.CancellationException
+import kotlin.io.encoding.Base64
 
 /**
  * An Agent Client Protocol v1 client session (schema `schema-v1.26.0`). Octo offers no file system
@@ -48,6 +50,9 @@ open class AcpSession(
     private val thought = StringBuilder()
     private var totals = SessionStats()
 
+    // Set once by the handshake, before any prompt.
+    private var takesImages = false
+
     protected suspend fun sessionId(): String = lock.withLock { sessionId } ?: error("No ACP session")
 
     override suspend fun initialize(spec: SessionSpec) {
@@ -55,6 +60,7 @@ open class AcpSession(
             withTimeout(HANDSHAKE_TIMEOUT_MS) {
                 val init = peer.request("initialize", initializeParams()).obj() ?: JsonObject(emptyMap())
                 val methods = init.array("authMethods").mapNotNull { it.obj()?.string("id") }
+                takesImages = init.obj("agentCapabilities")?.obj("promptCapabilities")?.bool("image") == true
                 val login = config.loginMethods.firstOrNull { it in methods }
                 try {
                     openSession(spec, init)
@@ -183,8 +189,13 @@ open class AcpSession(
             }
         }
 
-    override suspend fun prompt(text: String) {
+    // An agent that does not declare image prompts would refuse the turn, so it gets the paths alone.
+    override suspend fun prompt(
+        text: String,
+        images: List<PromptImage>,
+    ) {
         val id = sessionId()
+        val sent = images.takeIf { takesImages }.orEmpty()
         emit(AgentEvent.TurnStarted)
         // `session/prompt` answers only when the turn ends, so the turn runs in the background.
         val job =
@@ -193,6 +204,13 @@ open class AcpSession(
                     buildJsonObject {
                         put("sessionId", id)
                         putJsonArray("prompt") {
+                            sent.forEach {
+                                addJsonObject {
+                                    put("type", "image")
+                                    put("mimeType", it.mimeType)
+                                    put("data", Base64.encode(it.data))
+                                }
+                            }
                             add(
                                 buildJsonObject {
                                     put("type", "text")

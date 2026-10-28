@@ -16,6 +16,7 @@ import octo.core.agent.AgentSessionRef
 import octo.core.agent.AuthState
 import octo.core.agent.Capability
 import octo.core.agent.PermissionMode
+import octo.core.agent.PromptImage
 import octo.core.agent.RequestResponse
 import octo.core.agent.SessionSpec
 import octo.core.agent.VendorTerms
@@ -54,12 +55,19 @@ internal class FakeSession(
     var refuseRollback = false
     var compactions = 0
 
+    /** The pictures each prompt carried, in step with [prompts]. */
+    val images = mutableListOf<List<PromptImage>>()
+
     override val events: Flow<AgentEvent> = channel.receiveAsFlow()
 
     fun emit(vararg events: AgentEvent) = events.forEach { channel.trySend(it) }
 
-    override suspend fun prompt(text: String) {
+    override suspend fun prompt(
+        text: String,
+        images: List<PromptImage>,
+    ) {
         prompts += text
+        this.images += images
     }
 
     override suspend fun steer(text: String) {

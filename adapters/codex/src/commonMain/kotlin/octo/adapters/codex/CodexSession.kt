@@ -27,6 +27,7 @@ import octo.core.agent.PermissionKind
 import octo.core.agent.PermissionMode
 import octo.core.agent.PermissionOption
 import octo.core.agent.PlanEntry
+import octo.core.agent.PromptImage
 import octo.core.agent.Question
 import octo.core.agent.RequestResponse
 import octo.core.agent.Role
@@ -96,7 +97,10 @@ internal class CodexSession(
         thread.obj()?.string("model")?.let { emit(AgentEvent.StatsUpdated(SessionStats(model = it))) }
     }
 
-    override suspend fun prompt(text: String) {
+    override suspend fun prompt(
+        text: String,
+        images: List<PromptImage>,
+    ) {
         val thread = lock.withLock { threadId } ?: error("No Codex thread")
         val (newModel, switched) =
             lock.withLock {
