@@ -592,6 +592,8 @@ ACP registry `antigravity-acp/agent.json`.
 | Grok Build | Native ACP `grok agent stdio` | `-p` streaming-json (read-only) | ACP; `Notification` hook | `-r`, ACP | `GROK_HOME` | Subscription use unverified |
 | Antigravity | ACP binary (undocumented) **or** per-turn `agy -p` + hook callback | stream-json | `step_update`, JSON `status`, `Stop.fullyIdle` | `--conversation <id>` | `HOME` only (keyring caveat) | Consumer-plan wrapping not supported |
 | Kimi Code | Native ACP `kimi acp` | `-p` stream-json (read-only) | ACP permission requests | `session/load`, `session/resume`, `-S <id>` | `KIMI_CODE_HOME` | Third-party use documented; keep the User-Agent |
+| MiMo Code | Native ACP `mimo acp` | `mimo run --format json` | ACP permission requests | `session/load`, `session/resume`, `--session <id>` | `XDG_*` dirs or `MIMOCODE_HOME` | Use Restrictions; MiMo Terms of Service for hosted models |
+| ZCode | Per-turn `zcode --prompt … --output-format stream-json` | `app-server` (desktop-internal, undocumented) | `turn.completed` / `turn.failed`, closing `result` line | `--resume <sessionId>`, `--continue` | `HOME`, `ZCODE_DATA_BASE_DIR` | Apache-2.0 client; no third-party-use note found |
 
 *Assessment.* The base adapter should implement an ACP client plus a stream-JSON process driver.
 The Claude and Codex adapters choose between ACP adapters (which add Node as a runtime dependency)
@@ -636,6 +638,81 @@ https://www.kimi.com/code/docs/en/kimi-code-cli/reference/kimi-command; a live `
   read 2026-10-27). Octo runs the user's own `kimi`, so its User-Agent is untouched. Claims that
   membership keys may not be used for automation come only from an unofficial blog
   (**unverified**).
+
+### 6.8 MiMo Code — `mimo` 0.1.16 (Xiaomi)
+
+Sources (read 2026-10-28): repo https://github.com/XiaomiMiMo/MiMo-Code (MIT, release `v0.1.16`)
+files `README.md`, `USE_RESTRICTIONS.md`, `packages/cli/package.json`,
+`packages/cli/src/cli/cmd/{acp,run}.ts`, `packages/cli/src/acp/agent.ts`; npm `@mimo-ai/cli`
+0.1.16 (`bin: { mimo }`, `engines.node >=20.10.0`); vendor page
+https://mimo.mi.com/docs/en-US/tokenplan/integration/mimo-code (updated 2026-10-27).
+
+- **What it is.** A terminal coding agent forked from OpenCode; the ACP server still reports
+  `agentInfo.name: "OpenCode"` with MiMo's own version.
+- **Install.** `curl -fsSL https://mimo.xiaomi.com/install | bash` (macOS, Linux), a PowerShell
+  script, or `npm install -g @mimo-ai/cli`. The binary is `mimo`; `mimo --version` prints a bare
+  version. The unrelated npm package `mimocode` installs `mimocode`, not `mimo`.
+- **Headless.** `mimo run [message..]` with `--format default|json` (raw JSON events),
+  `--session`, `--continue`, `--fork`, `--model provider/model`, `--agent`, `--file`,
+  `--dangerously-skip-permissions`; `mimo serve` runs an HTTP server.
+- **ACP (native).** `mimo acp [--cwd]`, NDJSON JSON-RPC over stdio. `initialize` advertises
+  `loadSession`, image and embedded-context prompts, HTTP and SSE MCP, and
+  `sessionCapabilities.{fork,list,resume}`. `session/new` returns `configOptions` with a `model`
+  select and `modes`. Updates used: `agent_message_chunk`, `agent_thought_chunk`, `tool_call`,
+  `tool_call_update`, `usage_update`, `available_commands_update`; turns end with `end_turn`.
+- **Auth.** OAuth to the Xiaomi MiMo platform (`mimo auth login`, or `/connect` and `/login` in the
+  TUI), Codex (ChatGPT) OAuth, an import from Claude Code, catalog providers by API key, or a custom
+  OpenAI-compatible provider. The ACP `authMethods` entry `opencode-login` is a terminal sign-in,
+  and `authenticate` throws "Authentication not implemented", so Octo sends no `authenticate`.
+- **Config dir.** `~/.config/mimocode/mimocode.jsonc` and `.mimocode/` per project; data under the
+  XDG data dir (`~/Library/Application Support/mimocode/` on macOS) with `auth.json`, or under
+  `MIMOCODE_HOME`.
+- **Terms.** MIT client plus `USE_RESTRICTIONS.md`, which forbids, among others, using it to
+  autonomously execute high-risk actions without human oversight. Hosted models fall under the MiMo
+  Terms of Service (https://platform.xiaomimimo.com/docs/terms/user-agreement). The vendor page
+  states no rule on which clients may use a Token Plan.
+
+### 6.9 ZCode — `zcode` 3.16.2 (Z.ai)
+
+Sources (read 2026-10-28): repo https://github.com/zai-org/ZCode (Apache-2.0, commit `3c5b227`,
+README "Updated to ZCode v3.16.2", root `package.json` 3.16.2) files `README.en.md`,
+`apps/zcode-cli/docs/usage/{01-quickstart,02-cli-reference,03-config,04-tools,05-permissions}.md`,
+`apps/zcode-cli/packages/cli/src/{prompt-command,run}.ts`,
+`apps/zcode-cli/packages/cli/scripts/build.mjs`,
+`apps/zcode-cli/packages/bootstrap/src/zcode-protocol/session-mapper.ts`,
+`apps/zcode-cli/packages/contracts/src/events/session.events.ts`; GitHub releases (latest
+`v3.14.3`: desktop `.dmg` and `.exe` only).
+
+- **Install.** No official registry package: build from source (`pnpm build:zcode` for the
+  distribution with one `zcode` command, or `pnpm --filter @zcode/cli... build` for the bare
+  `zcode.cjs`, optional single-file SEA builds). The npm packages `zcode` and `zcode-cli` link no
+  repository and Z.ai's docs never mention them, so Octo treats them as unofficial. `zcode --version` prints the root package version.
+- **Headless.** `zcode --prompt <text>` (also `-p`; needs non-empty text) with `--cwd`,
+  `--mode plan|build|edit|yolo|guarded` (defaults to `yolo` with `--prompt`), `--attach <path>`,
+  `--resume <sessionId>` or `--continue`, `--disallowed-tools`, `--output-format
+  text|json|stream-json`, `--no-color`. Options parse with `node:util` `parseArgs`, so
+  `--name=value` works. `stream-json` is NDJSON: one session event per line
+  (`{eventId, type, sessionId, turnId, payload, seq, timestamp, traceId}`), then a closing line
+  `{type: "result", sessionId, response, usage, projection}`. Event types used: `model.streaming`
+  (`payload.kind` `text_delta` or `reasoning_delta` with `delta`), `tool.updated` (`payload.kind`
+  `scheduled`, `started`, `progress`, `result` with `result.success` and `result.content`, `error`),
+  `turn.completed` (`resultType`), `turn.failed` (`error.message`). The docs ask consumers to keep
+  unknown event types and not to rely on event counts.
+- **Approvals.** A `--prompt` run has no approval client: a tool that would ask fails and the
+  model is told. `plan` blocks writes, `build` needs approval for writes and side effects,
+  `edit` allows workspace edits, `guarded` allows routine calls and still asks for dangerous ones,
+  `yolo` skips prompts. The docs suggest removing `AskUserQuestion`, `EnterPlanMode` and
+  `ExitPlanMode` from headless runs.
+- **Protocol server.** `zcode app-server` speaks the ZCode Protocol (NDJSON frames) to the desktop
+  host; the CLI docs call it a protocol entry, not a batch interface, and it has no public
+  reference. No ACP server.
+- **Auth.** `zcode login` (`--no-browser` prints the URL), a coding-plan API key, or a personal
+  provider in `~/.zcode/v2/provider_config.json`.
+- **Config dir.** `~/.zcode/v2/provider_config.json` (models), `~/.zcode/cli/config.json`
+  (runtime, permissions, MCP, hooks, plugins); `ZCODE_DATA_BASE_DIR` moves the data base. Isolated
+  runs set `HOME`, `USERPROFILE` and `ZCODE_DATA_BASE_DIR` together.
+- **Terms.** The client is Apache-2.0; the repository has no note on third-party front ends. Use
+  of Z.ai models falls under Z.ai's own terms (not checked here, **unverified**).
 
 ---
 
@@ -849,6 +926,13 @@ Vendor docs (read 2026-10-26):
 - Kotlin and Compose — https://kotlinlang.org/docs/multiplatform/ and
   https://kotlinlang.org/docs/native-target-support.html ; YouTrack issues CMP-1923, CMP-2825,
   CMP-9572, CMP-5100, SKIKO-580
+
+Added for T58 (read 2026-10-28):
+
+- MiMo Code — https://github.com/XiaomiMiMo/MiMo-Code/tree/v0.1.16 ; npm `@mimo-ai/cli` 0.1.16 ;
+  https://mimo.mi.com/docs/en-US/tokenplan/integration/mimo-code
+- ZCode — https://github.com/zai-org/ZCode/tree/3c5b227649371507ddc4eb46ac5133afe6db1cab ; npm
+  `zcode` 0.0.1 and `zcode-cli` 0.0.1 (look-alikes)
 
 Registries (read 2026-10-26):
 

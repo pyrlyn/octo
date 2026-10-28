@@ -1,0 +1,68 @@
+package octo.adapters.base
+
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.withTimeoutOrNull
+import octo.core.agent.AgentAdapter
+import octo.core.agent.AgentNotInstalledException
+import octo.core.agent.AgentProbe
+import octo.core.agent.AuthState
+import octo.core.process.ProcessLauncher
+import octo.core.process.ProcessSpec
+import octo.core.process.run
+import kotlin.coroutines.CoroutineContext
+import kotlin.coroutines.cancellation.CancellationException
+
+/**
+ * An agent that is the user's own installed CLI: finds it on PATH and probes its version. Octo
+ * never reads or passes agent credentials: the CLI uses whatever login the user already has.
+ */
+abstract class CliAgentAdapter(
+    protected val launcher: ProcessLauncher,
+    protected val context: CoroutineContext = Dispatchers.Default,
+) : AgentAdapter {
+    protected abstract val binary: String
+
+    /** The version this adapter's protocol mapping was checked against. */
+    protected abstract val verifiedVersion: String
+
+    /** Finds the binary; override when the CLI ships under more than one name. */
+    protected open suspend fun locate(): String? = launcher.which(binary)
+
+    protected open val versionArgs: List<String> = listOf("--version")
+
+    protected open fun parseVersion(output: String): String? = VERSION.find(output)?.value
+
+    /** Override when the CLI can report its login state without a model call. */
+    protected open suspend fun checkAuth(binaryPath: String): AuthState = AuthState.Unknown
+
+    /** Runs before launch; throw [octo.core.agent.WrongAgentBinaryException] for a look-alike CLI. */
+    protected open suspend fun checkBinary(binaryPath: String) {}
+
+    /** The checked binary a session launches. */
+    protected suspend fun binaryPath(): String {
+        val path = locate() ?: throw AgentNotInstalledException(id)
+        checkBinary(path)
+        return path
+    }
+
+    // A broken or hanging CLI must show up as "unknown version", not break the agent list.
+    @Suppress("TooGenericExceptionCaught")
+    override suspend fun probe(): AgentProbe {
+        val path = locate() ?: return AgentProbe(null, null, verifiedVersion, AuthState.Unknown)
+        val version =
+            try {
+                withTimeoutOrNull(PROBE_TIMEOUT_MS) { launcher.run(ProcessSpec(path, versionArgs)) }
+                    ?.let { parseVersion(it.stdout) ?: parseVersion(it.stderr) }
+            } catch (e: CancellationException) {
+                throw e
+            } catch (_: Exception) {
+                null
+            }
+        return AgentProbe(path, version, verifiedVersion, checkAuth(path))
+    }
+
+    private companion object {
+        val VERSION = Regex("""\d+\.\d+(\.\d+)?([-+.][0-9A-Za-z.-]+)?""")
+        const val PROBE_TIMEOUT_MS = 10_000L
+    }
+}

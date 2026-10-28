@@ -65,6 +65,8 @@ octo/
 │   ├── cursor/           "
 │   ├── grok/             "
 │   ├── kimi/             "
+│   ├── mimo/             "
+│   ├── zcode/            "
 │   ├── antigravity/      "
 │   └── plugin/           " (the generic ACP adapter for agents plugins declare)
 ├── ui/                   JVM + Compose; depends on core
@@ -95,8 +97,10 @@ own process, so `ps` supplies it there. Native targets compile
 not an `expect`, so nothing is missing at link time.
 
 **`adapters:base`** holds the shared logic for building adapters:
-- `BaseAgentAdapter` — binary lookup on `PATH`, version probe with a verified-version drift
-  warning, environment building, an auth-check hook, capability declaration, and session start;
+- `CliAgentAdapter` — binary lookup on `PATH`, version probe with a verified-version drift
+  warning, an auth-check hook and a look-alike binary check, for any agent that is a local CLI;
+- `BaseAgentAdapter` — on top of it, for a session that is one long-running process: launch
+  arguments, environment building and session start;
 - `LineChannel` — newline-framed stdin/stdout over a spawned process, with stderr captured as log
   events;
 - `JsonRpcPeer` — requests, responses, notifications and server-to-client requests, with an option
@@ -116,6 +120,8 @@ event mapping, extensions and fixtures.
 | `cursor` | ACP `cursor-agent acp` plus `cursor/*` extensions | `cursor-agent` (`agent` collides with Grok's binary) |
 | `grok` | ACP `grok agent stdio` | `grok` (the official xAI build; refuses the community CLI) |
 | `kimi` | ACP `kimi acp` | `kimi` (Kimi Code CLI; refuses the archived Python `kimi-cli`) |
+| `mimo` | ACP `mimo acp` | `mimo` (Xiaomi MiMo Code) |
+| `zcode` | One `zcode --prompt=… --output-format stream-json` run per turn, resumed with `--resume` | `zcode` (Z.ai ZCode, built from source) |
 | `antigravity` | ACP `agy_acp_server` | Behind the `antigravity` flag, with a terms notice |
 | `demo` | In-process, no binary | Behind the `demo-agent` flag; asks for permission and writes `octo-demo.md` |
 | `plugin` | ACP, with the arguments a plugin's manifest gives | The bare command the manifest names, on `PATH` |
@@ -213,7 +219,7 @@ interface AgentSession {
 **Registry.** `AdapterRegistry` is built in `app` from a list:
 
 ```kotlin
-listOf(ClaudeAdapter(...), CodexAdapter(...), CursorAdapter(...), GrokAdapter(...), KimiAdapter(...), AntigravityAdapter(...))
+listOf(ClaudeAdapter(...), CodexAdapter(...), CursorAdapter(...), GrokAdapter(...), KimiAdapter(...), MimoAdapter(...), ZCodeAdapter(...), AntigravityAdapter(...))
 ```
 
 Adding an agent means a new module and one line in that list. The registry drops adapters whose

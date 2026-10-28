@@ -1,0 +1,5 @@
+# A resumed turn: the answer arrives in the result line only (synthetic, as in turn.transcript).
+< {"eventId":"evt_10","payload":{},"seq":10,"sessionId":"sess_1","timestamp":1793000001000,"traceId":"trace_2","type":"session.resumed"}
+< {"eventId":"evt_11","payload":{"response":"Done.","tokenCount":30,"toolCallCount":0,"duration":200,"resultType":"success"},"seq":11,"sessionId":"sess_1","timestamp":1793000001001,"traceId":"trace_2","turnId":"turn_2","type":"turn.completed"}
+< {"type":"result","sessionId":"sess_1","traceId":"trace_2","turnId":"turn_2","response":"Done.","usage":{"source":"provider","modelRequestCount":1,"inputTokens":20,"outputTokens":10,"totalTokens":30,"cacheReadTokens":0,"cacheWriteTokens":0,"reasoningTokens":0,"webSearchRequests":0,"webFetchRequests":0},"eventCount":2,"projection":{"status":"idle","turnCount":2,"totalTokenCount":180,"contextUsed":1600,"contextWindow":200000}}
+x 0

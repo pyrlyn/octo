@@ -1,0 +1,14 @@
+# One turn with a thought, a tool call and usage (synthetic; the initialize and session/new replies
+# follow `packages/cli/src/acp/agent.ts` of MiMo Code v0.1.16).
+> {"jsonrpc":"2.0","id":1,"method":"initialize","params":{"protocolVersion":1,"clientCapabilities":{"fs":{"readTextFile":false,"writeTextFile":false},"terminal":false},"clientInfo":{"name":"octo"}}}
+< {"jsonrpc":"2.0","id":1,"result":{"protocolVersion":1,"agentCapabilities":{"loadSession":true,"mcpCapabilities":{"http":true,"sse":true},"promptCapabilities":{"embeddedContext":true,"image":true},"sessionCapabilities":{"fork":{},"list":{},"resume":{}}},"authMethods":[{"description":"Run `opencode auth login` in the terminal","name":"Login with opencode","id":"opencode-login"}],"agentInfo":{"name":"OpenCode","version":"0.1.16"}}}
+> {"jsonrpc":"2.0","id":2,"method":"session/new","params":{"cwd":"/repo","mcpServers":[]}}
+< {"jsonrpc":"2.0","id":2,"result":{"sessionId":"ses_mimo1","configOptions":[{"id":"model","name":"Model","category":"model","type":"select","currentValue":"xiaomi/mimo-v2.6-pro","options":[{"value":"xiaomi/mimo-v2.6-pro","name":"MiMo V2.6 Pro"}]}]}}
+> {"jsonrpc":"2.0","id":3,"method":"session/prompt","params":{"sessionId":"ses_mimo1","prompt":[{"type":"text","text":"List the files"}]}}
+< {"jsonrpc":"2.0","method":"session/update","params":{"sessionId":"ses_mimo1","update":{"sessionUpdate":"agent_thought_chunk","content":{"type":"text","text":"Use ls."}}}}
+< {"jsonrpc":"2.0","method":"session/update","params":{"sessionId":"ses_mimo1","update":{"sessionUpdate":"tool_call","toolCallId":"call_1","title":"bash","kind":"execute","status":"pending","rawInput":{}}}}
+< {"jsonrpc":"2.0","method":"session/update","params":{"sessionId":"ses_mimo1","update":{"sessionUpdate":"tool_call_update","toolCallId":"call_1","status":"completed","kind":"execute","title":"ls","content":[{"type":"content","content":{"type":"text","text":"README.md"}}]}}}
+< {"jsonrpc":"2.0","method":"session/update","params":{"sessionId":"ses_mimo1","update":{"sessionUpdate":"agent_message_chunk","content":{"type":"text","text":"Only README.md."}}}}
+< {"jsonrpc":"2.0","method":"session/update","params":{"sessionId":"ses_mimo1","update":{"sessionUpdate":"usage_update","used":1200,"size":200000}}}
+< {"jsonrpc":"2.0","id":3,"result":{"stopReason":"end_turn"}}
+x 0

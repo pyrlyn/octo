@@ -6,6 +6,9 @@ subscriptions.
 
 Status: early development. See `docs/research.md`, `docs/architecture.md` and `plan/`.
 
+Agents: Claude Code, Codex, Cursor, Grok Build, Kimi Code, MiMo Code, ZCode and, behind a flag,
+Antigravity, each the CLI you installed and signed in to yourself. Plugins can add more.
+
 ## Build
 
 Needs JDK 21 and a checkout of the shared `ci-diffuser` build next to this one
@@ -37,8 +40,9 @@ the Octo home (`OCTO_HOME`, or the platform's app data folder):
 Each task runs in one of four permission modes: Supervised (the agent asks before commands and
 edits), Auto-accept edits, Auto (the agent's own review approves routine actions) and Full
 access. Pick one in the new-task dialog or change it on a running task. An agent without the
-chosen mode runs Supervised and says so in the transcript. Claude Code and Codex have all four;
-the ACP agents run Supervised. New tasks take `defaultPermissionMode` from `config.json`:
+chosen mode runs Supervised and says so in the transcript. Claude Code, Codex and ZCode have all four;
+the ACP agents run Supervised. ZCode runs each turn headless, so an action that would need your
+answer fails inside the turn instead of asking. New tasks take `defaultPermissionMode` from `config.json`:
 
 ```json
 { "defaultPermissionMode": "AutoAcceptEdits" }
@@ -80,17 +84,11 @@ quits. Its socket lives in a folder only you can read: `$TMPDIR/octo` on macOS,
 a separate connection per call, with a warning. Windows always uses a connection per call.
 
 `"agent-messaging": true` lets agents talk to each other. Octo runs an MCP server on
-`127.0.0.1` and gives each Claude, Cursor, Grok, Kimi Code and Antigravity session four tools:
-`list_tasks`, `send_message`, `wait_for_idle` and `create_task`. A message waits until its target
-is idle and then arrives as a prompt, so a busy agent is never interrupted. Each session gets its
-own token, passed through the environment, never on the command line. Tasks on remote machines and
-Codex get no tools yet.
-
-`create_task` lets an agent split its work: it starts a task in the agent's repository with a
-title and a first prompt, optionally on another agent, model, base ref or machine. The new task
-shows under its parent in the sidebar, waits for a free slot like any other, and never gets a more
-permissive mode than its parent. `maxChildTasks` (default 10) caps the child tasks one task may
-have, forks included; 0 turns the tool off.
+`127.0.0.1` and gives each Claude, Cursor, Grok, Kimi Code, MiMo Code and Antigravity session four
+tools: `list_tasks`, `send_message`, `wait_for_idle` and `create_task`. A message waits until its
+target is idle and then arrives as a prompt, so a busy agent is never interrupted. Each session
+gets its own token, passed through the environment, never on the command line. Tasks on remote
+machines, Codex and ZCode get no tools yet.
 
 `"presets": true` adds team presets. A preset is a named set of members, each with a role, an
 agent and a first prompt. Create, edit and delete presets from the new-task form, under Team
