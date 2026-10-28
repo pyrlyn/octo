@@ -254,7 +254,8 @@ task's worktree are read, and only for tasks on this computer.
 `"notifications": true` shows an OS notification when a task needs you or is done while you
 look elsewhere: the agent waits for an approval or an answer, fails, or finishes its turn, and the
 window is not focused or another task is open. A burst of events for one task shows one
-notification, and one that is already answered or seen is skipped. Clicking it opens the task.
+notification, and one that is already answered or seen is skipped. A task notifies at most once in
+20 s; a later event waits until then. Clicking it opens the task.
 `notifications` in `config.json` turns single events off; all three are on when it is left out.
 Octo shows a tray icon (on macOS, in the menu bar) while the flag is on, since that is how a
 desktop Java app posts notifications.
