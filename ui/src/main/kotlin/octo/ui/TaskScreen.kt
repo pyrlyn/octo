@@ -82,6 +82,7 @@ internal fun TaskScreen(
             PermissionMenu(task.permissionMode, vm::setPermissionMode)
         }
         state.failure?.let { Text(it, color = MaterialTheme.colorScheme.error) }
+        state.limit?.let { LimitBanner(it, onResume = vm::resume) }
         state.error?.let { Banner(it, error = true, onDismiss = vm::dismissError) }
         HorizontalDivider()
         Transcript(state.transcript, Modifier.weight(1f).fillMaxWidth())

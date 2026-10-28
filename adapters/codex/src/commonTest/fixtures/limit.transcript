@@ -1,0 +1,12 @@
+# A turn stopped by the usage limit (synthetic; fields from AccountRateLimitsUpdatedNotification in codex-rs/app-server-protocol v2/account.rs at openai/codex e343a12).
+> {"id":1,"method":"initialize"}
+< {"id":1,"result":{}}
+> {"method":"initialized"}
+> {"id":2,"method":"thread/start","params":{"cwd":"/repo"}}
+< {"id":2,"result":{"thread":{"id":"thr-1"},"model":"gpt-5"}}
+> {"id":3,"method":"turn/start","params":{"threadId":"thr-1"}}
+< {"id":3,"result":{"turn":{"id":"turn-1","status":"inProgress"}}}
+< {"method":"account/rateLimits/updated","params":{"rateLimits":{"primary":{"usedPercent":80,"windowDurationMins":300,"resetsAt":1790000000},"secondary":null,"rateLimitReachedType":null}}}
+< {"method":"account/rateLimits/updated","params":{"rateLimits":{"primary":{"usedPercent":100,"windowDurationMins":300,"resetsAt":1790000000},"secondary":{"usedPercent":40,"windowDurationMins":10080,"resetsAt":1790500000},"rateLimitReachedType":"rateLimitReached"}}}
+< {"method":"turn/completed","params":{"threadId":"thr-1","turn":{"id":"turn-1","status":"failed","error":{"message":"You've hit your usage limit."}}}}
+x 0

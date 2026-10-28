@@ -15,6 +15,7 @@ import kotlinx.serialization.json.putJsonObject
 import octo.adapters.base.JsonRpcAgentSession
 import octo.adapters.base.JsonRpcException
 import octo.adapters.base.array
+import octo.adapters.base.epochMillis
 import octo.adapters.base.long
 import octo.adapters.base.obj
 import octo.adapters.base.string
@@ -191,11 +192,16 @@ internal class CodexSession(
             "item/started", "item/completed" -> item(p, completed = method == "item/completed")
             "turn/plan/updated" -> plan(p)
             "thread/tokenUsage/updated" -> tokenUsage(p)
+            "account/rateLimits/updated" -> rateLimits(p)
             "turn/completed" -> turnCompleted(p)
             "serverRequest/resolved" -> requestId(p["requestId"])?.let { requests.withdraw(it) }
             "thread/status/changed" -> threadStatus(p)
-            "error" -> p.obj("error")?.string("message")?.let { emit(AgentEvent.Log(LogStream.Protocol, it)) }
+            "error" -> protocolError(p)
         }
+    }
+
+    private fun protocolError(p: JsonObject) {
+        p.obj("error")?.string("message")?.let { emit(AgentEvent.Log(LogStream.Protocol, it)) }
     }
 
     private suspend fun turnStarted(p: JsonObject) {
@@ -295,6 +301,14 @@ internal class CodexSession(
         }
     }
 
+    // Most updates only say how close the limit is; one that names the limit reached means Codex stops.
+    private fun rateLimits(p: JsonObject) {
+        val limits = p.obj("rateLimits")?.takeIf { (it["rateLimitReachedType"] ?: JsonNull) != JsonNull } ?: return
+        val windows = listOfNotNull(limits.obj("primary"), limits.obj("secondary"))
+        val full = windows.filter { (it.long("usedPercent") ?: 0) >= FULL_PERCENT }.ifEmpty { windows }
+        emit(AgentEvent.RateLimited(full.mapNotNull { it.long("resetsAt") }.maxOrNull()?.let(::epochMillis)))
+    }
+
     private suspend fun turnCompleted(p: JsonObject) {
         val turn = p.obj("turn") ?: return
         val turnUsage = lock.withLock { usage.also { turnId = null } }
@@ -316,6 +330,7 @@ internal class CodexSession(
     }
 
     companion object {
+        private const val FULL_PERCENT = 100
         private const val HANDSHAKE_TIMEOUT_MS = 60_000L
         private const val DETAIL_LIMIT = 4_000
         private const val ACCEPT = "accept"

@@ -6,6 +6,7 @@ import octo.core.access.Devices
 import octo.core.access.JvmSecrets
 import octo.core.access.RemoteApi
 import octo.core.access.RemoteHttpServer
+import octo.core.agent.AdapterRegistry
 import octo.core.config.OctoConfig
 import octo.core.flags.CoreFlags
 import octo.core.flags.FeatureFlag
@@ -34,6 +35,8 @@ import octo.core.publish.GitTaskPublisher
 import octo.core.publish.SettleMerged
 import octo.core.publish.TaskPublisher
 import octo.core.terms.TermsGate
+import octo.core.usage.UsageLog
+import octo.core.usage.UsageReport
 import wasm.chasm.ChasmRuntime
 
 /** Everything the window needs, built from one Octo home. */
@@ -65,6 +68,8 @@ class Octo private constructor(
     val sections: Boolean,
     /** Whether the `palette` flag binds Cmd+K to the command palette. */
     val palette: Boolean,
+    /** Null unless the `usage` flag is on. */
+    val usage: UsageReport?,
 ) {
     val core: OctoCore get() = orchestrator
 
@@ -84,11 +89,13 @@ class Octo private constructor(
             paths: OctoPaths,
             launcher: ProcessLauncher,
             scope: CoroutineScope,
+            /** Where agents keep their own history; the default reads none. */
+            homes: AgentHomes = AgentHomes(),
         ): Octo {
             val (config, warning) = readConfig(AtomicFile(paths.config))
             val flags = config.featureFlags()
             val plugins = loadPlugins(flags, paths, launcher)
-            val registry = adapterRegistry(launcher, flags, plugins.agents.adapters)
+            val registry = adapterRegistry(launcher, flags, plugins.agents.adapters, homes)
             val terms = TermsGate(AtomicFile(paths.acknowledgements))
             val remote =
                 if (flags.isEnabled(CoreFlags.REMOTE_SSH)) {
@@ -116,14 +123,11 @@ class Octo private constructor(
             val publisher = publishing(flags, orchestrator, launcher, scope)
             val catalog = RegistryAgentCatalog(registry, terms, remote.machines.mapValues { it.value.registry })
             val presets = flags.ifOn(CoreFlags.PRESETS) { FilePresetLibrary.open(AtomicFile(paths.presets)) }
+            val usage = flags.ifOn(CoreFlags.USAGE) { usage(paths, orchestrator, registry, scope) }
             val access =
-                if (flags.isEnabled(CoreFlags.REMOTE_ACCESS)) {
-                    startRemoteAccess(config, paths, orchestrator)
-                } else {
-                    RemoteAccess()
-                }
+                flags.ifOn(CoreFlags.REMOTE_ACCESS) { startRemoteAccess(config, paths, orchestrator) } ?: RemoteAccess()
             val warnings =
-                listOfNotNull(warning, mcpWarning, presets?.warning, access.warning) + remote.warnings +
+                listOfNotNull(warning, mcpWarning, presets?.warning, access.warning, usage?.second) + remote.warnings +
                     plugins.loaded.warnings + plugins.agents.warnings
             return Octo(
                 orchestrator,
@@ -141,7 +145,22 @@ class Octo private constructor(
                 flags.isEnabled(CoreFlags.COMPARE),
                 flags.isEnabled(CoreFlags.SECTIONS),
                 flags.isEnabled(CoreFlags.PALETTE),
+                usage?.first,
             )
+        }
+
+        /** The report and, when `usage.json` cannot be read, why nothing is recorded. */
+        private suspend fun usage(
+            paths: OctoPaths,
+            orchestrator: Orchestrator,
+            registry: AdapterRegistry,
+            scope: CoroutineScope,
+        ): Pair<UsageReport, String?> {
+            val log = UsageLog.open(AtomicFile(paths.usage))
+            log.watch(orchestrator.state, scope)
+            val histories = registry.adapters.mapNotNull { adapter -> adapter.usageHistory?.let { adapter.id to it } }
+            val names = registry.adapters.associate { it.id to it.displayName }
+            return UsageReport(log, histories.toMap(), names) to log.warning
         }
 
         /**

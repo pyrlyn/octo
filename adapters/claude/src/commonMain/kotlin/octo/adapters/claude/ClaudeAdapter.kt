@@ -2,6 +2,7 @@ package octo.adapters.claude
 
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withTimeoutOrNull
+import kotlinx.io.files.Path
 import kotlinx.serialization.json.buildJsonObject
 import kotlinx.serialization.json.put
 import kotlinx.serialization.json.putJsonObject
@@ -34,6 +35,8 @@ import kotlin.uuid.Uuid
 class ClaudeAdapter(
     launcher: ProcessLauncher,
     context: CoroutineContext = Dispatchers.Default,
+    /** Claude's config directory (`CLAUDE_CONFIG_DIR`, else `~/.claude`); null reads no history. */
+    configDir: Path? = null,
     private val newSessionId: () -> String = ::randomSessionId,
 ) : BaseAgentAdapter(launcher, context) {
     override val id = ID
@@ -54,6 +57,7 @@ class ClaudeAdapter(
             Capability.Mcp,
         )
     override val permissionModes = PermissionMode.entries.toSet()
+    override val usageHistory = configDir?.let(::claudeHistory)
     override val binary = "claude"
     override val verifiedVersion = "2.1.310"
 

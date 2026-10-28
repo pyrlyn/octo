@@ -11,6 +11,7 @@ import kotlinx.coroutines.flow.update
 import octo.core.agent.PermissionMode
 import octo.core.agent.RequestResponse
 import octo.core.orchestrator.OctoCore
+import octo.core.orchestrator.TaskNotRunningException
 import octo.core.orchestrator.WorktreeDirtyException
 import octo.core.status.AgentStatus
 import octo.core.task.PendingRequest
@@ -20,6 +21,7 @@ import octo.core.task.Task
 import octo.core.task.TaskId
 import octo.core.task.TaskView
 import octo.core.task.TranscriptEntry
+import octo.core.task.UsageLimit
 
 sealed interface RemoveStep {
     /** Asks whether to keep the worktree. */
@@ -46,6 +48,8 @@ data class TaskUiState(
     val answers: Map<String, Map<String, List<String>>> = emptyMap(),
     val remove: RemoveStep? = null,
     val error: String? = null,
+    /** The agent hit its usage limit; always null while the `usage` flag is off. */
+    val limit: UsageLimit? = null,
 ) {
     /** The task was removed while the screen was open. */
     val gone: Boolean get() = task == null
@@ -71,9 +75,11 @@ class TaskViewModel(
     private val core: OctoCore,
     val taskId: TaskId,
     parent: CoroutineScope,
+    /** False while the `usage` flag is off, which hides usage limits. */
+    private val limits: Boolean = false,
 ) {
     private val scope = parent.childScope()
-    private val mutable = MutableStateFlow(TaskUiState().withCore(core.state.value[taskId], emptyList()))
+    private val mutable = MutableStateFlow(TaskUiState().withCore(core.state.value[taskId], emptyList(), limits))
     val state: StateFlow<TaskUiState> = mutable.asStateFlow()
 
     init {
@@ -81,7 +87,7 @@ class TaskViewModel(
             val transcript = core.transcript(taskId).onStart { emit(emptyList()) }
             combine(core.state, transcript, ::Pair).collect { (octo, entries) ->
                 val view = octo[taskId]
-                mutable.update { it.withCore(view, entries) }
+                mutable.update { it.withCore(view, entries, limits) }
                 // The screen is open, so a finished turn is seen as soon as it lands.
                 if (view?.unseen == true) core.markSeen(taskId)
             }
@@ -164,6 +170,17 @@ class TaskViewModel(
 
     fun restart() = act { core.restart(taskId) }
 
+    /** Asks a limited agent to go on, starting it again first if it stopped. */
+    fun resume() =
+        act {
+            try {
+                core.sendPrompt(taskId, RESUME_PROMPT)
+            } catch (_: TaskNotRunningException) {
+                core.restart(taskId)
+                core.sendPrompt(taskId, RESUME_PROMPT)
+            }
+        }
+
     fun requestRemove() = mutable.update { it.copy(remove = RemoveStep.Confirm) }
 
     fun cancelRemove() = mutable.update { it.copy(remove = null) }
@@ -196,11 +213,16 @@ class TaskViewModel(
         undo()
         mutable.update { it.copy(error = e.userMessage) }
     }, block)
+
+    companion object {
+        const val RESUME_PROMPT = "Continue"
+    }
 }
 
 private fun TaskUiState.withCore(
     view: TaskView?,
     transcript: List<TranscriptEntry>,
+    limits: Boolean,
 ) = copy(
     task = view?.task,
     status = view?.status ?: AgentStatus.Stopped,
@@ -208,6 +230,7 @@ private fun TaskUiState.withCore(
     transcript = transcript,
     pending = view?.pending.orEmpty(),
     queue = view?.task?.queue.orEmpty(),
+    limit = view?.limit?.takeIf { limits },
     // A prompt sent while it was being edited leaves nothing to save.
     editing =
         editing?.takeIf { edit ->

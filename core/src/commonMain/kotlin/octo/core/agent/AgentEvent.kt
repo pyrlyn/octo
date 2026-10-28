@@ -62,6 +62,11 @@ sealed interface AgentEvent {
         val stats: SessionStats,
     ) : AgentEvent
 
+    /** The provider refused work for a usage limit; [resetsAtMs] (epoch milliseconds) is when it lifts, if said. */
+    data class RateLimited(
+        val resetsAtMs: Long? = null,
+    ) : AgentEvent
+
     data class Log(
         val stream: LogStream,
         val line: String,

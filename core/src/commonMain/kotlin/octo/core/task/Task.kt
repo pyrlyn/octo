@@ -130,6 +130,8 @@ data class TaskView(
     val unseen: Boolean = false,
     /** Figures from the running agent; cleared on every start, never persisted. */
     val stats: SessionStats = SessionStats(),
+    /** Set when the agent hit its usage limit, until the next turn starts; never persisted. */
+    val limit: UsageLimit? = null,
 ) {
     val sidebarStatus: SidebarStatus
         get() =
@@ -142,6 +144,11 @@ data class TaskView(
                 AgentStatus.Stopped -> SidebarStatus.Stopped
             }
 }
+
+/** The agent's provider stopped taking work until [resetsAtMs] (epoch milliseconds), or until an unknown time. */
+data class UsageLimit(
+    val resetsAtMs: Long?,
+)
 
 /** Ordered by priority: the first one present wins a rollup. */
 enum class SidebarStatus { Blocked, Failed, Working, Starting, Done, Idle, Stopped }
