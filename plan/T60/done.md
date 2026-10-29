@@ -57,9 +57,6 @@
 - No native window vibrancy, reduced transparency or reduced motion: the creator chose an in-app
   backdrop, and the rest needs native interop. Appearance has no "System" transparency and no high
   contrast for the same reason.
-- Onboarding picks one agent, the first task's, with radio buttons. The design shows checkboxes,
-  but Octo has nothing to "connect": every agent uses its own login.
-- Full access is not offered in onboarding; it stays in Settings › Permissions.
 - The OS title bar stays; the renders show a drawn macOS window frame.
 
 ## How it was checked
@@ -76,5 +73,7 @@
   design renders. Windows and Linux differ only in recipe values and were not rendered.
 - The same harness rendered every settings section, the broken-file notice and the four onboarding
   steps in both themes. I compared those with the proposed screens.
+- The design archive was corrected to match: the agent step of onboarding picks one agent with
+  radio buttons, and its last step says Full access stays in Settings › Permissions.
 
 PR: see the branch `t60-pyrlyn-glass`.
