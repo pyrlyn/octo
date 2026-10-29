@@ -12,9 +12,10 @@ jobs:
   check:
     runs-on: ubuntu-latest
     env:
-      # Shared builds from github.com/pyrlyn/packages, checked out below; paths are relative to settingsDir.
-      SHARED_SETTINGS_DIR: packages/shared-settings
-      KOTLIN_WASM_DIR: packages/kotlin-wasm
+      # Shared builds from github.com/pyrlyn/packages, checked out below; absolute, since the
+      # included kotlin-wasm build reads the same variables relative to its own directory.
+      SHARED_SETTINGS_DIR: ${{ github.workspace }}/packages/shared-settings
+      KOTLIN_WASM_DIR: ${{ github.workspace }}/packages/kotlin-wasm
     steps:
       - uses: actions/checkout@v7.0.1
       - uses: actions/checkout@v7.0.1
