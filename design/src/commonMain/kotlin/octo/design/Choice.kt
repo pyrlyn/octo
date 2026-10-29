@@ -126,7 +126,7 @@ private fun Mark(
             .size(MarkSize)
             .clip(shape)
             .background(fill)
-            .border(1.dp, edge, shape),
+            .border(1.dp.snapped, edge, shape),
         contentAlignment = Alignment.Center,
     ) { content() }
 }

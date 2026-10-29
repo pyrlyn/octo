@@ -51,6 +51,7 @@ import octo.design.SettingRow
 import octo.design.SettingsGroup
 import octo.design.Text
 import octo.design.Tone
+import octo.design.snapped
 import octo.feature.common.description
 import octo.feature.common.label
 
@@ -110,8 +111,11 @@ private fun Nav(
                     .fillMaxWidth()
                     .clip(shape)
                     .background(if (selected) c.stateSelected else c.stateSelected.copy(alpha = 0f))
-                    .border(1.dp, if (selected) c.stateSelectedRim else c.stateSelectedRim.copy(alpha = 0f), shape)
-                    .clickable { onSelect(section) }
+                    .border(
+                        1.dp.snapped,
+                        if (selected) c.stateSelectedRim else c.stateSelectedRim.copy(alpha = 0f),
+                        shape,
+                    ).clickable { onSelect(section) }
                     .padding(horizontal = 10.dp, vertical = 7.dp),
                 horizontalArrangement = Arrangement.spacedBy(10.dp),
                 verticalAlignment = Alignment.CenterVertically,

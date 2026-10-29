@@ -68,7 +68,7 @@ fun Modifier.glass(
             if (!solid) drawSheen(c)
             val inset = size.height.coerceAtMost(HIGHLIGHT_INSET)
             drawLine(highlight, Offset(inset, HAIRLINE), Offset(size.width - inset, HAIRLINE), 1.dp.toPx())
-        }.border(1.dp, Brush.verticalGradient(listOf(c.glassRim, c.glassEdge)), shape)
+        }.border(1.dp.snapped, Brush.verticalGradient(listOf(c.glassRim, c.glassEdge)), shape)
 }
 
 /** The window's own chrome, flush with its edges: a header bar, a flush sidebar. */

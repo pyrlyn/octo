@@ -43,7 +43,7 @@ fun GlassSwitch(
             .size(SwitchWidth, SwitchHeight)
             .clip(CircleShape)
             .background(track)
-            .border(1.dp, if (on) track else c.borderStrong, CircleShape)
+            .border(1.dp.snapped, if (on) track else c.borderStrong, CircleShape)
             .toggleable(on, enabled = enabled, role = Role.Switch, onValueChange = onChange)
             .padding(2.dp),
         contentAlignment = if (on) Alignment.CenterEnd else Alignment.CenterStart,
