@@ -5,7 +5,7 @@ of the Octo home when it starts. With the flag off, Octo does not read that fold
 
 A plugin is a WebAssembly module. Octo runs it in [Chasm](https://github.com/CharlieTap/chasm),
 an interpreter, through the `wasm` interface it shares with rtok
-([kotlin-wasm](https://github.com/pyrlyn/kotlin-wasm)). A plugin can add:
+([kotlin-wasm](https://github.com/pyrlyn/packages/tree/main/kotlin-wasm)). A plugin can add:
 
 - **agents**: ACP agents Octo starts from a program on `PATH`;
 - **actions**: entries in a task's Plugins menu, which turn the task into a prompt for its agent

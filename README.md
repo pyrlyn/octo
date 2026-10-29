@@ -13,7 +13,7 @@ Antigravity, each the CLI you installed and signed in to yourself. Plugins can a
 
 Needs JDK 21 and two shared builds in the workspace's `packages/` (`../../packages/` from the
 main checkout): `shared-settings` supplies ktlint, detekt, repositories and the optional remote
-build cache; [kotlin-wasm](https://github.com/pyrlyn/kotlin-wasm) is the plugin host's
+build cache; [kotlin-wasm](https://github.com/pyrlyn/packages/tree/main/kotlin-wasm) is the plugin host's
 WebAssembly interface. Every directory above the build is searched for `packages/`, so a nested
 worktree finds them too; set `SHARED_SETTINGS_DIR` or `KOTLIN_WASM_DIR` when they live elsewhere.
 

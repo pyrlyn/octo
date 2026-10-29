@@ -31,7 +31,7 @@ plugins {
 rootProject.name = "octo"
 
 // The WebAssembly interface and its Chasm adapter, shared with rtok: a checkout of kotlin-wasm
-// (github.com/pyrlyn/kotlin-wasm).
+// (github.com/pyrlyn/packages, kotlin-wasm/).
 includeBuild(extra["kotlinWasmDir"] as String)
 
 include(
