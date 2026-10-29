@@ -250,7 +250,7 @@ private fun Modifier.raised(
             Brush.verticalGradient(
                 listOf(Color.White.copy(alpha = if (c.dark) SHEEN_DARK else SHEEN_LIGHT), Color.Transparent),
             ),
-        ).border(1.dp, Brush.verticalGradient(listOf(c.specular.copy(alpha = 0.5f), c.glassEdge)), shape)
+        ).border(1.dp.snapped, Brush.verticalGradient(listOf(c.specular.copy(alpha = 0.5f), c.glassEdge)), shape)
 }
 
 /** An alert dialog's slots on a floating glass panel. */
@@ -452,7 +452,7 @@ fun Notice(
         modifier
             .fillMaxWidth()
             .background(color.copy(alpha = if (c.dark) TINT_DARK else TINT_LIGHT), shape)
-            .border(1.dp, color.copy(alpha = TINT_BORDER), shape)
+            .border(1.dp.snapped, color.copy(alpha = TINT_BORDER), shape)
             .padding(horizontal = 12.dp, vertical = SmallGap),
         verticalAlignment = Alignment.CenterVertically,
         horizontalArrangement = Arrangement.spacedBy(10.dp),

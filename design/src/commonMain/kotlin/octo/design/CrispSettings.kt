@@ -30,4 +30,8 @@ fun snapToPixels(
 val hairline: Dp
     @Composable get() = snapToPixels(HAIRLINE, LocalDensity.current.density)
 
+/** This width rounded to whole device pixels on the current screen, for borders and strokes. */
+val Dp.snapped: Dp
+    @Composable get() = snapToPixels(this, LocalDensity.current.density)
+
 private val HAIRLINE = 0.5.dp

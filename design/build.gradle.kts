@@ -20,6 +20,10 @@ kotlin {
             api(compose.foundation)
             api(compose.ui)
         }
+        // Skia's native library, for the screenshot test.
+        jvmTest.dependencies {
+            implementation(compose.desktop.currentOs)
+        }
         commonTest.dependencies {
             implementation(kotlin("test"))
         }
