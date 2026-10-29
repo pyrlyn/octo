@@ -4,24 +4,35 @@ pluginManagement {
         mavenCentral()
         google()
     }
-    // Shared build settings from a sibling checkout of ci-diffuser; CI_DIFFUSER_DIR points elsewhere,
-    // e.g. from a worktree outside apps/.
-    val ciDiffuser = System.getenv("CI_DIFFUSER_DIR") ?: "../ci-diffuser"
-    includeBuild(ciDiffuser)
-    includeBuild("$ciDiffuser/settings-plugin")
+    // Shared builds live in the workspace's packages/. Every ancestor is searched, so the build works
+    // from the main checkout and from a worktree nested deeper (e.g. .rtok/worktrees/); an env variable
+    // points elsewhere. Defined here because pluginManagement cannot see the rest of the script.
+    fun sharedBuild(name: String, env: String): String =
+        System.getenv(env)?.let { settingsDir.resolve(it).path }
+            ?: generateSequence(settingsDir.parentFile) { it.parentFile }
+                .map { it.resolve("packages/$name") }
+                .firstOrNull { it.isDirectory }
+                ?.path
+            ?: error("packages/$name not found above $settingsDir; set $env")
+
+    // Shared build settings (ktlint, detekt, repositories, build cache).
+    val sharedSettings = sharedBuild("shared-settings", "SHARED_SETTINGS_DIR")
+    includeBuild(sharedSettings)
+    includeBuild("$sharedSettings/settings-plugin")
+    extra["kotlinWasmDir"] = sharedBuild("kotlin-wasm", "KOTLIN_WASM_DIR")
 }
 
 // Repositories and the optional S3/R2 remote build cache, which stays off without its keys.
 plugins {
     id("com.github.burrunan.s3-build-cache") version "1.9.10"
-    id("ci.diffuser.settings")
+    id("shared.settings")
 }
 
 rootProject.name = "octo"
 
 // The WebAssembly interface and its Chasm adapter, shared with rtok: a checkout of kotlin-wasm
-// (github.com/pyrlyn/kotlin-wasm). KOTLIN_WASM_DIR points elsewhere, as CI_DIFFUSER_DIR does above.
-includeBuild(System.getenv("KOTLIN_WASM_DIR") ?: "../../packages/kotlin-wasm")
+// (github.com/pyrlyn/kotlin-wasm).
+includeBuild(extra["kotlinWasmDir"] as String)
 
 include(
     ":core",
