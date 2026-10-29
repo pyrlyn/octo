@@ -1,4 +1,8 @@
 import org.jetbrains.compose.desktop.application.dsl.TargetFormat
+import org.jetbrains.compose.reload.gradle.ComposeHotRun
+
+// Skiko loads its native renderer with System.load; JDK 24+ warns about that and will block it.
+val nativeAccess = "--enable-native-access=ALL-UNNAMED"
 
 plugins {
     id("octo.compose")
@@ -32,8 +36,7 @@ compose.desktop {
                 .launcherFor { languageVersion = JavaLanguageVersion.of(25) }
                 .get()
                 .metadata.installationPath.asFile.absolutePath
-        // Skiko loads its native renderer with System.load; JDK 24+ warns about that and will block it.
-        jvmArgs += "--enable-native-access=ALL-UNNAMED"
+        jvmArgs += nativeAccess
         nativeDistributions {
             targetFormats(TargetFormat.Dmg, TargetFormat.Msi, TargetFormat.Deb)
             packageName = "Octo"
@@ -42,4 +45,9 @@ compose.desktop {
             modules("jdk.httpserver")
         }
     }
+}
+
+// hotRun starts its own JVM and ignores compose.desktop's jvmArgs.
+tasks.withType<ComposeHotRun>().configureEach {
+    jvmArgumentProviders += CommandLineArgumentProvider { listOf(nativeAccess) }
 }
