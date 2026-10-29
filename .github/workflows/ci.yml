@@ -11,23 +11,22 @@ permissions:
 jobs:
   check:
     runs-on: ubuntu-latest
+    env:
+      # Shared builds from github.com/pyrlyn/packages, checked out below; paths are relative to settingsDir.
+      SHARED_SETTINGS_DIR: packages/shared-settings
+      KOTLIN_WASM_DIR: packages/kotlin-wasm
     steps:
-      # Mirror the local workspace layout: octo/ next to packages/, where settings.gradle.kts
-      # finds shared-settings and kotlin-wasm by searching ancestors for packages/.
       - uses: actions/checkout@v7.0.1
-        with:
-          path: octo
       - uses: actions/checkout@v7.0.1
         with:
           repository: pyrlyn/packages
+          # Pinned main; bump when octo needs newer shared builds.
+          ref: 0e2ba0ac270cc5a2363fd3d91e75d9c09825845f
           path: packages
       - uses: actions/setup-java@v6.1.0
         with:
           distribution: temurin
           java-version: 25
       - uses: gradle/actions/setup-gradle@v6.4.0
-        with:
-          build-root-directory: octo
       # Builds every native target the host can build, so commonMain stays free of JVM-only code.
       - run: ./gradlew check -Pocto.allNativeTargets=true --console=plain
-        working-directory: octo
