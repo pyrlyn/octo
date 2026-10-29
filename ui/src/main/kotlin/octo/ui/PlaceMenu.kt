@@ -1,10 +1,8 @@
 package octo.ui
 
 import androidx.compose.foundation.layout.Box
-import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.Text
-import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -31,8 +29,8 @@ internal fun PlaceMenu(
         action()
     }
     Box {
-        TextButton(onClick = { open = true }) { Text(place.label()) }
-        DropdownMenu(open, onDismissRequest = { open = false }) {
+        GhostButton(onClick = { open = true }) { Text(place.label()) }
+        GlassMenu(open, onDismissRequest = { open = false }) {
             if (place != TaskPlace.Active) {
                 DropdownMenuItem(
                     text = { Text("Move to active") },

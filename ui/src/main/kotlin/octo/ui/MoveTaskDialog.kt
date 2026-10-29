@@ -4,18 +4,16 @@ import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.width
-import androidx.compose.material3.AlertDialog
-import androidx.compose.material3.Button
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.RadioButton
 import androidx.compose.material3.Text
-import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.unit.dp
 import octo.ui.vm.MoveTaskViewModel
 
 @Composable
@@ -25,7 +23,7 @@ internal fun MoveTaskDialog(
 ) {
     val state by vm.state.collectAsState()
     LaunchedEffect(state.done) { if (state.done) onDismiss() }
-    AlertDialog(
+    GlassDialog(
         onDismissRequest = { if (!state.moving) onDismiss() },
         modifier = Modifier.width(DialogWidth),
         title = { Text("Move to another machine") },
@@ -35,7 +33,10 @@ internal fun MoveTaskDialog(
                     Text("No other machine has a clone of this repository; list it under that machine's repos.")
                 }
                 state.targets.forEach { id ->
-                    Row(verticalAlignment = Alignment.CenterVertically) {
+                    Row(
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.spacedBy(6.dp),
+                    ) {
                         RadioButton(selected = state.chosen && state.target == id, onClick = { vm.select(id) })
                         Text(id ?: "This computer")
                     }
@@ -45,12 +46,12 @@ internal fun MoveTaskDialog(
                         "A fresh session starts; your next prompt carries the conversation over.",
                     style = MaterialTheme.typography.bodySmall,
                 )
-                state.error?.let { Text(it, color = MaterialTheme.colorScheme.error) }
+                state.error?.let { Notice(it, Tone.Error) }
             }
         },
         confirmButton = {
-            Button(onClick = vm::move, enabled = state.canMove) { Text(if (state.moving) "Moving…" else "Move") }
+            PrimaryButton(onClick = vm::move, enabled = state.canMove) { Text(if (state.moving) "Moving…" else "Move") }
         },
-        dismissButton = { TextButton(onClick = onDismiss, enabled = !state.moving) { Text("Cancel") } },
+        dismissButton = { GhostButton(onClick = onDismiss, enabled = !state.moving) { Text("Cancel") } },
     )
 }

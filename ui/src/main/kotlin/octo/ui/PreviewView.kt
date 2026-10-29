@@ -38,7 +38,7 @@ private val ColumnWidth = 160.dp
 internal fun PreviewView(state: PreviewState) {
     when (state) {
         PreviewState.Loading -> Text("Loading preview…")
-        is PreviewState.Failed -> Text(state.message, color = MaterialTheme.colorScheme.error)
+        is PreviewState.Failed -> Notice(state.message, Tone.Error)
         is PreviewState.Ready -> Ready(state.preview)
     }
 }

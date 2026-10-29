@@ -5,12 +5,8 @@ import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.text.selection.SelectionContainer
-import androidx.compose.material3.AlertDialog
-import androidx.compose.material3.Button
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Text
-import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
@@ -22,7 +18,7 @@ import octo.ui.vm.ShareViewModel
 @Composable
 internal fun ShareButton(vm: ShareViewModel) {
     val state by vm.state.collectAsState()
-    OutlinedButton(onClick = vm::open) { Text(if (state.shared) "Shared" else "Share") }
+    SecondaryButton(onClick = vm::open) { Text(if (state.shared) "Shared" else "Share") }
 }
 
 /** What the guest asked to send, and the share dialog; nothing reaches the agent until the owner sends it here. */
@@ -37,8 +33,8 @@ internal fun GuestProposals(vm: ShareViewModel) {
                 Text("${proposal.from} proposes:", fontWeight = FontWeight.SemiBold)
                 Text(proposal.text)
             }
-            Button(onClick = { vm.approve(proposal.id) }) { Text("Send") }
-            TextButton(onClick = { vm.reject(proposal.id) }) { Text("Reject") }
+            PrimaryButton(onClick = { vm.approve(proposal.id) }) { Text("Send") }
+            GhostButton(onClick = { vm.reject(proposal.id) }) { Text("Reject") }
         }
     }
 }
@@ -47,7 +43,7 @@ internal fun GuestProposals(vm: ShareViewModel) {
 private fun ShareDialog(vm: ShareViewModel) {
     val state by vm.state.collectAsState()
     if (!state.open) return
-    AlertDialog(
+    GlassDialog(
         onDismissRequest = vm::dismiss,
         modifier = Modifier.width(DialogWidth),
         title = { Text("Share with a guest") },
@@ -65,16 +61,16 @@ private fun ShareDialog(vm: ShareViewModel) {
                 if (state.shared && state.link == null) {
                     Text("Shared. A new link ends the old one.", style = MaterialTheme.typography.bodySmall)
                 }
-                state.error?.let { Text(it, color = MaterialTheme.colorScheme.error) }
+                state.error?.let { Notice(it, Tone.Error) }
             }
         },
         confirmButton = {
-            Button(onClick = vm::create) { Text(if (state.shared) "New link" else "Create link") }
+            PrimaryButton(onClick = vm::create) { Text(if (state.shared) "New link" else "Create link") }
         },
         dismissButton = {
             Row(horizontalArrangement = Arrangement.spacedBy(Gap)) {
-                if (state.shared) TextButton(onClick = vm::revoke) { Text("Revoke") }
-                TextButton(onClick = vm::dismiss) { Text("Close") }
+                if (state.shared) GhostButton(onClick = vm::revoke) { Text("Revoke") }
+                GhostButton(onClick = vm::dismiss) { Text("Close") }
             }
         },
     )

@@ -3,6 +3,7 @@ package octo.ui
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxHeight
@@ -13,22 +14,21 @@ import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.text.selection.SelectionContainer
-import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Text
-import androidx.compose.material3.VerticalDivider
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.style.TextOverflow
+import androidx.compose.ui.unit.dp
 import octo.core.git.FileChange
 import octo.core.git.FileDiff
 import octo.core.git.Hunk
 import octo.core.git.LineKind
+import octo.ui.theme.Pyrlyn
 import octo.ui.vm.DiffUiState
 import octo.ui.vm.DiffViewModel
 import octo.ui.vm.PreviewState
@@ -39,15 +39,15 @@ internal fun DiffScreen(
     onClose: () -> Unit,
 ) {
     val state by vm.state.collectAsState()
-    Column(Modifier.fillMaxSize().padding(LargeGap), verticalArrangement = Arrangement.spacedBy(Gap)) {
-        Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(Gap)) {
-            Text(
-                state.diff?.let { "Changes against ${it.baseRef}" } ?: "Changes",
-                Modifier.weight(1f),
-                style = MaterialTheme.typography.titleLarge,
-            )
-            OutlinedButton(onClick = vm::refresh, enabled = !state.loading) { Text("Refresh") }
-            OutlinedButton(onClick = onClose) { Text("Back to task") }
+    Column(Modifier.fillMaxSize()) {
+        val subtitle =
+            state.diff?.let {
+                val count = state.files.size
+                "against ${it.baseRef} · ${if (count == 1) "1 file" else "$count files"}"
+            }
+        PaneHeader("Diff", subtitle) {
+            SecondaryButton(onClick = vm::refresh, enabled = !state.loading) { Text("↻  Refresh") }
+            GhostButton(onClick = onClose) { Text("Back to task") }
         }
         Body(state, vm)
     }
@@ -60,33 +60,30 @@ private fun Body(
 ) {
     when {
         state.error != null -> {
-            Text(state.error, color = MaterialTheme.colorScheme.error)
+            Column(Modifier.padding(PanePadding)) { Notice(state.error, Tone.Error) }
         }
 
         state.diff == null -> {
-            Text("Loading…")
+            Text("Loading…", Modifier.padding(PanePadding), color = Pyrlyn.colors.fgMuted)
         }
 
         state.files.isEmpty() -> {
-            Text("No changes yet.")
+            EmptyState("±", "No changes yet", "The diff fills in once the agent edits files in its worktree.")
         }
 
         else -> {
             Row(Modifier.fillMaxSize()) {
-                LazyColumn(Modifier.width(FileListWidth).fillMaxHeight()) {
+                LazyColumn(
+                    Modifier.width(FileListWidth).fillMaxHeight().padding(Gap),
+                    verticalArrangement = Arrangement.spacedBy(2.dp),
+                ) {
                     items(state.files, key = { it.path }) { file ->
                         FileRow(file, selected = file.path == state.selectedPath, onClick = { vm.select(file.path) })
                     }
                 }
-                VerticalDivider()
+                Box(Modifier.width(0.5.dp).fillMaxHeight().background(Pyrlyn.colors.glassEdge))
                 state.selected?.let {
-                    FileView(
-                        it,
-                        state.preview,
-                        state.showDiff,
-                        vm::toggleDiff,
-                        Modifier.weight(1f).padding(start = Gap),
-                    )
+                    FileView(it, state.preview, state.showDiff, vm::toggleDiff, Modifier.weight(1f))
                 }
             }
         }
@@ -99,18 +96,32 @@ private fun FileRow(
     selected: Boolean,
     onClick: () -> Unit,
 ) {
-    val background = if (selected) MaterialTheme.colorScheme.secondaryContainer else Color.Transparent
+    val c = Pyrlyn.colors
+    val shape = Pyrlyn.controlShape
     Row(
         Modifier
             .fillMaxWidth()
-            .background(background)
+            .clip(shape)
+            .background(if (selected) c.stateSelected else Color.Transparent)
             .clickable(onClick = onClick)
-            .padding(SmallGap),
+            .padding(horizontal = Gap, vertical = 6.dp),
         horizontalArrangement = Arrangement.spacedBy(Gap),
+        verticalAlignment = Alignment.CenterVertically,
     ) {
-        Text(file.change.marker, fontFamily = FontFamily.Monospace)
-        Text(file.path, Modifier.weight(1f), maxLines = 1, overflow = TextOverflow.Ellipsis)
-        Text("+${file.additions} -${file.deletions}", style = MaterialTheme.typography.bodySmall)
+        Text(file.change.marker, style = Pyrlyn.type.mono, color = c.fgSubtle)
+        Text(
+            file.path,
+            Modifier.weight(1f),
+            style = Pyrlyn.type.mono,
+            color = if (selected) c.stateSelectedFg else c.fg,
+            maxLines = 1,
+            overflow = TextOverflow.Ellipsis,
+        )
+        if (file.binary) {
+            Text("binary", style = Pyrlyn.type.small, color = c.fgSubtle)
+        } else {
+            Text("+${file.additions} −${file.deletions}", style = Pyrlyn.type.small, color = c.fgMuted)
+        }
     }
 }
 
@@ -131,18 +142,23 @@ private fun FileView(
     onToggle: () -> Unit,
     modifier: Modifier,
 ) {
-    Column(modifier, verticalArrangement = Arrangement.spacedBy(Gap)) {
-        Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(Gap)) {
+    Column(modifier) {
+        Row(
+            Modifier.padding(horizontal = LargeGap, vertical = Gap),
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.spacedBy(Gap),
+        ) {
             Text(
                 file.oldPath?.let { "$it → ${file.path}" } ?: file.path,
                 Modifier.weight(1f),
-                style = MaterialTheme.typography.titleSmall,
+                style = Pyrlyn.type.mono,
+                color = Pyrlyn.colors.fgMuted,
             )
-            if (preview != null) OutlinedButton(onClick = onToggle) { Text(if (showDiff) "Preview" else "Diff") }
+            if (preview != null) SecondaryButton(onClick = onToggle) { Text(if (showDiff) "Preview" else "Diff") }
         }
         when {
             preview != null && !showDiff -> PreviewView(preview)
-            file.binary -> Text("Binary file")
+            file.binary -> Text("Binary file", Modifier.padding(LargeGap), color = Pyrlyn.colors.fgMuted)
             else -> Hunks(file)
         }
     }
@@ -151,27 +167,27 @@ private fun FileView(
 @Composable
 private fun Hunks(file: FileDiff) {
     SelectionContainer {
-        LazyColumn {
+        LazyColumn(Modifier.fillMaxSize().background(Pyrlyn.colors.bgSunken)) {
             file.hunks.forEach { hunk ->
                 item {
                     Text(
                         hunk.header,
-                        Modifier.padding(top = Gap),
-                        color = MaterialTheme.colorScheme.primary,
-                        fontFamily = FontFamily.Monospace,
+                        Modifier.fillMaxWidth().padding(horizontal = LargeGap, vertical = SmallGap),
+                        style = Pyrlyn.type.mono,
+                        color = Pyrlyn.colors.accentFg,
                     )
                 }
                 items(hunk.lines) { line ->
                     val (prefix, color) =
                         when (line.kind) {
-                            LineKind.Added -> "+" to AddedLine
-                            LineKind.Removed -> "-" to RemovedLine
+                            LineKind.Added -> "+" to addedLine()
+                            LineKind.Removed -> "-" to removedLine()
                             LineKind.Context -> " " to Color.Transparent
                         }
                     Text(
-                        prefix + line.text,
-                        Modifier.fillMaxWidth().background(color),
-                        fontFamily = FontFamily.Monospace,
+                        "$prefix  ${line.text}",
+                        Modifier.fillMaxWidth().background(color).padding(horizontal = LargeGap),
+                        style = Pyrlyn.type.mono,
                     )
                 }
             }

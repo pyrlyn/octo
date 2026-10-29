@@ -10,8 +10,6 @@ import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.text.KeyboardActions
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.verticalScroll
-import androidx.compose.material3.AlertDialog
-import androidx.compose.material3.Button
 import androidx.compose.material3.Checkbox
 import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.ExperimentalMaterial3Api
@@ -19,11 +17,8 @@ import androidx.compose.material3.ExposedDropdownMenuAnchorType
 import androidx.compose.material3.ExposedDropdownMenuBox
 import androidx.compose.material3.ExposedDropdownMenuDefaults
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.OutlinedButton
-import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.RadioButton
 import androidx.compose.material3.Text
-import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
@@ -37,6 +32,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.focus.onFocusChanged
 import androidx.compose.ui.platform.LocalUriHandler
 import androidx.compose.ui.text.input.ImeAction
+import androidx.compose.ui.unit.dp
 import octo.core.agent.AuthState
 import octo.core.agent.PermissionMode
 import octo.core.orchestrator.AgentInfo
@@ -83,7 +79,7 @@ private fun FormDialog(
     onDismiss: () -> Unit,
     onEditPresets: () -> Unit,
 ) {
-    AlertDialog(
+    GlassDialog(
         onDismissRequest = onDismiss,
         modifier = Modifier.width(DialogWidth),
         title = {
@@ -97,12 +93,12 @@ private fun FormDialog(
         },
         text = { Form(state, vm, onEditPresets) },
         confirmButton = {
-            Button(
+            PrimaryButton(
                 onClick = vm::create,
                 enabled = state.canCreate,
             ) { Text(if (state.creating) "Starting…" else "Create") }
         },
-        dismissButton = { TextButton(onClick = onDismiss) { Text("Cancel") } },
+        dismissButton = { GhostButton(onClick = onDismiss) { Text("Cancel") } },
     )
 }
 
@@ -116,7 +112,7 @@ private fun Form(
         if (state.presetsEnabled || state.compareEnabled) ModeChoice(state, vm)
         if (state.machines.isNotEmpty()) MachineChoice(state, vm)
         Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(Gap)) {
-            OutlinedTextField(
+            GlassField(
                 state.repo,
                 vm::editRepo,
                 Modifier.weight(1f),
@@ -125,7 +121,7 @@ private fun Form(
             )
             // The folder picker only sees this computer's disk.
             if (state.machine == null) {
-                OutlinedButton(onClick = { pickDirectory(state.repo)?.let(vm::editRepo) }) { Text("Browse…") }
+                SecondaryButton(onClick = { pickDirectory(state.repo)?.let(vm::editRepo) }) { Text("Browse…") }
             }
         }
         BranchChoice(state, vm)
@@ -134,7 +130,7 @@ private fun Form(
             state.compare -> CompareChoice(state, vm)
             else -> SingleAgent(state, vm)
         }
-        state.error?.let { Text(it, color = MaterialTheme.colorScheme.error) }
+        state.error?.let { Notice(it, Tone.Error) }
     }
 }
 
@@ -179,7 +175,7 @@ private fun BranchChoice(
             close()
         }
     }) {
-        OutlinedTextField(
+        GlassField(
             query,
             {
                 query = it
@@ -239,7 +235,7 @@ private fun CompareChoice(
         val models = state.compared[agent.id]
         AgentChoice(agent, selected = models != null, onSelect = { vm.toggleCompared(agent.id) }, check = true)
         if (models != null) {
-            OutlinedTextField(
+            GlassField(
                 models,
                 { vm.editComparedModels(agent.id, it) },
                 Modifier.fillMaxWidth().padding(start = LargeGap * 2),
@@ -261,7 +257,7 @@ private fun TitleAndPrompt(
     state: NewTaskUiState,
     vm: NewTaskViewModel,
 ) {
-    OutlinedTextField(
+    GlassField(
         state.title,
         vm::editTitle,
         Modifier.fillMaxWidth(),
@@ -270,7 +266,7 @@ private fun TitleAndPrompt(
         singleLine = true,
     )
     val input = remember(vm) { AttachmentInput(vm::attach, vm::showError) }
-    OutlinedTextField(
+    GlassField(
         state.prompt,
         vm::editPrompt,
         Modifier.fillMaxWidth().takesAttachments(input),
@@ -290,7 +286,7 @@ private fun PermissionChoice(
 ) {
     Text("Permissions", style = MaterialTheme.typography.titleSmall)
     (listOf<PermissionMode?>(null) + state.permissionModes).forEach { mode ->
-        Row(verticalAlignment = Alignment.CenterVertically) {
+        Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(6.dp)) {
             RadioButton(selected = state.chosenPermissionMode == mode, onClick = { vm.selectPermissionMode(mode) })
             Text(mode?.label ?: "Default from the config")
         }
@@ -302,7 +298,7 @@ private fun ModeChoice(
     state: NewTaskUiState,
     vm: NewTaskViewModel,
 ) {
-    Row(verticalAlignment = Alignment.CenterVertically) {
+    Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(6.dp)) {
         RadioButton(selected = !state.team && !state.compare, onClick = { vm.useTeam(false) })
         Text("One agent")
         if (state.presetsEnabled) {
@@ -324,11 +320,11 @@ private fun TeamChoice(
 ) {
     Row(verticalAlignment = Alignment.CenterVertically) {
         Text("Preset", Modifier.weight(1f), style = MaterialTheme.typography.titleSmall)
-        TextButton(onClick = onEditPresets) { Text("Edit presets…") }
+        GhostButton(onClick = onEditPresets) { Text("Edit presets…") }
     }
     if (state.presets.isEmpty()) Text("No presets yet.")
     state.presets.forEach { preset ->
-        Row(verticalAlignment = Alignment.CenterVertically) {
+        Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(6.dp)) {
             RadioButton(selected = preset.name == state.preset, onClick = { vm.selectPreset(preset.name) })
             Column {
                 Text(preset.name)
@@ -342,10 +338,7 @@ private fun TeamChoice(
     }
     if (state.loadingAgents) Text("Looking for installed agents…")
     if (!state.loadingAgents && state.missingAgents.isNotEmpty()) {
-        Text(
-            "Not installed here: ${state.missingAgents.joinToString { it.value }}",
-            color = MaterialTheme.colorScheme.error,
-        )
+        Notice("Not installed here: ${state.missingAgents.joinToString { it.value }}", Tone.Warning)
     }
 }
 
@@ -356,7 +349,7 @@ private fun MachineChoice(
 ) {
     Text("Machine", style = MaterialTheme.typography.titleSmall)
     (listOf<String?>(null) + state.machines).forEach { id ->
-        Row(verticalAlignment = Alignment.CenterVertically) {
+        Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(6.dp)) {
             RadioButton(selected = state.machine == id, onClick = { vm.selectMachine(id) })
             Text(id ?: "This computer")
         }
@@ -372,7 +365,7 @@ internal fun AgentChoice(
     check: Boolean = false,
 ) {
     val installed = agent.probe.installed
-    Row(verticalAlignment = Alignment.CenterVertically) {
+    Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(6.dp)) {
         if (check) {
             Checkbox(checked = selected, onCheckedChange = { onSelect() }, enabled = installed)
         } else {
@@ -406,7 +399,7 @@ private fun AgentSelect(
             else -> null
         }
     ExposedDropdownMenuBox(open, onExpandedChange = { open = it && state.agents.isNotEmpty() }) {
-        OutlinedTextField(
+        GlassField(
             selected?.displayName.orEmpty(),
             {},
             Modifier.menuAnchor(ExposedDropdownMenuAnchorType.PrimaryNotEditable).fillMaxWidth(),
@@ -460,18 +453,18 @@ internal fun TermsDialog(
     onDecline: () -> Unit,
 ) {
     val uri = LocalUriHandler.current
-    AlertDialog(
+    GlassDialog(
         onDismissRequest = onDecline,
         modifier = Modifier.width(DialogWidth),
         title = { Text("${notice.agent.displayName}: vendor terms") },
         text = {
             Column(verticalArrangement = Arrangement.spacedBy(Gap)) {
                 Text(notice.terms.summary)
-                TextButton(onClick = { uri.openUri(notice.terms.url) }) { Text("Read the terms") }
+                GhostButton(onClick = { uri.openUri(notice.terms.url) }) { Text("Read the terms") }
             }
         },
-        confirmButton = { Button(onClick = onAccept) { Text("I understand, continue") } },
-        dismissButton = { TextButton(onClick = onDecline) { Text("Back") } },
+        confirmButton = { PrimaryButton(onClick = onAccept) { Text("I understand, continue") } },
+        dismissButton = { GhostButton(onClick = onDecline) { Text("Back") } },
     )
 }
 

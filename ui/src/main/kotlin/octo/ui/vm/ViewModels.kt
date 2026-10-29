@@ -70,6 +70,8 @@ class ViewModels(
 
     val canMove: Boolean get() = moveTask
 
+    val canOpenPalette: Boolean get() = palette
+
     fun task(id: TaskId) = TaskViewModel(core, id, scope, limits = usage != null, checkpoints = checkpoints)
 
     fun pluginActions(id: TaskId): PluginActionsViewModel? =

@@ -7,7 +7,6 @@ import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.material3.InputChip
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
-import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.remember
 import androidx.compose.ui.ExperimentalComposeUiApi
@@ -145,7 +144,7 @@ internal fun Modifier.takesAttachments(input: AttachmentInput): Modifier {
 
 @Composable
 internal fun AttachButton(input: AttachmentInput) {
-    TextButton(onClick = input::choose) { Text("Attach") }
+    GhostButton(onClick = input::choose) { Text("Attach") }
 }
 
 /** The files waiting to go out; a click takes one off. */

@@ -7,11 +7,8 @@ import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.text.selection.SelectionContainer
 import androidx.compose.foundation.verticalScroll
-import androidx.compose.material3.AlertDialog
-import androidx.compose.material3.Button
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
-import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
@@ -27,7 +24,7 @@ internal fun DevicesDialog(
     onDismiss: () -> Unit,
 ) {
     val state by vm.state.collectAsState()
-    AlertDialog(
+    GlassDialog(
         onDismissRequest = onDismiss,
         modifier = Modifier.width(DialogWidth),
         title = { Text("Paired devices") },
@@ -36,13 +33,13 @@ internal fun DevicesDialog(
                 Address(state)
                 Pairing(state, vm)
                 DeviceList(state, vm)
-                state.error?.let { Text(it, color = MaterialTheme.colorScheme.error) }
+                state.error?.let { Notice(it, Tone.Error) }
             }
         },
         confirmButton = {
-            if (state.code == null) Button(onClick = vm::startPairing) { Text("Pair a device") }
+            if (state.code == null) PrimaryButton(onClick = vm::startPairing) { Text("Pair a device") }
         },
-        dismissButton = { TextButton(onClick = onDismiss) { Text("Done") } },
+        dismissButton = { GhostButton(onClick = onDismiss) { Text("Done") } },
     )
 }
 
@@ -73,7 +70,7 @@ private fun Pairing(
         SelectionContainer(Modifier.weight(1f)) {
             Text(code, style = MaterialTheme.typography.headlineMedium, fontFamily = FontFamily.Monospace)
         }
-        TextButton(onClick = vm::stopPairing) { Text("Cancel") }
+        GhostButton(onClick = vm::stopPairing) { Text("Cancel") }
     }
 }
 
@@ -86,7 +83,7 @@ private fun DeviceList(
     state.devices.forEach { device ->
         Row(verticalAlignment = Alignment.CenterVertically) {
             Text(device.name, Modifier.weight(1f))
-            TextButton(onClick = { vm.revoke(device.id) }) { Text("Revoke") }
+            GhostButton(onClick = { vm.revoke(device.id) }) { Text("Revoke") }
         }
     }
 }

@@ -4,12 +4,8 @@ import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.width
-import androidx.compose.material3.AlertDialog
-import androidx.compose.material3.Button
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Text
-import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
@@ -25,7 +21,7 @@ internal fun PublishDialog(
 ) {
     val state by vm.state.collectAsState()
     val result = state.result
-    AlertDialog(
+    GlassDialog(
         onDismissRequest = onDismiss,
         modifier = Modifier.width(DialogWidth),
         title = { Text(if (result == null) "Commit, push and open a pull request" else "Published") },
@@ -34,19 +30,19 @@ internal fun PublishDialog(
                 if (result != null) {
                     Published(result)
                 } else {
-                    OutlinedTextField(
+                    GlassField(
                         state.commitMessage,
                         vm::editCommitMessage,
                         Modifier.fillMaxWidth(),
                         label = { Text("Commit message") },
                     )
-                    OutlinedTextField(
+                    GlassField(
                         state.title,
                         vm::editTitle,
                         Modifier.fillMaxWidth(),
                         label = { Text("Pull request title") },
                     )
-                    OutlinedTextField(
+                    GlassField(
                         state.body,
                         vm::editBody,
                         Modifier.fillMaxWidth(),
@@ -58,20 +54,20 @@ internal fun PublishDialog(
                         style = MaterialTheme.typography.bodySmall,
                     )
                 }
-                state.error?.let { Text(it, color = MaterialTheme.colorScheme.error) }
+                state.error?.let { Notice(it, Tone.Error) }
             }
         },
         confirmButton = {
             if (result == null) {
-                Button(
+                PrimaryButton(
                     onClick = vm::publish,
                     enabled = state.canPublish,
                 ) { Text(if (state.running) "Publishing…" else "Publish") }
             } else {
-                Button(onClick = onDismiss) { Text("Done") }
+                PrimaryButton(onClick = onDismiss) { Text("Done") }
             }
         },
-        dismissButton = { if (result == null) TextButton(onClick = onDismiss) { Text("Cancel") } },
+        dismissButton = { if (result == null) GhostButton(onClick = onDismiss) { Text("Cancel") } },
     )
 }
 
@@ -83,7 +79,7 @@ private fun Published(result: PublishResult) {
             ?: "Nothing new to commit; pushed the branch.",
     )
     Text(if (result.created) "Opened a pull request:" else "The branch already has an open pull request:")
-    TextButton(onClick = { uri.openUri(result.pullRequestUrl) }) { Text(result.pullRequestUrl) }
+    GhostButton(onClick = { uri.openUri(result.pullRequestUrl) }) { Text(result.pullRequestUrl) }
 }
 
 private const val SHORT_SHA = 8

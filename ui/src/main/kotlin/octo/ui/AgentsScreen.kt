@@ -1,23 +1,14 @@
 package octo.ui
 
-import androidx.compose.foundation.ExperimentalFoundationApi
-import androidx.compose.foundation.TooltipArea
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
-import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
-import androidx.compose.material3.HorizontalDivider
-import androidx.compose.material3.Icon
-import androidx.compose.material3.IconButton
-import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
-import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
@@ -26,13 +17,15 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
+import octo.core.agent.AuthState
+import octo.ui.theme.Pyrlyn
 import octo.ui.vm.AgentRow
 import octo.ui.vm.AgentsViewModel
 
-private val IconSize = 32.dp
-private val NameWidth = 200.dp
-private val CredentialsWidth = 120.dp
-private val ProcessWidth = 110.dp
+private val IconSize = 22.dp
+private val NameWidth = 220.dp
+private val CredentialsWidth = 130.dp
+private val ProcessWidth = 120.dp
 
 @Composable
 internal fun AgentsScreen(
@@ -40,82 +33,77 @@ internal fun AgentsScreen(
     onClose: () -> Unit,
 ) {
     val state by vm.state.collectAsState()
-    Column(Modifier.fillMaxSize().padding(LargeGap), verticalArrangement = Arrangement.spacedBy(Gap)) {
-        Row(verticalAlignment = Alignment.CenterVertically) {
-            Text("Running agents", style = MaterialTheme.typography.titleLarge, modifier = Modifier.weight(1f))
-            TextButton(onClick = onClose) { Text("Close") }
+    Column(Modifier.fillMaxSize()) {
+        val count = state.rows.size
+        PaneHeader("Running agents", if (count == 1) "1 agent" else "$count agents") {
+            GhostButton(onClick = onClose) { Text("Close") }
         }
-        state.error?.let { Banner(it, error = true, onDismiss = vm::dismissError) }
-        HorizontalDivider()
+        state.error?.let {
+            Column(Modifier.padding(LargeGap)) { Banner(it, error = true, onDismiss = vm::dismissError) }
+        }
         if (state.rows.isEmpty()) {
-            Text("No agent is running", color = MaterialTheme.colorScheme.onSurfaceVariant)
+            EmptyState("◇", "No agent is running", "Agents show up here while a task has one at work.")
             return@Column
         }
-        Header()
-        LazyColumn(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(Gap)) {
+        TableHeader {
+            Text("AGENT", Modifier.width(NameWidth))
+            Text("CREDENTIALS", Modifier.width(CredentialsWidth))
+            Text("CPU · RAM", Modifier.width(ProcessWidth))
+            Text("MODEL · CONTEXT · TOKENS", Modifier.weight(1f))
+        }
+        LazyColumn(Modifier.weight(1f)) {
             items(state.rows, key = { it.id.value }) { AgentRowItem(it, onStop = { vm.stop(it.id) }) }
         }
     }
 }
 
 @Composable
-private fun Header() {
-    val style = MaterialTheme.typography.labelMedium
-    val color = MaterialTheme.colorScheme.onSurfaceVariant
-    Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(LargeGap)) {
-        Text("Agent", Modifier.width(IconSize + Gap + NameWidth), style = style, color = color)
-        Text("Credentials", Modifier.width(CredentialsWidth), style = style, color = color)
-        Text("CPU · RAM", Modifier.width(ProcessWidth), style = style, color = color)
-        Text("Model · context · tokens", Modifier.weight(1f), style = style, color = color)
-    }
-}
-
-@OptIn(ExperimentalFoundationApi::class)
-@Composable
 private fun AgentRowItem(
     row: AgentRow,
     onStop: () -> Unit,
 ) {
-    val muted = MaterialTheme.colorScheme.onSurfaceVariant
-    val small = MaterialTheme.typography.bodySmall
-    Row(
-        Modifier.fillMaxWidth(),
-        horizontalArrangement = Arrangement.spacedBy(LargeGap),
-        verticalAlignment = Alignment.CenterVertically,
-    ) {
-        Row(Modifier.width(IconSize + Gap + NameWidth), verticalAlignment = Alignment.CenterVertically) {
+    val c = Pyrlyn.colors
+    val small = Pyrlyn.type.small
+    TableRow {
+        Row(Modifier.width(NameWidth), verticalAlignment = Alignment.CenterVertically) {
             AgentGlyph(row.icon, row.agent, IconSize, Modifier.padding(end = Gap))
             Column {
-                Text(row.agent, fontWeight = FontWeight.SemiBold, maxLines = 1, overflow = TextOverflow.Ellipsis)
-                Text(row.title, style = small, color = muted, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                Text(row.agent, fontWeight = FontWeight.Medium, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                Text(row.title, style = small, color = c.fgMuted, maxLines = 1, overflow = TextOverflow.Ellipsis)
             }
         }
-        Text(row.credentials, Modifier.width(CredentialsWidth), maxLines = 1)
-        Column(Modifier.width(ProcessWidth)) {
-            Text(row.cpu, maxLines = 1)
-            Text(row.memory, style = small, color = muted, maxLines = 1)
+        Row(
+            Modifier.width(CredentialsWidth),
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.spacedBy(6.dp),
+        ) {
+            Dot(authColor(row.auth))
+            Text(row.credentials, style = small, color = c.fgMuted, maxLines = 1)
         }
-        Column(Modifier.weight(1f)) {
-            Text(row.model, maxLines = 1, overflow = TextOverflow.Ellipsis)
-            Text("Context ${row.context}", style = small, color = muted, maxLines = 1)
-            Text(row.tokens, style = small, color = muted, maxLines = 1, overflow = TextOverflow.Ellipsis)
+        Text(
+            "${row.cpu} · ${row.memory}",
+            Modifier.width(ProcessWidth),
+            style = Pyrlyn.type.mono,
+            color = c.fgMuted,
+            maxLines = 1,
+        )
+        Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(3.dp)) {
+            Text("${row.model} · ${row.tokens}", style = small, maxLines = 1, overflow = TextOverflow.Ellipsis)
+            row.contextShare?.let { Meter(it, Modifier.width(MeterWidth)) }
+            Text("Context ${row.context}", style = small, color = c.fgMuted, maxLines = 1)
         }
-        TooltipArea(tooltip = { Tip("Stop ${row.agent}") }) {
-            IconButton(onClick = onStop, enabled = !row.stopping) {
-                Icon(StopIcon, contentDescription = "Stop ${row.agent}", tint = MaterialTheme.colorScheme.error)
-            }
+        SecondaryButton(onClick = onStop, enabled = !row.stopping) {
+            Text(if (row.stopping) "Stopping" else "Stop")
         }
     }
 }
 
 @Composable
-private fun Tip(text: String) {
-    Surface(color = MaterialTheme.colorScheme.inverseSurface, shape = MaterialTheme.shapes.extraSmall) {
-        Text(
-            text,
-            Modifier.padding(horizontal = Gap, vertical = SmallGap),
-            color = MaterialTheme.colorScheme.inverseOnSurface,
-            style = MaterialTheme.typography.bodySmall,
-        )
+private fun authColor(auth: AuthState?) =
+    when (auth) {
+        AuthState.LoggedIn -> Pyrlyn.colors.success
+        AuthState.LoggedOut -> Pyrlyn.colors.warning
+        AuthState.Unknown, null -> Pyrlyn.colors.fgSubtle
     }
-}
+
+private val MeterWidth = 220.dp

@@ -30,10 +30,13 @@ data class AgentRow(
     val agent: String,
     val icon: AgentIcon?,
     val credentials: String,
+    val auth: AuthState?,
     val cpu: String,
     val memory: String,
     val model: String,
     val context: String,
+    /** How full the context window is, 0 to 1, when the agent reports both figures. */
+    val contextShare: Float?,
     val tokens: String,
     val stopping: Boolean,
 )
@@ -123,10 +126,12 @@ class AgentsViewModel(
             agent = info?.displayName ?: task.agent.value,
             icon = info?.icon,
             credentials = credentialLabel(info?.probe?.auth),
+            auth = info?.probe?.auth,
             cpu = if (remote) REMOTE else cpuLabel(usage?.cpuPercent),
             memory = if (remote) REMOTE else memoryLabel(usage?.memoryBytes),
             model = view.stats.model ?: NONE,
             context = contextLabel(view.stats),
+            contextShare = contextShare(view.stats),
             tokens = tokensLabel(view.stats),
             stopping = stopping,
         )
@@ -188,6 +193,12 @@ internal fun contextLabel(stats: SessionStats): String {
         window == null || window <= 0 -> tokenCount(used)
         else -> "${tokenCount(used)} / ${tokenCount(window)} (${used * PERCENT / window}%)"
     }
+}
+
+internal fun contextShare(stats: SessionStats): Float? {
+    val used = stats.contextUsed
+    val window = stats.contextWindow
+    return if (used == null || window == null || window <= 0) null else (used.toFloat() / window).coerceIn(0f, 1f)
 }
 
 internal fun tokensLabel(stats: SessionStats): String {

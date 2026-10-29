@@ -4,12 +4,8 @@ import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.width
-import androidx.compose.material3.AlertDialog
-import androidx.compose.material3.Button
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Text
-import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
@@ -28,7 +24,7 @@ internal fun SwitchAgentDialog(
         TermsDialog(it, onAccept = vm::acceptTerms, onDecline = vm::declineTerms)
         return
     }
-    AlertDialog(
+    GlassDialog(
         onDismissRequest = onDismiss,
         modifier = Modifier.width(DialogWidth),
         title = { Text("Switch agent or model") },
@@ -38,7 +34,7 @@ internal fun SwitchAgentDialog(
                 state.agents.forEach {
                     AgentChoice(it, selected = it.id == state.agent, onSelect = { vm.selectAgent(it.id) })
                 }
-                OutlinedTextField(
+                GlassField(
                     state.model,
                     vm::editModel,
                     Modifier.fillMaxWidth(),
@@ -54,14 +50,14 @@ internal fun SwitchAgentDialog(
                     },
                     style = MaterialTheme.typography.bodySmall,
                 )
-                state.error?.let { Text(it, color = MaterialTheme.colorScheme.error) }
+                state.error?.let { Notice(it, Tone.Error) }
             }
         },
         confirmButton = {
-            Button(onClick = vm::switch, enabled = state.canSwitch) {
+            PrimaryButton(onClick = vm::switch, enabled = state.canSwitch) {
                 Text(if (state.switching) "Switching…" else "Switch")
             }
         },
-        dismissButton = { TextButton(onClick = onDismiss) { Text("Cancel") } },
+        dismissButton = { GhostButton(onClick = onDismiss) { Text("Cancel") } },
     )
 }

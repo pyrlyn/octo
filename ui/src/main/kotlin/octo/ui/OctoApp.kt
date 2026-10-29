@@ -1,5 +1,8 @@
 package octo.ui
 
+import androidx.compose.foundation.background
+import androidx.compose.foundation.border
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.gestures.Orientation
 import androidx.compose.foundation.gestures.draggable
 import androidx.compose.foundation.gestures.rememberDraggableState
@@ -11,16 +14,11 @@ import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.width
-import androidx.compose.material3.Button
-import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.Surface
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.Text
-import androidx.compose.material3.TextButton
-import androidx.compose.material3.VerticalDivider
-import androidx.compose.material3.darkColorScheme
-import androidx.compose.material3.lightColorScheme
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
@@ -37,8 +35,17 @@ import androidx.compose.ui.input.pointer.pointerHoverIcon
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.LocalWindowInfo
 import androidx.compose.ui.unit.dp
+import octo.core.paths.currentHostOs
 import octo.core.task.TaskId
+import octo.ui.theme.Elevation
+import octo.ui.theme.GlassBackdrop
+import octo.ui.theme.GlassLevel
+import octo.ui.theme.GlassPlatform
+import octo.ui.theme.OctoTheme
+import octo.ui.theme.Pyrlyn
+import octo.ui.theme.glass
 import octo.ui.vm.MainUiState
+import octo.ui.vm.MainViewModel
 import octo.ui.vm.PaletteItem
 import octo.ui.vm.TaskDialog
 import octo.ui.vm.ViewModels
@@ -52,30 +59,38 @@ fun OctoApp(models: ViewModels) {
         val focused = LocalWindowInfo.current.isWindowFocused
         LaunchedEffect(vm, focused) { vm.focused(focused) }
     }
-    MaterialTheme(colorScheme = if (isSystemInDarkTheme()) darkColorScheme() else lightColorScheme()) {
-        Surface(Modifier.fillMaxSize()) {
-            Column(Modifier.fillMaxSize()) {
-                state.warnings.forEach { Banner(it, error = false, onDismiss = main::dismissWarnings) }
-                state.error?.let { Banner(it, error = true, onDismiss = main::dismissError) }
-                Row(Modifier.fillMaxSize()) {
-                    var dragging by remember { mutableStateOf<Float?>(null) }
-                    val width = dragging ?: state.sidebarWidth
-                    Sidebar(
-                        state,
-                        main,
-                        Modifier.width(width.dp).fillMaxHeight(),
-                        onDevices = if (models.canPair) main::openDevices else null,
-                        onUsage = if (models.canShowUsage) main::openUsage else null,
-                    )
-                    // Only the final width is persisted, not every frame of the drag.
-                    SidebarHandle(
-                        onDrag = { delta -> dragging = clampWidth((dragging ?: state.sidebarWidth) + delta) },
-                        onDone = {
-                            dragging?.let(main::resizeSidebar)
-                            dragging = null
-                        },
-                    )
-                    Box(Modifier.weight(1f).fillMaxHeight()) { Content(state, models) }
+    OctoTheme(isSystemInDarkTheme(), remember { GlassPlatform.of(currentHostOs()) }) {
+        Box(Modifier.fillMaxSize()) {
+            GlassBackdrop(Modifier.matchParentSize())
+            Row(Modifier.fillMaxSize().padding(Gap)) {
+                var dragging by remember { mutableStateOf<Float?>(null) }
+                val width = dragging ?: state.sidebarWidth
+                Sidebar(
+                    state,
+                    main,
+                    Modifier
+                        .width(width.dp)
+                        .fillMaxHeight()
+                        .glass(Pyrlyn.surfaceShape, GlassLevel.Chrome),
+                    onDevices = if (models.canPair) main::openDevices else null,
+                    onUsage = if (models.canShowUsage) main::openUsage else null,
+                )
+                // Only the final width is persisted, not every frame of the drag.
+                SidebarHandle(
+                    onDrag = { delta -> dragging = clampWidth((dragging ?: state.sidebarWidth) + delta) },
+                    onDone = {
+                        dragging?.let(main::resizeSidebar)
+                        dragging = null
+                    },
+                )
+                Column(Modifier.weight(1f).fillMaxHeight()) {
+                    if (models.canOpenPalette) Toolbar(main::togglePalette)
+                    Column(
+                        Modifier.fillMaxSize().glass(Pyrlyn.surfaceShape, GlassLevel.Content, Elevation.E3),
+                    ) {
+                        Banners(state, main)
+                        Box(Modifier.weight(1f).fillMaxWidth()) { Content(state, models) }
+                    }
                 }
             }
             if (state.newTaskOpen) {
@@ -87,6 +102,62 @@ fun OctoApp(models: ViewModels) {
             if (state.paletteOpen) PalettePane(models)
         }
     }
+}
+
+@Composable
+private fun Banners(
+    state: MainUiState,
+    main: MainViewModel,
+) {
+    if (state.warnings.isEmpty() && state.error == null) return
+    Column(Modifier.padding(start = 12.dp, end = 12.dp, top = 12.dp), verticalArrangement = Arrangement.spacedBy(Gap)) {
+        state.warnings.forEach { Banner(it, error = false, onDismiss = main::dismissWarnings) }
+        state.error?.let { Banner(it, error = true, onDismiss = main::dismissError) }
+    }
+}
+
+/** The bar over the content panel: a search field that opens the command palette. */
+@Composable
+private fun Toolbar(onSearch: () -> Unit) {
+    val c = Pyrlyn.colors
+    Row(
+        Modifier.fillMaxWidth().height(ToolbarHeight).padding(horizontal = Gap),
+        verticalAlignment = Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.End,
+    ) {
+        Row(
+            Modifier
+                .width(SearchWidth)
+                .height(Pyrlyn.platform.controlHeight)
+                .glass(Pyrlyn.controlShape, GlassLevel.Control, Elevation.E1)
+                .clickable(onClick = onSearch)
+                .padding(start = 10.dp, end = SmallGap),
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.spacedBy(Gap),
+        ) {
+            Text("⌕", color = c.fgSubtle)
+            Text("Search tasks, agents, commands", Modifier.weight(1f), color = c.fgSubtle, maxLines = 1)
+            Row(horizontalArrangement = Arrangement.spacedBy(2.dp)) {
+                Kbd(if (Pyrlyn.platform == GlassPlatform.MacOS) "⌘" else "Ctrl")
+                Kbd("K")
+            }
+        }
+    }
+}
+
+@Composable
+internal fun Kbd(key: String) {
+    val c = Pyrlyn.colors
+    val shape = RoundedCornerShape(4.dp)
+    Text(
+        key,
+        Modifier
+            .background(c.stateHover, shape)
+            .border(0.5.dp, c.glassRim, shape)
+            .padding(horizontal = 5.dp, vertical = 1.dp),
+        style = Pyrlyn.type.mono.copy(fontSize = Pyrlyn.type.small.fontSize),
+        color = c.fgMuted,
+    )
 }
 
 private fun clampWidth(width: Float) = width.coerceIn(MainUiState.MIN_SIDEBAR_WIDTH, MainUiState.MAX_SIDEBAR_WIDTH)
@@ -107,8 +178,7 @@ private fun SidebarHandle(
                 Orientation.Horizontal,
                 onDragStopped = { onDone() },
             ),
-        contentAlignment = Alignment.Center,
-    ) { VerticalDivider() }
+    )
 }
 
 @Composable
@@ -120,7 +190,7 @@ private fun Content(
     when {
         state.agentsOpen -> AgentsPane(models)
         state.usageOpen -> UsagePane(models)
-        id == null -> Empty(models.main::openNewTask)
+        id == null -> Empty(state.groups.isEmpty(), models.main::openNewTask)
         else -> TaskOrDiff(id, state.diffOpen, models)
     }
 }
@@ -243,34 +313,21 @@ private fun DiffPane(
 }
 
 @Composable
-private fun Empty(onNew: () -> Unit) {
-    Column(
-        Modifier.fillMaxSize(),
-        verticalArrangement = Arrangement.Center,
-        horizontalAlignment = Alignment.CenterHorizontally,
-    ) {
-        Text("No task selected", style = MaterialTheme.typography.titleMedium)
-        Button(onClick = onNew, modifier = Modifier.padding(top = Gap)) { Text("New task") }
-    }
+private fun Empty(
+    firstRun: Boolean,
+    onNew: () -> Unit,
+) {
+    EmptyState(
+        icon = "◎",
+        title = if (firstRun) "Start your first task" else "No task selected",
+        body =
+            if (firstRun) {
+                "Octo runs each agent in its own git worktree."
+            } else {
+                "Pick a task in the sidebar or start a new one."
+            },
+    ) { PrimaryButton(onClick = onNew) { Text("+  New task") } }
 }
 
-@Composable
-internal fun Banner(
-    text: String,
-    error: Boolean,
-    onDismiss: () -> Unit,
-) {
-    val colors = MaterialTheme.colorScheme
-    Surface(
-        color = if (error) colors.errorContainer else colors.secondaryContainer,
-        modifier = Modifier.fillMaxWidth(),
-    ) {
-        Row(
-            Modifier.padding(horizontal = LargeGap, vertical = SmallGap),
-            verticalAlignment = Alignment.CenterVertically,
-        ) {
-            Text(text, Modifier.weight(1f), color = if (error) colors.onErrorContainer else colors.onSecondaryContainer)
-            TextButton(onClick = onDismiss) { Text("Dismiss") }
-        }
-    }
-}
+private val ToolbarHeight = 44.dp
+private val SearchWidth = 340.dp

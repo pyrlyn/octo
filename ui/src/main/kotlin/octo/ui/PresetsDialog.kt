@@ -8,16 +8,9 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
-import androidx.compose.material3.AlertDialog
-import androidx.compose.material3.Button
-import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
-import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.OutlinedButton
-import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Text
-import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
@@ -42,25 +35,28 @@ internal fun PresetsDialog(
 ) {
     val state by vm.state.collectAsState()
     val draft = state.draft
-    AlertDialog(
+    GlassDialog(
         onDismissRequest = if (draft == null) onDismiss else vm::cancel,
         modifier = Modifier.width(DialogWidth),
         title = { Text(if (draft == null) "Team presets" else draft.original?.let { "Edit \"$it\"" } ?: "New preset") },
         text = {
             Column(Modifier.verticalScroll(rememberScrollState()), verticalArrangement = Arrangement.spacedBy(Gap)) {
                 if (draft == null) PresetList(state, vm) else DraftForm(draft, state.agents, vm)
-                state.error?.let { Text(it, color = MaterialTheme.colorScheme.error) }
+                state.error?.let { Notice(it, Tone.Error) }
             }
         },
         confirmButton = {
             if (draft == null) {
-                Button(onClick = vm::create) { Text("New preset") }
+                PrimaryButton(onClick = vm::create) { Text("New preset") }
             } else {
-                Button(onClick = vm::save, enabled = state.canSave) { Text(if (state.saving) "Saving…" else "Save") }
+                PrimaryButton(
+                    onClick = vm::save,
+                    enabled = state.canSave,
+                ) { Text(if (state.saving) "Saving…" else "Save") }
             }
         },
         dismissButton = {
-            TextButton(
+            GhostButton(
                 onClick =
                     if (draft ==
                         null
@@ -94,8 +90,8 @@ private fun PresetList(
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                 )
             }
-            TextButton(onClick = { vm.edit(preset.name) }) { Text("Edit") }
-            TextButton(onClick = { vm.delete(preset.name) }) { Text("Delete") }
+            GhostButton(onClick = { vm.edit(preset.name) }) { Text("Edit") }
+            GhostButton(onClick = { vm.delete(preset.name) }) { Text("Delete") }
         }
     }
 }
@@ -106,12 +102,12 @@ private fun DraftForm(
     agents: List<AgentInfo>,
     vm: PresetsViewModel,
 ) {
-    OutlinedTextField(draft.name, vm::editName, Modifier.fillMaxWidth(), label = { Text("Name") }, singleLine = true)
+    GlassField(draft.name, vm::editName, Modifier.fillMaxWidth(), label = { Text("Name") }, singleLine = true)
     draft.members.forEachIndexed { i, member ->
-        HorizontalDivider()
+        Hairline()
         MemberForm(i, member, agents, vm, canRemove = draft.members.size > 1)
     }
-    OutlinedButton(onClick = vm::addMember) { Text("Add member") }
+    SecondaryButton(onClick = vm::addMember) { Text("Add member") }
     draft.preset.problem()?.let {
         Text(it, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
     }
@@ -126,7 +122,7 @@ private fun MemberForm(
     canRemove: Boolean,
 ) {
     Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(Gap)) {
-        OutlinedTextField(
+        GlassField(
             member.role,
             { vm.editRole(index, it) },
             Modifier.weight(1f),
@@ -134,9 +130,9 @@ private fun MemberForm(
             singleLine = true,
         )
         AgentPicker(member.agent, agents) { vm.selectAgent(index, it) }
-        if (canRemove) TextButton(onClick = { vm.removeMember(index) }) { Text("Remove") }
+        if (canRemove) GhostButton(onClick = { vm.removeMember(index) }) { Text("Remove") }
     }
-    OutlinedTextField(
+    GlassField(
         member.prompt,
         { vm.editPrompt(index, it) },
         Modifier.fillMaxWidth(),
@@ -153,8 +149,8 @@ private fun AgentPicker(
 ) {
     var open by remember { mutableStateOf(false) }
     Box {
-        OutlinedButton(onClick = { open = true }) { Text(agents.nameOf(selected)) }
-        DropdownMenu(expanded = open, onDismissRequest = { open = false }) {
+        SecondaryButton(onClick = { open = true }) { Text(agents.nameOf(selected)) }
+        GlassMenu(expanded = open, onDismissRequest = { open = false }) {
             agents.forEach { agent ->
                 DropdownMenuItem(
                     text = {

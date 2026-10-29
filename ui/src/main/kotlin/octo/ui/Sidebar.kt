@@ -1,22 +1,33 @@
 package octo.ui
 
 import androidx.compose.foundation.background
+import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.hoverable
+import androidx.compose.foundation.interaction.MutableInteractionSource
+import androidx.compose.foundation.interaction.collectIsHoveredAsState
+import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
-import androidx.compose.material3.Button
-import androidx.compose.material3.MaterialTheme
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.Text
-import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
+import androidx.compose.ui.unit.dp
+import octo.ui.theme.Pyrlyn
 import octo.ui.vm.MainUiState
 import octo.ui.vm.MainViewModel
 import octo.ui.vm.TaskRow
@@ -31,19 +42,30 @@ internal fun Sidebar(
     /** Null hides the action, while the `usage` flag is off. */
     onUsage: (() -> Unit)? = null,
 ) {
-    Column(modifier.background(MaterialTheme.colorScheme.surfaceContainer)) {
-        Button(onClick = vm::openNewTask, modifier = Modifier.fillMaxWidth().padding(Gap)) { Text("New task") }
-        LazyColumn(Modifier.weight(1f)) {
+    Column(modifier.padding(horizontal = Gap)) {
+        Row(
+            Modifier.fillMaxWidth().padding(horizontal = 2.dp, vertical = Gap),
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.spacedBy(Gap),
+        ) {
+            OctoMark()
+            Text("Octo", fontWeight = FontWeight.SemiBold)
+            Spacer(Modifier.weight(1f))
+            PrimaryButton(onClick = vm::openNewTask) { Text("+  New task") }
+        }
+        LazyColumn(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(2.dp)) {
             state.groups.forEach { group ->
                 item(key = "repo:${group.repo}") {
                     Row(
-                        Modifier.padding(horizontal = Gap, vertical = SmallGap),
+                        Modifier.padding(start = 10.dp, end = Gap, top = 10.dp, bottom = 3.dp),
                         verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.spacedBy(6.dp),
                     ) {
-                        group.status?.let { StatusDot(it, Modifier.padding(end = Gap)) }
+                        group.status?.let { StatusDot(it) }
                         Text(
                             group.name,
-                            style = MaterialTheme.typography.titleSmall,
+                            style = Pyrlyn.type.label,
+                            color = Pyrlyn.colors.fgMuted,
                             maxLines = 1,
                             overflow = TextOverflow.Ellipsis,
                         )
@@ -51,20 +73,13 @@ internal fun Sidebar(
                 }
                 items(group.tasks, key = { it.id.value }) { row ->
                     Column {
-                        row.sectionTitle?.let {
-                            Text(
-                                it,
-                                Modifier.padding(start = Gap, end = Gap, top = Gap),
-                                style = MaterialTheme.typography.labelLarge,
-                                color = MaterialTheme.colorScheme.primary,
-                            )
-                        }
+                        row.sectionTitle?.let { SectionLabel(it, Modifier.padding(start = 10.dp, top = Gap)) }
                         row.groupTitle?.let {
                             Text(
                                 it,
                                 Modifier.padding(start = LargeGap, end = Gap, top = SmallGap),
-                                style = MaterialTheme.typography.labelMedium,
-                                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                style = Pyrlyn.type.small,
+                                color = Pyrlyn.colors.fgSubtle,
                                 maxLines = 1,
                                 overflow = TextOverflow.Ellipsis,
                             )
@@ -74,13 +89,11 @@ internal fun Sidebar(
                 }
             }
         }
-        TextButton(onClick = vm::openAgents, modifier = Modifier.fillMaxWidth().padding(horizontal = Gap)) {
-            Text("Agents")
+        Row(Modifier.padding(vertical = Gap), horizontalArrangement = Arrangement.spacedBy(SmallGap)) {
+            GhostButton(onClick = vm::openAgents) { Text("Agents") }
+            onUsage?.let { GhostButton(onClick = it) { Text("Usage") } }
+            onDevices?.let { GhostButton(onClick = it) { Text("Devices") } }
         }
-        onUsage?.let {
-            TextButton(onClick = it, modifier = Modifier.fillMaxWidth().padding(horizontal = Gap)) { Text("Usage") }
-        }
-        onDevices?.let { TextButton(onClick = it, modifier = Modifier.fillMaxWidth().padding(Gap)) { Text("Devices") } }
     }
 }
 
@@ -90,32 +103,58 @@ private fun TaskRowItem(
     selected: Boolean,
     onClick: () -> Unit,
 ) {
-    val background = if (selected) MaterialTheme.colorScheme.secondaryContainer else Color.Transparent
+    val c = Pyrlyn.colors
+    val shape = RoundedCornerShape(minOf(Pyrlyn.platform.radiusControl, RowRadius))
+    val hover = remember { MutableInteractionSource() }
+    val hovered by hover.collectIsHoveredAsState()
+    val background =
+        when {
+            selected -> c.stateSelected
+            hovered -> c.stateHover
+            else -> Color.Transparent
+        }
     Row(
         Modifier
+            .padding(start = LargeGap * row.depth.coerceAtMost(MAX_FORK_INDENT))
             .fillMaxWidth()
+            .heightIn(min = Pyrlyn.platform.rowHeight + RowExtra)
+            .clip(shape)
             .background(background)
+            .then(if (selected) Modifier.border(0.5.dp, c.stateSelectedRim, shape) else Modifier)
+            .hoverable(hover)
             .clickable(onClick = onClick)
-            .padding(
-                start = LargeGap * (1 + row.depth.coerceAtMost(MAX_FORK_INDENT)),
-                end = Gap,
-                top = SmallGap,
-                bottom = SmallGap,
-            ),
+            .padding(horizontal = 10.dp, vertical = 6.dp),
         verticalAlignment = Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.spacedBy(10.dp),
     ) {
-        StatusDot(row.status, Modifier.padding(end = Gap))
+        StatusDot(row.status)
         Column(Modifier.weight(1f)) {
-            Text(row.title, maxLines = 1, overflow = TextOverflow.Ellipsis)
+            Text(
+                row.title,
+                color = if (selected) c.stateSelectedFg else c.fg,
+                fontWeight = FontWeight.Medium,
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis,
+            )
             Text(
                 "${row.agent.value} · ${if (row.limited) "Limited" else row.status.label}",
-                style = MaterialTheme.typography.bodySmall,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                style = Pyrlyn.type.small,
+                color = c.fgMuted,
                 maxLines = 1,
             )
         }
     }
 }
 
+/** The app mark: a prompt on an accent tile. */
+@Composable
+private fun OctoMark() {
+    AccentTile("❯_", MarkSize, Pyrlyn.type.mono.copy(fontSize = Pyrlyn.type.small.fontSize * MARK_TEXT))
+}
+
 /** Deeper forks stop moving right, so a long chain still leaves room for the title. */
 private const val MAX_FORK_INDENT = 3
+private val RowRadius = 10.dp
+private val RowExtra = 14.dp
+private val MarkSize = 22.dp
+private const val MARK_TEXT = 0.85f

@@ -11,10 +11,8 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
-import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -26,6 +24,7 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
+import octo.ui.theme.Pyrlyn
 import octo.ui.vm.ContextKind
 import octo.ui.vm.ContextSummary
 
@@ -38,8 +37,8 @@ private val NumberWidth = 64.dp
 internal fun ContextMenu(summary: ContextSummary) {
     var open by remember { mutableStateOf(false) }
     Box {
-        TextButton(onClick = { open = true }) { Text("Context: ${summary.label} ▾") }
-        DropdownMenu(open, onDismissRequest = { open = false }) {
+        GhostButton(onClick = { open = true }) { Text("Context: ${summary.label} ▾") }
+        GlassMenu(open, onDismissRequest = { open = false }) {
             Column(
                 Modifier.width(PopupWidth).padding(horizontal = LargeGap, vertical = Gap),
                 verticalArrangement = Arrangement.spacedBy(Gap),
@@ -87,7 +86,7 @@ private fun Bar(summary: ContextSummary) {
         }
         // An agent that reports only the total still gets its used share drawn.
         if (parts.isEmpty() && summary.used > 0) {
-            Box(Modifier.weight(summary.used.toFloat()).height(BarHeight).background(MaterialTheme.colorScheme.primary))
+            Box(Modifier.weight(summary.used.toFloat()).height(BarHeight).background(Pyrlyn.colors.accentSolid))
         }
         summary.rows.firstOrNull { it.kind == ContextKind.Free }?.let {
             Box(Modifier.weight(it.tokens.toFloat()))
@@ -98,9 +97,9 @@ private fun Bar(summary: ContextSummary) {
 @Composable
 private fun color(kind: ContextKind): Color =
     when (kind) {
-        ContextKind.CacheRead -> MaterialTheme.colorScheme.primary
-        ContextKind.CacheWrite -> MaterialTheme.colorScheme.tertiary
-        ContextKind.Input -> MaterialTheme.colorScheme.secondary
-        ContextKind.Output -> MaterialTheme.colorScheme.error
-        ContextKind.Free -> MaterialTheme.colorScheme.surfaceVariant
+        ContextKind.CacheRead -> Pyrlyn.colors.accentSolid
+        ContextKind.CacheWrite -> Pyrlyn.colors.info
+        ContextKind.Input -> Pyrlyn.colors.accentFg
+        ContextKind.Output -> Pyrlyn.colors.warning
+        ContextKind.Free -> Pyrlyn.colors.bgActive
     }
