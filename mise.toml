@@ -1,0 +1,3 @@
+[tools]
+# The toolchain the build compiles and runs with (jvmToolchain(25)).
+java = "temurin-25"
