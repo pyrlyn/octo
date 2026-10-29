@@ -9,3 +9,8 @@ dependencies {
     // Skia's native library, so the tests can decode pictures.
     testImplementation(compose.desktop.currentOs)
 }
+
+tasks.test {
+    // Skiko loads its native library through System.load.
+    jvmArgs("--enable-native-access=ALL-UNNAMED")
+}

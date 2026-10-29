@@ -20,7 +20,15 @@ dependencies {
     testImplementation(libs.kotlinx.coroutines.test)
 }
 
+// Clikt's terminal detection loads JNA's native library; without this every run warns on stderr.
+val nativeAccess = "--enable-native-access=ALL-UNNAMED"
+
 application {
     mainClass = "octo.cli.MainKt"
     applicationName = "octo"
+    applicationDefaultJvmArgs = listOf(nativeAccess)
+}
+
+tasks.test {
+    jvmArgs(nativeAccess)
 }
