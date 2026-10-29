@@ -6,6 +6,9 @@ import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.runBlocking
+import octo.core.config.ConfigFile
+import octo.core.flags.CoreFlags
+import octo.core.io.AtomicFile
 import octo.core.paths.OctoPaths
 import octo.core.paths.currentHostOs
 import octo.core.process.JvmProcessLauncher
@@ -44,6 +47,9 @@ fun main() {
             octo.shares,
             octo.shareBase,
             octo.notifications,
+            ConfigFile(AtomicFile(paths.config)),
+            CoreFlags.all + builtInAdapters(launcher, currentHostOs()).mapNotNull { it.featureFlag },
+            paths.home.toString(),
         )
     application {
         Window(

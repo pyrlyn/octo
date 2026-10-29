@@ -35,6 +35,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.compositeOver
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.Dp
@@ -209,7 +210,8 @@ internal fun GlassMenu(
         onDismissRequest,
         modifier,
         shape = RoundedCornerShape(minOf(Pyrlyn.platform.radiusSurface, MenuRadius)),
-        containerColor = c.veilFloating,
+        // Compose has no backdrop blur, so a menu must not let the text behind it show.
+        containerColor = if (Pyrlyn.opaque) c.solidFloating else c.veilFloating.compositeOver(c.solidFloating),
         shadowElevation = MenuShadow,
         border = BorderStroke(1.dp, Brush.verticalGradient(listOf(c.glassRim, c.glassEdge))),
         content = content,

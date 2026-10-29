@@ -99,7 +99,10 @@ class PaletteTest {
                 vm.state.value.items
                     .filterIsInstance<PaletteItem.Run>()
                     .map { it.command }
-            assertEquals(listOf(Command.NewTask, Command.Agents, Command.Usage, Command.Devices), commands)
+            assertEquals(
+                listOf(Command.NewTask, Command.Agents, Command.Usage, Command.Devices, Command.Settings),
+                commands,
+            )
         }
 
     @Test

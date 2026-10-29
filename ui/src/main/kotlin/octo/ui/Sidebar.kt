@@ -44,6 +44,8 @@ internal fun Sidebar(
     onDevices: (() -> Unit)? = null,
     /** Null hides the action, while the `usage` flag is off. */
     onUsage: (() -> Unit)? = null,
+    /** Null hides the action, where there is no `config.json` to edit, as in tests. */
+    onSettings: (() -> Unit)? = null,
 ) {
     Column(modifier.padding(horizontal = Gap)) {
         Row(
@@ -96,11 +98,23 @@ internal fun Sidebar(
             SectionLabel("Agents", Modifier.padding(start = 10.dp, top = Gap, bottom = SmallGap))
             agents.forEach { AgentItem(it, onClick = { vm.select(it.id) }) }
         }
-        Row(Modifier.padding(vertical = Gap), horizontalArrangement = Arrangement.spacedBy(SmallGap)) {
-            GhostButton(onClick = vm::openAgents) { Text("Agents") }
-            onUsage?.let { GhostButton(onClick = it) { Text("Usage") } }
-            onDevices?.let { GhostButton(onClick = it) { Text("Devices") } }
-        }
+        Footer(vm, onDevices, onUsage, onSettings)
+    }
+}
+
+@Composable
+private fun Footer(
+    vm: MainViewModel,
+    onDevices: (() -> Unit)?,
+    onUsage: (() -> Unit)?,
+    onSettings: (() -> Unit)?,
+) {
+    Row(Modifier.fillMaxWidth().padding(vertical = Gap), horizontalArrangement = Arrangement.spacedBy(SmallGap)) {
+        GhostButton(onClick = vm::openAgents) { Text("Agents") }
+        onUsage?.let { GhostButton(onClick = it) { Text("Usage") } }
+        onDevices?.let { GhostButton(onClick = it) { Text("Devices") } }
+        Spacer(Modifier.weight(1f))
+        onSettings?.let { GhostButton(onClick = it) { Text("⚙") } }
     }
 }
 

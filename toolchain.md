@@ -32,3 +32,10 @@
 | pyrlyn.wasm:wasm | local (included build) | https://github.com/pyrlyn/kotlin-wasm | The engine-neutral WebAssembly interface the plugin loader uses |
 | pyrlyn.wasm:wasm-chasm (Chasm 2.3.0, `io.github.charlietap.chasm:chasm`) | local (included build) | https://github.com/CharlieTap/chasm | Runs plugins in a WebAssembly interpreter |
 | com.github.burrunan.s3-build-cache 1.9.10 | local (settings) | https://github.com/burrunan/gradle-s3-build-cache | Optional S3/R2 remote build cache (`ci.diffuser.settings`); off without its keys |
+
+## Bundled assets
+
+| Asset | Where | Source | Why here |
+| --- | --- | --- | --- |
+| IBM Plex Sans 6.4.0 (Regular, Medium, SemiBold, Bold; OFL 1.1) | `ui/src/main/resources/fonts` | https://github.com/IBM/plex | UI face of the Pyrlyn Glass design |
+| JetBrains Mono 2.304 (Regular, Medium, Bold; OFL 1.1) | `ui/src/main/resources/fonts` | https://github.com/JetBrains/JetBrainsMono | Code, paths and commands |

@@ -99,7 +99,7 @@ private fun AgentRowItem(
 }
 
 @Composable
-private fun authColor(auth: AuthState?) =
+internal fun authColor(auth: AuthState?) =
     when (auth) {
         AuthState.LoggedIn -> Pyrlyn.colors.success
         AuthState.LoggedOut -> Pyrlyn.colors.warning

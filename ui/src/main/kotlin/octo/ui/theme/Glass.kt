@@ -12,6 +12,7 @@ import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.Shape
+import androidx.compose.ui.graphics.drawscope.DrawScope
 import androidx.compose.ui.unit.dp
 
 /** How much of what is behind a surface shows through it. */
@@ -41,12 +42,13 @@ internal fun Modifier.glass(
 ): Modifier {
     val c = Pyrlyn.colors
     val p = Pyrlyn.platform
+    val solid = Pyrlyn.opaque
     val veil =
         when (level) {
-            GlassLevel.Chrome -> c.veilChrome
-            GlassLevel.Floating -> c.veilFloating
-            GlassLevel.Control -> c.veilControl
-            GlassLevel.Content -> c.veilContent
+            GlassLevel.Chrome -> if (solid) c.solidChrome else c.veilChrome
+            GlassLevel.Floating -> if (solid) c.solidFloating else c.veilFloating
+            GlassLevel.Control -> if (solid) c.solidFloating else c.veilControl
+            GlassLevel.Content -> if (solid) c.bgCanvas else c.veilContent
         }
     val highlight = c.specular.copy(alpha = c.specular.alpha * p.highlight)
     return this
@@ -57,21 +59,27 @@ internal fun Modifier.glass(
             spotColor = c.shadowKey,
         ).shadow((elevation.contact * p.depth).dp, shape, ambientColor = c.shadowContact, spotColor = c.shadowContact)
         .clip(shape)
+        // Compose has no backdrop blur, so menus and dialogs must not let the text behind them show.
+        .then(if (level == GlassLevel.Floating) Modifier.background(c.solidFloating) else Modifier)
         .background(veil)
-        .background(c.glassTint)
+        .background(if (solid) Color.Transparent else c.glassTint)
         // Drawn behind the content, so text keeps its full contrast.
         .drawBehind {
-            drawRect(
-                Brush.verticalGradient(
-                    0f to c.specularSoft,
-                    SHEEN_END to Color.Transparent,
-                    CAUSTIC_START to Color.Transparent,
-                    1f to c.caustic,
-                ),
-            )
+            if (!solid) drawSheen(c)
             val inset = size.height.coerceAtMost(HIGHLIGHT_INSET)
             drawLine(highlight, Offset(inset, HAIRLINE), Offset(size.width - inset, HAIRLINE), 1.dp.toPx())
         }.border(1.dp, Brush.verticalGradient(listOf(c.glassRim, c.glassEdge)), shape)
+}
+
+private fun DrawScope.drawSheen(c: PyrlynColors) {
+    drawRect(
+        Brush.verticalGradient(
+            0f to c.specularSoft,
+            SHEEN_END to Color.Transparent,
+            CAUSTIC_START to Color.Transparent,
+            1f to c.caustic,
+        ),
+    )
 }
 
 /** The blurred wallpaper the glass reads against, a stand-in for the desktop behind the window. */

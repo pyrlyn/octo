@@ -468,7 +468,7 @@ internal fun TermsDialog(
     )
 }
 
-private fun pickDirectory(start: String): String? {
+internal fun pickDirectory(start: String): String? {
     val chooser =
         JFileChooser(start.ifBlank { System.getProperty("user.home") }).apply {
             fileSelectionMode = JFileChooser.DIRECTORIES_ONLY

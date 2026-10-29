@@ -32,6 +32,7 @@ enum class Command(
     Agents("Open agents"),
     Usage("Open usage"),
     Devices("Open devices"),
+    Settings("Open settings"),
 }
 
 sealed interface PaletteItem {

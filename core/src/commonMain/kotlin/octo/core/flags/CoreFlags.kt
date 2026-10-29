@@ -33,4 +33,29 @@ object CoreFlags {
         FeatureFlag("previews", "Preview images, notebooks, archives, SQLite and Mermaid files in the diff view")
     val NOTIFICATIONS =
         FeatureFlag("notifications", "Show an OS notification when a task blocks, fails or finishes out of sight")
+
+    /** Every core flag, in the order the settings screen lists them. */
+    val all: List<FeatureFlag> =
+        listOf(
+            GIT_PUBLISH,
+            PRESETS,
+            COMPARE,
+            HANDOFF,
+            FORK,
+            CHECKPOINTS,
+            SECTIONS,
+            PALETTE,
+            USAGE,
+            PREVIEWS,
+            NOTIFICATIONS,
+            COMPACT_IDLE,
+            QUEUE,
+            TRIGGERS,
+            REMOTE_ACCESS,
+            GUEST_SHARE,
+            REMOTE_SSH,
+            MOVE_TASK,
+            PLUGINS,
+            AGENT_MESSAGING,
+        )
 }

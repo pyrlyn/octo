@@ -3,6 +3,9 @@ package octo.ui.vm
 import kotlinx.coroutines.CoroutineScope
 import octo.core.access.Devices
 import octo.core.access.Shares
+import octo.core.config.ConfigFile
+import octo.core.flags.CoreFlags
+import octo.core.flags.FeatureFlag
 import octo.core.notify.NotificationConfig
 import octo.core.orchestrator.AgentCatalog
 import octo.core.orchestrator.OctoCore
@@ -52,6 +55,12 @@ class ViewModels(
     private val shareBase: String? = null,
     /** Null while the `notifications` flag is off, which posts no OS notifications. */
     notificationConfig: NotificationConfig? = null,
+    /** Null leaves out settings and the first-run guide, as in tests. */
+    private val config: ConfigFile? = null,
+    /** Every flag settings can turn on, the adapters' included. */
+    private val flags: List<FeatureFlag> = CoreFlags.all,
+    /** The Octo home folder, shown in settings. */
+    private val home: String = "",
 ) {
     val main = MainViewModel(core, scope, startupWarnings, sections, limits = usage != null)
 
@@ -71,6 +80,8 @@ class ViewModels(
     val canMove: Boolean get() = moveTask
 
     val canOpenPalette: Boolean get() = palette
+
+    val canEditSettings: Boolean get() = config != null
 
     fun task(id: TaskId) = TaskViewModel(core, id, scope, limits = usage != null, checkpoints = checkpoints)
 
@@ -102,6 +113,7 @@ class ViewModels(
                     Command.Move -> canMove
                     Command.Devices -> canPair
                     Command.Usage -> canShowUsage
+                    Command.Settings -> canEditSettings
                     else -> true
                 }
             }
@@ -116,6 +128,11 @@ class ViewModels(
 
     /** Today's tokens and the running agents, for the toolbar. */
     val summary by lazy { SummaryViewModel(agents.state, usage, scope) }
+
+    /** Lives as long as the window, since its appearance styles the whole window. */
+    val settings: SettingsViewModel? by lazy { config?.let { SettingsViewModel(it, catalog, flags, home, scope) } }
+
+    val onboarding: OnboardingViewModel? by lazy { config?.let { OnboardingViewModel(it, catalog, core, scope) } }
 
     fun usage(): UsageViewModel? = usage?.let { UsageViewModel(it, catalog, scope) }
 

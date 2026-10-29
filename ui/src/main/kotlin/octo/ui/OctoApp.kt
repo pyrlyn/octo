@@ -35,6 +35,9 @@ import androidx.compose.ui.input.pointer.pointerHoverIcon
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.LocalWindowInfo
 import androidx.compose.ui.unit.dp
+import octo.core.config.AppearanceConfig
+import octo.core.config.AppearanceTheme
+import octo.core.config.Transparency
 import octo.core.paths.currentHostOs
 import octo.core.task.TaskId
 import octo.ui.theme.Elevation
@@ -61,7 +64,7 @@ fun OctoApp(models: ViewModels) {
         val focused = LocalWindowInfo.current.isWindowFocused
         LaunchedEffect(vm, focused) { vm.focused(focused) }
     }
-    OctoTheme(isSystemInDarkTheme(), remember { GlassPlatform.of(currentHostOs()) }) {
+    ChosenTheme(models) {
         Box(Modifier.fillMaxSize()) {
             GlassBackdrop(Modifier.matchParentSize())
             Row(Modifier.fillMaxSize().padding(Gap)) {
@@ -77,6 +80,7 @@ fun OctoApp(models: ViewModels) {
                         .glass(Pyrlyn.surfaceShape, GlassLevel.Chrome),
                     onDevices = if (models.canPair) main::openDevices else null,
                     onUsage = if (models.canShowUsage) main::openUsage else null,
+                    onSettings = if (models.canEditSettings) ({ main.showSettings(true) }) else null,
                 )
                 // Only the final width is persisted, not every frame of the drag.
                 SidebarHandle(
@@ -97,14 +101,53 @@ fun OctoApp(models: ViewModels) {
                     }
                 }
             }
-            if (state.newTaskOpen) {
-                val vm = remember { models.newTask() }
-                DisposableEffect(vm) { onDispose { vm.close() } }
-                NewTaskDialog(vm, onCreated = main::created, onDismiss = main::closeNewTask, presets = models::presets)
-            }
-            if (state.devicesOpen) DevicesPane(models, onDismiss = main::closeDevices)
-            if (state.paletteOpen) PalettePane(models)
+            Overlays(state, models)
         }
+    }
+}
+
+/** The theme with the user's appearance settings applied. */
+@Composable
+private fun ChosenTheme(
+    models: ViewModels,
+    content: @Composable () -> Unit,
+) {
+    val look = appearance(models)
+    val dark =
+        when (look.theme) {
+            AppearanceTheme.System -> isSystemInDarkTheme()
+            AppearanceTheme.Light -> false
+            AppearanceTheme.Dark -> true
+        }
+    val platform = remember(look.density) { GlassPlatform.of(currentHostOs(), look.density) }
+    OctoTheme(dark, platform, opaque = look.transparency == Transparency.Opaque, content = content)
+}
+
+@Composable
+private fun Overlays(
+    state: MainUiState,
+    models: ViewModels,
+) {
+    val main = models.main
+    if (state.newTaskOpen) {
+        val vm =
+            remember {
+                models.newTask().also { vm ->
+                    state.newTaskDraft?.let {
+                        vm.editRepo(it.repo)
+                        it.agent?.let(vm::selectAgent)
+                        vm.selectPermissionMode(it.mode)
+                    }
+                }
+            }
+        DisposableEffect(vm) { onDispose { vm.close() } }
+        NewTaskDialog(vm, onCreated = main::created, onDismiss = main::closeNewTask, presets = models::presets)
+    }
+    if (state.devicesOpen) DevicesPane(models, onDismiss = main::closeDevices)
+    if (state.paletteOpen) PalettePane(models)
+    models.onboarding?.let { vm ->
+        DisposableEffect(vm) { onDispose { vm.close() } }
+        OnboardingScreen(vm) { draft -> draft?.let(main::openNewTask) }
     }
 }
 
@@ -203,6 +246,7 @@ private fun Content(
     when {
         state.agentsOpen -> AgentsPane(models)
         state.usageOpen -> UsagePane(models)
+        state.settingsOpen && models.settings != null -> SettingsPane(models)
         id == null -> Empty(state.groups.isEmpty(), models.main::openNewTask)
         else -> TaskOrDiff(id, state.diffOpen, models)
     }
@@ -301,6 +345,27 @@ private fun UsagePane(models: ViewModels) {
     val vm = remember { models.usage() } ?: return
     DisposableEffect(vm) { onDispose { vm.close() } }
     UsageScreen(vm, onClose = models.main::closeUsage)
+}
+
+@Composable
+private fun SettingsPane(models: ViewModels) {
+    val vm = models.settings ?: return
+    // config.json may have changed since the window opened: onboarding, or an editor.
+    LaunchedEffect(vm) { vm.reload() }
+    SettingsScreen(
+        vm,
+        onClose = { models.main.showSettings(false) },
+        onPair = if (models.canPair) models.main::openDevices else null,
+    )
+}
+
+/** The look the user chose in settings; the defaults until `config.json` is read. */
+@Composable
+private fun appearance(models: ViewModels): AppearanceConfig {
+    val vm = models.settings ?: return AppearanceConfig()
+    return vm.state
+        .collectAsState()
+        .value.config.appearance
 }
 
 @Composable

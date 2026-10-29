@@ -15,8 +15,13 @@ and Compose tokens came as `octo-pyrlyn-glass-screens.zip`, built from a prototy
 
 Done: every screen in `:ui` follows the design on all three desktop OSes in both themes. Material 3
 components stay, styled from Pyrlyn tokens; the window, sidebar, content panel, menus, dialogs and
-prompt get the glass surfaces. No native window vibrancy and no bundled fonts (the creator chose
-system fonts and an in-app backdrop). No behaviour changes.
+prompt get the glass surfaces. No native window vibrancy (the creator chose an in-app backdrop).
+
+The second design drop added an opaque underlay under floating surfaces, bundled IBM Plex Sans and
+JetBrains Mono, and 11 proposed screens. The creator chose to bundle the fonts and to build the
+proposed settings (general, agents, permissions, devices, appearance, advanced, error) and
+first-run onboarding (welcome, repository, agent, permissions) in this task, writing to
+`config.json`.
 
 ## Plan
 
@@ -35,3 +40,6 @@ system fonts and an in-app backdrop). No behaviour changes.
    switch agent, devices, palette, permission, place, plugin, context, move, share.
 7. Verify: `./gradlew :ui:check ktlintCheck detekt`, then run the app and compare with the renders
    on macOS in both themes.
+8. Second drop: fonts as `:ui` resources, the floating underlay and an opaque material, a core
+   `ConfigFile` that edits `config.json` in place, `appearance` in the config, settings and
+   onboarding view models and screens, tests, renders compared with the proposed screens.
