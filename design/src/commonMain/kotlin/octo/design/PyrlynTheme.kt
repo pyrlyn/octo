@@ -9,6 +9,8 @@ import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.Immutable
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.staticCompositionLocalOf
+import androidx.compose.ui.platform.LocalDensity
+import androidx.compose.ui.text.PlatformTextStyle
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.Dp
@@ -60,7 +62,10 @@ data class PyrlynType(
     val mono: TextStyle,
 )
 
-private fun typeFor(platform: GlassPlatform): PyrlynType {
+private fun typeFor(
+    platform: GlassPlatform,
+    raster: PlatformTextStyle? = null,
+): PyrlynType {
     val body = platform.bodySize
     val ui = UiFont
     return PyrlynType(
@@ -88,7 +93,14 @@ private fun typeFor(platform: GlassPlatform): PyrlynType {
                 lineHeight = (body + 10).sp,
             ),
         mono = TextStyle(fontFamily = MonoFont, fontSize = (body - 1).sp, lineHeight = (body + 5).sp),
-    )
+    ).let { t ->
+        if (raster == null) {
+            t
+        } else {
+            val r = TextStyle(platformStyle = raster)
+            PyrlynType(t.body + r, t.strong + r, t.small + r, t.label + r, t.title + r, t.mono + r)
+        }
+    }
 }
 
 private val LocalPyrlynColors = staticCompositionLocalOf { PyrlynDark }
@@ -128,7 +140,8 @@ fun PyrlynTheme(
     content: @Composable () -> Unit,
 ) {
     val colors = if (dark) PyrlynDark else PyrlynLight
-    val type = remember(platform) { typeFor(platform) }
+    val scale = LocalDensity.current.density
+    val type = remember(platform, scale) { typeFor(platform, HostCrisp.text(scale)) }
     val selection =
         remember(colors) {
             TextSelectionColors(colors.accentSolid, colors.accentSolid.copy(alpha = SELECTION_ALPHA))

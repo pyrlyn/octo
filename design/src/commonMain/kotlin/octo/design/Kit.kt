@@ -498,7 +498,7 @@ fun PaneHeader(
 
 @Composable
 fun Hairline(modifier: Modifier = Modifier) {
-    Box(modifier.fillMaxWidth().height(0.5.dp).background(Pyrlyn.colors.glassEdge))
+    Box(modifier.fillMaxWidth().height(hairline).background(Pyrlyn.colors.glassEdge))
 }
 
 /** The sunken strip over a table with its upper-case column names. */
@@ -590,7 +590,7 @@ fun AccentTile(
         modifier
             .size(size)
             .background(Brush.verticalGradient(listOf(c.accentSolidHover, c.accentSolid)), shape)
-            .border(0.5.dp, Color.White.copy(alpha = TILE_RIM), shape),
+            .border(hairline, Color.White.copy(alpha = TILE_RIM), shape),
         contentAlignment = Alignment.Center,
     ) { Text(text, style = style, color = c.onAccent) }
 }
@@ -603,7 +603,7 @@ fun Kbd(key: String) {
         key,
         Modifier
             .background(c.stateHover, shape)
-            .border(0.5.dp, c.glassRim, shape)
+            .border(hairline, c.glassRim, shape)
             .padding(horizontal = 5.dp, vertical = 1.dp),
         style = Pyrlyn.type.mono.copy(fontSize = Pyrlyn.type.small.fontSize),
         color = c.fgMuted,

@@ -84,7 +84,7 @@ fun SettingsGroup(
                 .fillMaxWidth()
                 .clip(shape)
                 .background(c.bgRaised.copy(alpha = if (c.dark) GROUP_DARK else GROUP_LIGHT))
-                .border(0.5.dp, c.glassEdge, shape),
+                .border(hairline, c.glassEdge, shape),
             content = content,
         )
     }
