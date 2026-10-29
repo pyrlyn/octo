@@ -20,8 +20,8 @@ jobs:
       - uses: actions/checkout@v7.0.1
         with:
           repository: pyrlyn/packages
-          # Pinned main; bump when octo needs newer shared builds.
-          ref: 0e2ba0ac270cc5a2363fd3d91e75d9c09825845f
+          # Pinned release tag; bump when octo needs newer shared builds.
+          ref: 0.0.1
           path: packages
       - uses: actions/setup-java@v6.1.0
         with:
