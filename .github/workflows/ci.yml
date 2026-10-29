@@ -11,11 +11,22 @@ jobs:
   check:
     runs-on: ubuntu-latest
     steps:
+      # Mirror the local workspace layout: octo/ next to packages/, where settings.gradle.kts
+      # finds shared-settings and kotlin-wasm by searching ancestors for packages/.
       - uses: actions/checkout@v7.0.1
+        with:
+          path: octo
+      - uses: actions/checkout@v7.0.1
+        with:
+          repository: pyrlyn/packages
+          path: packages
       - uses: actions/setup-java@v6.1.0
         with:
           distribution: temurin
           java-version: 25
       - uses: gradle/actions/setup-gradle@v6.4.0
+        with:
+          build-root-directory: octo
       # Builds every native target the host can build, so commonMain stays free of JVM-only code.
       - run: ./gradlew check -Pocto.allNativeTargets=true --console=plain
+        working-directory: octo
