@@ -28,6 +28,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import octo.ui.theme.Pyrlyn
+import octo.ui.vm.AgentRow
 import octo.ui.vm.MainUiState
 import octo.ui.vm.MainViewModel
 import octo.ui.vm.TaskRow
@@ -36,6 +37,8 @@ import octo.ui.vm.TaskRow
 internal fun Sidebar(
     state: MainUiState,
     vm: MainViewModel,
+    /** The running agents; picking one opens its task. */
+    agents: List<AgentRow>,
     modifier: Modifier = Modifier,
     /** Null hides the action, while remote access is off. */
     onDevices: (() -> Unit)? = null,
@@ -89,11 +92,44 @@ internal fun Sidebar(
                 }
             }
         }
+        if (agents.isNotEmpty()) {
+            SectionLabel("Agents", Modifier.padding(start = 10.dp, top = Gap, bottom = SmallGap))
+            agents.forEach { AgentItem(it, onClick = { vm.select(it.id) }) }
+        }
         Row(Modifier.padding(vertical = Gap), horizontalArrangement = Arrangement.spacedBy(SmallGap)) {
             GhostButton(onClick = vm::openAgents) { Text("Agents") }
             onUsage?.let { GhostButton(onClick = it) { Text("Usage") } }
             onDevices?.let { GhostButton(onClick = it) { Text("Devices") } }
         }
+    }
+}
+
+@Composable
+private fun AgentItem(
+    row: AgentRow,
+    onClick: () -> Unit,
+) {
+    val c = Pyrlyn.colors
+    Row(
+        Modifier
+            .fillMaxWidth()
+            .clip(RoundedCornerShape(minOf(Pyrlyn.platform.radiusControl, RowRadius)))
+            .clickable(onClick = onClick)
+            .padding(horizontal = 10.dp, vertical = SmallGap),
+        verticalAlignment = Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.spacedBy(Gap),
+    ) {
+        AgentGlyph(row.icon, row.agent, AgentIconSize)
+        Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(3.dp)) {
+            Text(row.title, style = Pyrlyn.type.small, maxLines = 1, overflow = TextOverflow.Ellipsis)
+            row.contextShare?.let { Meter(it, Modifier.fillMaxWidth()) }
+        }
+        Text(
+            "${row.cpu} · ${row.memory}",
+            style = Pyrlyn.type.mono.copy(fontSize = Pyrlyn.type.small.fontSize),
+            color = c.fgSubtle,
+            maxLines = 1,
+        )
     }
 }
 
@@ -157,4 +193,5 @@ private const val MAX_FORK_INDENT = 3
 private val RowRadius = 10.dp
 private val RowExtra = 14.dp
 private val MarkSize = 22.dp
+private val AgentIconSize = 18.dp
 private const val MARK_TEXT = 0.85f

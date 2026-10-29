@@ -55,6 +55,8 @@ import java.awt.Cursor
 fun OctoApp(models: ViewModels) {
     val main = models.main
     val state by main.state.collectAsState()
+    val agents by models.agents.state.collectAsState()
+    val summary by models.summary.state.collectAsState()
     models.notifications?.let { vm ->
         val focused = LocalWindowInfo.current.isWindowFocused
         LaunchedEffect(vm, focused) { vm.focused(focused) }
@@ -68,6 +70,7 @@ fun OctoApp(models: ViewModels) {
                 Sidebar(
                     state,
                     main,
+                    agents.rows,
                     Modifier
                         .width(width.dp)
                         .fillMaxHeight()
@@ -84,7 +87,8 @@ fun OctoApp(models: ViewModels) {
                     },
                 )
                 Column(Modifier.weight(1f).fillMaxHeight()) {
-                    if (models.canOpenPalette) Toolbar(main::togglePalette)
+                    val search = if (models.canOpenPalette) main::togglePalette else null
+                    if (search != null || summary.label != null) Toolbar(summary.label, search)
                     Column(
                         Modifier.fillMaxSize().glass(Pyrlyn.surfaceShape, GlassLevel.Content, Elevation.E3),
                     ) {
@@ -116,31 +120,40 @@ private fun Banners(
     }
 }
 
-/** The bar over the content panel: a search field that opens the command palette. */
+/** The bar over the content panel: today's summary and a search field that opens the command palette. */
 @Composable
-private fun Toolbar(onSearch: () -> Unit) {
+private fun Toolbar(
+    summary: String?,
+    onSearch: (() -> Unit)?,
+) {
     val c = Pyrlyn.colors
     Row(
         Modifier.fillMaxWidth().height(ToolbarHeight).padding(horizontal = Gap),
         verticalAlignment = Alignment.CenterVertically,
-        horizontalArrangement = Arrangement.End,
     ) {
-        Row(
-            Modifier
-                .width(SearchWidth)
-                .height(Pyrlyn.platform.controlHeight)
-                .glass(Pyrlyn.controlShape, GlassLevel.Control, Elevation.E1)
-                .clickable(onClick = onSearch)
-                .padding(start = 10.dp, end = SmallGap),
-            verticalAlignment = Alignment.CenterVertically,
-            horizontalArrangement = Arrangement.spacedBy(Gap),
-        ) {
-            Text("⌕", color = c.fgSubtle)
-            Text("Search tasks, agents, commands", Modifier.weight(1f), color = c.fgSubtle, maxLines = 1)
-            Row(horizontalArrangement = Arrangement.spacedBy(2.dp)) {
-                Kbd(if (Pyrlyn.platform == GlassPlatform.MacOS) "⌘" else "Ctrl")
-                Kbd("K")
-            }
+        Text(summary.orEmpty(), Modifier.weight(1f), style = Pyrlyn.type.small, color = c.fgMuted, maxLines = 1)
+        if (onSearch != null) SearchField(onSearch)
+    }
+}
+
+@Composable
+private fun SearchField(onSearch: () -> Unit) {
+    val c = Pyrlyn.colors
+    Row(
+        Modifier
+            .width(SearchWidth)
+            .height(Pyrlyn.platform.controlHeight)
+            .glass(Pyrlyn.controlShape, GlassLevel.Control, Elevation.E1)
+            .clickable(onClick = onSearch)
+            .padding(start = 10.dp, end = SmallGap),
+        verticalAlignment = Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.spacedBy(Gap),
+    ) {
+        Text("⌕", color = c.fgSubtle)
+        Text("Search tasks, agents, commands", Modifier.weight(1f), color = c.fgSubtle, maxLines = 1)
+        Row(horizontalArrangement = Arrangement.spacedBy(2.dp)) {
+            Kbd(if (Pyrlyn.platform == GlassPlatform.MacOS) "⌘" else "Ctrl")
+            Kbd("K")
         }
     }
 }
@@ -280,9 +293,7 @@ private fun PalettePane(models: ViewModels) {
 
 @Composable
 private fun AgentsPane(models: ViewModels) {
-    val vm = remember { models.agents() }
-    DisposableEffect(vm) { onDispose { vm.close() } }
-    AgentsScreen(vm, onClose = models.main::closeAgents)
+    AgentsScreen(models.agents, onClose = models.main::closeAgents)
 }
 
 @Composable

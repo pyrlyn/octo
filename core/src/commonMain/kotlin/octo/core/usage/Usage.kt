@@ -14,6 +14,8 @@ data class UsageRecord(
     val cacheReadTokens: Long = 0,
     val cacheWriteTokens: Long = 0,
 ) {
+    val tokens: Long get() = inputTokens + outputTokens + cacheReadTokens + cacheWriteTokens
+
     val isEmpty: Boolean get() =
         inputTokens == 0L && outputTokens == 0L && cacheReadTokens == 0L &&
             cacheWriteTokens == 0L
@@ -44,7 +46,24 @@ data class UsageTotal(
 data class UsageSummary(
     val totals: List<UsageTotal> = emptyList(),
     val warnings: List<String> = emptyList(),
+    /** Tokens per time bucket, when the caller asked for buckets. */
+    val series: List<Long> = emptyList(),
 )
+
+/** Tokens per bucket; [edges] are the ascending bucket starts and a record before the first is left out. */
+internal fun series(
+    records: List<UsageRecord>,
+    edges: List<Long>,
+): List<Long> {
+    val sums = LongArray(edges.size)
+    for (record in records) {
+        val found = edges.binarySearch(record.atMs)
+        // A miss gives -(insertion point) - 1; the bucket is the edge just before that point.
+        val bucket = if (found >= 0) found else -found - 2
+        if (bucket >= 0) sums[bucket] += record.tokens
+    }
+    return sums.toList()
+}
 
 internal fun summarize(
     records: List<UsageRecord>,

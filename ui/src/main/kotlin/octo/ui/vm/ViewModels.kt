@@ -111,7 +111,11 @@ class ViewModels(
         return PaletteViewModel(core, scope, commands, selected)
     }
 
-    fun agents() = AgentsViewModel(core, catalog, scope)
+    /** Lives as long as the window: the sidebar lists the running agents whatever screen is open. */
+    val agents by lazy { AgentsViewModel(core, catalog, scope) }
+
+    /** Today's tokens and the running agents, for the toolbar. */
+    val summary by lazy { SummaryViewModel(agents.state, usage, scope) }
 
     fun usage(): UsageViewModel? = usage?.let { UsageViewModel(it, catalog, scope) }
 

@@ -74,6 +74,8 @@ class AgentsViewModelTest {
             assertEquals("512 MB", a.memory)
             assertEquals("opus", a.model)
             assertEquals("45.2k / 200k (22%)", a.context)
+            assertEquals(0.226f, a.contextShare)
+            assertEquals(AuthState.LoggedIn, a.auth)
             assertEquals("in 12.3k · out 999 · cache read 1.5M", a.tokens)
 
             val remote = rows.getValue("c")
@@ -87,6 +89,7 @@ class AgentsViewModelTest {
             assertEquals(NONE, starting.cpu)
             assertEquals(NONE, starting.model)
             assertEquals(NONE, starting.context)
+            assertEquals(null, starting.contextShare, "no window reported")
             assertEquals(NONE, starting.tokens)
             vm.close()
         }

@@ -48,6 +48,8 @@ data class UsageUiState(
     val period: UsagePeriod = UsagePeriod.Week,
     val rows: List<UsageRow> = emptyList(),
     val total: String = "0",
+    /** Tokens per hour today, per day for a week or a month; empty for all time. */
+    val chart: List<Long> = emptyList(),
     val loading: Boolean = true,
     /** Agent histories that could not be read; the rest is still counted. */
     val warnings: List<String> = emptyList(),
@@ -89,12 +91,14 @@ class UsageViewModel(
         mutable.update { it.copy(loading = true) }
         loading =
             scope.action({ e -> mutable.update { it.copy(loading = false, error = e.userMessage) } }) {
-                val summary = report.totals(since(period, now(), zone))
+                val nowMs = now()
+                val summary = report.totals(since(period, nowMs, zone), bucketEdges(period, nowMs, zone))
                 val known = agents ?: probe().also { agents = it }
                 mutable.update { state ->
                     state.copy(
                         rows = summary.totals.map { row(it, known) },
                         total = tokenCount(summary.totals.sumOf { it.tokens }),
+                        chart = summary.series,
                         loading = false,
                         warnings = summary.warnings,
                     )
@@ -138,6 +142,7 @@ class UsageViewModel(
 
 private const val DAYS_IN_WEEK = 7L
 private const val DAYS_IN_MONTH = 30L
+private const val HOURS_IN_DAY = 24L
 
 /** Where [period] starts, in epoch milliseconds; null for all time. Days start at local midnight. */
 internal fun since(
@@ -154,6 +159,23 @@ internal fun since(
         UsagePeriod.Month -> start(today.minusDays(DAYS_IN_MONTH - 1))
         UsagePeriod.All -> null
     }
+}
+
+/** Where each chart bar starts: every hour of today, or every day of the week or month; none for all time. */
+internal fun bucketEdges(
+    period: UsagePeriod,
+    nowMs: Long,
+    zone: ZoneId,
+): List<Long> {
+    val start = since(period, nowMs, zone) ?: return emptyList()
+    val first = Instant.ofEpochMilli(start).atZone(zone)
+    // Days step in local time, so a day that loses or gains an hour still starts at midnight.
+    return when (period) {
+        UsagePeriod.Today -> (0L until HOURS_IN_DAY).map { first.plusHours(it) }
+        UsagePeriod.Week -> (0L until DAYS_IN_WEEK).map { first.plusDays(it) }
+        UsagePeriod.Month -> (0L until DAYS_IN_MONTH).map { first.plusDays(it) }
+        UsagePeriod.All -> emptyList()
+    }.map { it.toInstant().toEpochMilli() }
 }
 
 /** "Usage limit reached" with when it lifts: the time today, else the date as well. */

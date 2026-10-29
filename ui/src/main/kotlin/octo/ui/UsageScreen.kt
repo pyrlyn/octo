@@ -1,19 +1,26 @@
 package octo.ui
 
+import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
@@ -27,6 +34,9 @@ private val IconSize = 22.dp
 private val NameWidth = 280.dp
 private val SourceWidth = 130.dp
 private val CountWidth = 90.dp
+private val ChartHeight = 76.dp
+private val BarRadius = 3.dp
+private val BarGap = 4.dp
 
 @Composable
 internal fun UsageScreen(
@@ -53,6 +63,7 @@ internal fun UsageScreen(
             }
             state.error?.let { Banner(it, error = true, onDismiss = vm::dismissError) }
             state.warnings.forEach { Notice(it, Tone.Warning) }
+            if (state.chart.any { it > 0 }) Chart(state.chart)
         }
         if (state.rows.isEmpty()) {
             if (!state.loading) {
@@ -68,6 +79,24 @@ internal fun UsageScreen(
             }
         }
         LazyColumn(Modifier.weight(1f)) { items(state.rows) { UsageRowItem(it) } }
+    }
+}
+
+/** One bar per hour or day, scaled to the busiest; empty buckets leave a gap so the time axis stays even. */
+@Composable
+private fun Chart(bars: List<Long>) {
+    val c = Pyrlyn.colors
+    val most = bars.max().toFloat()
+    val shape = RoundedCornerShape(topStart = BarRadius, topEnd = BarRadius)
+    val fill = Brush.verticalGradient(listOf(c.accentSolidHover, c.accentSolid))
+    Row(
+        Modifier.fillMaxWidth().height(ChartHeight),
+        horizontalArrangement = Arrangement.spacedBy(BarGap),
+        verticalAlignment = Alignment.Bottom,
+    ) {
+        bars.forEach { tokens ->
+            Box(Modifier.weight(1f).fillMaxHeight(tokens / most).background(fill, shape))
+        }
     }
 }
 
