@@ -23,6 +23,7 @@ import io.github.typesafegithub.workflows.dsl.JobBuilder
 import io.github.typesafegithub.workflows.dsl.workflow
 import io.github.typesafegithub.workflows.yaml.CheckoutActionVersionSource
 import io.github.typesafegithub.workflows.yaml.DEFAULT_CONSISTENCY_CHECK_JOB_CONFIG
+import io.github.typesafegithub.workflows.yaml.Preamble
 
 // Shared builds from github.com/pyrlyn/packages, checked out by setUp; absolute, since the
 // included kotlin-wasm build reads the same variables relative to its own directory.
@@ -46,6 +47,8 @@ workflow(
     permissions = mapOf(Permission.Contents to Mode.Read),
     sourceFile = __FILE__,
     targetFileName = "ci.yml",
+    // Ahead of the library's own note, so nobody edits the YAML by hand.
+    preamble = Preamble.WithOriginalAfter("DO NOT EDIT: generated from ci.main.kts; edit that file and run it to regenerate."),
     consistencyCheckJobConfig =
         DEFAULT_CONSISTENCY_CHECK_JOB_CONFIG.copy(
             // The library's bundled default is older than the checkout the build pins.
