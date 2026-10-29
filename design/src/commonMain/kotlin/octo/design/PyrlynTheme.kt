@@ -95,6 +95,7 @@ private val LocalPyrlynColors = staticCompositionLocalOf { PyrlynDark }
 private val LocalGlassPlatform = staticCompositionLocalOf { GlassPlatform.MacOS }
 private val LocalPyrlynType = staticCompositionLocalOf { typeFor(GlassPlatform.MacOS) }
 private val LocalOpaque = staticCompositionLocalOf { false }
+private val LocalReducedMotion = staticCompositionLocalOf { false }
 
 object Pyrlyn {
     val colors: PyrlynColors
@@ -107,6 +108,10 @@ object Pyrlyn {
     /** Solid surfaces instead of glass, from Settings > Appearance. */
     val opaque: Boolean
         @Composable get() = LocalOpaque.current
+
+    /** The OS asks for less motion: jump instead of animating. */
+    val reducedMotion: Boolean
+        @Composable get() = LocalReducedMotion.current
     val controlShape: RoundedCornerShape
         @Composable get() = RoundedCornerShape(platform.radiusControl)
     val surfaceShape: RoundedCornerShape
@@ -119,6 +124,7 @@ fun PyrlynTheme(
     dark: Boolean,
     platform: GlassPlatform,
     opaque: Boolean = false,
+    reducedMotion: Boolean = false,
     content: @Composable () -> Unit,
 ) {
     val colors = if (dark) PyrlynDark else PyrlynLight
@@ -136,6 +142,7 @@ fun PyrlynTheme(
         LocalGlassPlatform provides platform,
         LocalPyrlynType provides type,
         LocalOpaque provides opaque,
+        LocalReducedMotion provides reducedMotion,
         // No root surface sets them: the window is glass over the backdrop.
         LocalContentColor provides colors.fg,
         LocalTextStyle provides type.body,

@@ -25,6 +25,7 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
+import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import octo.design.AccentTile
 import octo.design.Gap
@@ -58,8 +59,11 @@ internal fun Sidebar(
     onUsage: (() -> Unit)? = null,
     /** Null hides the action, where there is no `config.json` to edit, as in tests. */
     onSettings: (() -> Unit)? = null,
+    /** Above the header: room for the window's own buttons where the OS draws them over the sidebar. */
+    top: @Composable () -> Unit = {},
 ) {
     Column(modifier.padding(horizontal = Gap)) {
+        top()
         Row(
             Modifier.fillMaxWidth().padding(horizontal = 2.dp, vertical = Gap),
             verticalAlignment = Alignment.CenterVertically,
@@ -210,8 +214,8 @@ private fun TaskRowItem(
 
 /** The app mark: a prompt on an accent tile. */
 @Composable
-private fun OctoMark() {
-    AccentTile("❯_", MarkSize, Pyrlyn.type.mono.copy(fontSize = Pyrlyn.type.small.fontSize * MARK_TEXT))
+internal fun OctoMark(size: Dp = MarkSize) {
+    AccentTile("❯_", size, Pyrlyn.type.mono.copy(fontSize = Pyrlyn.type.small.fontSize * MARK_TEXT * (size / MarkSize)))
 }
 
 /** Deeper forks stop moving right, so a long chain still leaves room for the title. */

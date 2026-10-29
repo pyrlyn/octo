@@ -71,6 +71,11 @@ fun Modifier.glass(
         }.border(1.dp, Brush.verticalGradient(listOf(c.glassRim, c.glassEdge)), shape)
 }
 
+/** The window's own chrome, flush with its edges: a header bar, a flush sidebar. */
+@Composable
+fun Modifier.chromeVeil(): Modifier =
+    background(if (Pyrlyn.opaque) Pyrlyn.colors.solidChrome else Pyrlyn.colors.veilChrome)
+
 private fun DrawScope.drawSheen(c: PyrlynColors) {
     drawRect(
         Brush.verticalGradient(

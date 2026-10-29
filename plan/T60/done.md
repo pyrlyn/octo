@@ -82,12 +82,42 @@
     follows the design's order (repository, branch, mode, agent, title, prompt, permissions,
     machine) and is 620dp wide.
 
+- Native window chrome, material and OS accessibility (the creator asked for it in this task),
+  through JDK 25's Foreign Function API with no new library; the toolchain, CI and the packaged
+  runtime moved from JDK 21 to 25.
+  - `ui/.../window/`: `OctoWindow` opens an undecorated Compose window (edge resizing on Windows and
+    Linux) and hands the shell a `WindowFrame` (OS, chrome, maximize state, window actions, drag
+    area) and a `SystemLook` (material, reduced transparency, reduced motion). One
+    `NativeWindow` per OS does the native part; any failure is printed and skipped, and the window
+    falls back to drawn caption buttons and the in-app backdrop.
+  - macOS (`MacWindow`, `ObjC`): on AppKit's main thread, and only once the handle is one of
+    `NSApp`'s windows, the window gets back a titled, full-size-content style with a transparent,
+    hidden title, an empty unified toolbar (so the native traffic lights sit 52pt tall, inside the
+    inset sidebar, as drawn), its shadow, an `NSVisualEffectView` behind the content and an
+    `NSAppearance` that follows Octo's theme. `NSWorkspace` gives reduced transparency and motion.
+  - Windows (`WindowsWindow`): `DwmSetWindowAttribute` sets round corners, dark mode and the Mica
+    backdrop, the frame is extended into the client area and Skia draws transparent over it;
+    `SystemParametersInfoW(SPI_GETCLIENTAREAANIMATION)` and the `EnableTransparency` registry value
+    give the settings. This follows ComposeWindowStyler (https://github.com/MayakaApps/ComposeWindowStyler,
+    read 2026-10-29) as a lead; **unverified** on a real Windows host.
+  - Linux (`LinuxWindow`): no material; `gsettings get org.gnome.desktop.interface
+    enable-animations` gives reduced motion, through core's process launcher.
+  - Settings are read at start and every time the window gains focus. Reduced transparency makes
+    the theme opaque as the Appearance setting does; reduced motion is `Pyrlyn.reducedMotion`, and
+    the palette jumps to the selected item instead of scrolling to it.
+  - The shell lays out per chrome: macOS keeps the inset sidebar with a drag strip under the
+    lights; Windows draws a 32dp caption bar (mark, title, `CaptionButtons`) with a flush sidebar
+    and a 48dp toolbar; Linux draws a 46dp header bar (new task, centered title with the selected
+    task, search, an app menu, `CloseCircle`) with a flush sidebar and no toolbar. Title areas drag
+    the window and double-click maximizes.
+
 ## Not done, and why
 
-- No native window vibrancy, reduced transparency or reduced motion: the creator chose an in-app
-  backdrop, and the rest needs native interop. Appearance has no "System" transparency and no high
-  contrast for the same reason.
-- The OS title bar stays; the renders show a drawn macOS window frame.
+- The Windows and Linux native calls were written but never run: this Mac cannot. Their layouts
+  were rendered and compared; the calls themselves wait for a Windows 11 and a GNOME machine.
+- No Snap Layouts on Windows: the creator chose a plain undecorated window over JetBrains Runtime.
+- Linux has no window material: there is no portable API for one. Appearance has no high-contrast
+  mode.
 
 ## How it was checked
 
@@ -101,7 +131,7 @@
 - A throwaway `ImageComposeScene` test (not committed) rendered the main task, empty, agents, new
   task, palette and usage screens in both themes with the macOS recipe, with process and usage
   data for the sidebar agents, toolbar summary and chart. I compared those renders with the
-  design renders. Windows and Linux differ only in recipe values and were not rendered.
+  design renders.
 - The same harness rendered every settings section, the broken-file notice and the four onboarding
   steps in both themes. I compared those with the proposed screens.
 - After the split the same harness rendered the task, empty, agents, new-task and palette screens
@@ -112,6 +142,14 @@
   palette and agents screens and the open permission menu in both themes. I compared them with
   the design renders: the new-task dialog's order, width, labels, placeholders and select arrows,
   and the menu's width, fill, tick column and selected row were fixed until they matched.
+- Native window: the app ran on this Mac (macOS 27, JDK 25) with a temporary `OCTO_HOME`. A
+  screenshot showed the traffic lights inside the sidebar at (20, 26) and the desktop through the
+  material; a synthetic click at y=47, inside the title bar's height, opened the new-task dialog,
+  and a drag on the strip under the lights moved the window. `NativeWindowTest` covers the
+  `gsettings` parsing and the chrome per OS, and reads the macOS settings through AppKit on a Mac.
+- The harness rendered the task screen with the Windows and Linux recipes and chrome in both
+  themes, and the Linux app menu open. I compared them with the Windows and Linux design screens:
+  caption bar, header bar, flush sidebar, toolbar and panel insets match.
 - jscpd over the UI modules finds 12 clones (91 lines), down from 15 (124) before the split; what
   is left is import blocks and a one-line `showError` per view model.
 - The design archive was corrected to match: the agent step of onboarding picks one agent with

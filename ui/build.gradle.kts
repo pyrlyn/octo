@@ -18,3 +18,8 @@ dependencies {
     testImplementation(compose.desktop.currentOs)
     testImplementation(libs.wasm.chasm)
 }
+
+tasks.test {
+    // The window code calls AppKit through the Foreign Function API, as the app does.
+    jvmArgs("--enable-native-access=ALL-UNNAMED")
+}

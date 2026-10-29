@@ -15,7 +15,7 @@ jobs:
       - uses: actions/setup-java@v6.1.0
         with:
           distribution: temurin
-          java-version: 21
+          java-version: 25
       - uses: gradle/actions/setup-gradle@v6.4.0
       # Builds every native target the host can build, so commonMain stays free of JVM-only code.
       - run: ./gradlew check -Pocto.allNativeTargets=true --console=plain

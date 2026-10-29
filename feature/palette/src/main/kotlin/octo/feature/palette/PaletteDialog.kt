@@ -74,7 +74,12 @@ fun PaletteDialog(
     val state by vm.state.collectAsState()
     val focus = remember { FocusRequester() }
     val list = rememberLazyListState()
-    LaunchedEffect(state.selected) { if (state.items.isNotEmpty()) list.animateScrollToItem(state.selected) }
+    val still = Pyrlyn.reducedMotion
+    LaunchedEffect(state.selected) {
+        if (state.items.isNotEmpty()) {
+            if (still) list.scrollToItem(state.selected) else list.animateScrollToItem(state.selected)
+        }
+    }
     // Not centred: the palette opens near the top, where the eye already is after the shortcut.
     Dialog(onDismissRequest = onDismiss, properties = DialogProperties(usePlatformDefaultWidth = false)) {
         Box(

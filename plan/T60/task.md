@@ -71,3 +71,25 @@ first-run onboarding (welcome, repository, agent, permissions) in this task, wri
       `compose.material3` leaves `design/build.gradle.kts`.
     - Check: `./gradlew check` green; `git grep material3` finds nothing in code or build files;
       renders compared with the design screens in both themes.
+11. Native window chrome, material and OS accessibility (the creator asked for it in this task;
+    native calls through JDK 25's Foreign Function API, no new library):
+    - JDK 21 → 25 in every `jvmToolchain`, CI and `toolchain.md`.
+    - Chrome drawn per OS, as in the design: macOS keeps its own traffic lights (an undecorated,
+      transparent Compose window given back a titled, full-size-content style with a transparent
+      title bar through the Objective-C runtime) inside the inset sidebar, with a 52dp toolbar;
+      Windows gets a 32dp caption bar (mark, title, minimize, maximize or restore, close) and
+      Linux a 46dp header bar (new task, title, search, menu, close), both with a flush sidebar,
+      dragging, double-click to maximize and resizing from the edges.
+    - Material: `NSVisualEffectView` behind the content on macOS, Mica through
+      `DwmSetWindowAttribute` on Windows 11; Linux has none and keeps the in-app backdrop, as
+      does any host where the call fails. With a native material the in-app backdrop is not drawn.
+    - Reduced transparency (macOS `NSWorkspace`, Windows `EnableTransparency`) turns glass
+      opaque; reduced motion (macOS `NSWorkspace`, Windows `SPI_GETCLIENTAREAANIMATION`, GNOME
+      `enable-animations`) turns off animated scrolling, the only motion today. Read at start
+      and whenever the window regains focus.
+    - Native calls live in `:ui` (`octo.ui.window`) behind small interfaces and fail open: a
+      call that fails is logged and the window keeps the system frame or the in-app backdrop.
+      Caption buttons and the header bar are `:design` components.
+    - Check: `./gradlew check` green; renders with the Windows and Linux recipes and chrome
+      compared with the Windows and Linux design screens, as well as macOS; the app run on this
+      Mac and screenshotted. The Windows and Linux native calls cannot run here and are marked so.

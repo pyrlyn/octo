@@ -9,6 +9,7 @@ import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.RowScope
 import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
@@ -30,28 +31,37 @@ import androidx.compose.ui.input.pointer.PointerIcon
 import androidx.compose.ui.input.pointer.pointerHoverIcon
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.LocalWindowInfo
+import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import octo.core.config.AppearanceConfig
 import octo.core.config.AppearanceTheme
 import octo.core.config.RowDensity
 import octo.core.config.Transparency
 import octo.core.paths.HostOs
-import octo.core.paths.currentHostOs
 import octo.core.task.TaskId
 import octo.design.Banner
+import octo.design.CaptionButtons
+import octo.design.CloseCircle
 import octo.design.Elevation
 import octo.design.EmptyState
 import octo.design.Gap
+import octo.design.GhostButton
 import octo.design.GlassBackdrop
 import octo.design.GlassLevel
+import octo.design.GlassMenu
+import octo.design.GlassMenuItem
 import octo.design.GlassPlatform
 import octo.design.Kbd
 import octo.design.PrimaryButton
 import octo.design.Pyrlyn
 import octo.design.PyrlynTheme
+import octo.design.SecondaryButton
 import octo.design.SmallGap
 import octo.design.Text
+import octo.design.chromeVeil
 import octo.design.glass
+import octo.feature.agents.AgentRow
 import octo.feature.agents.AgentsScreen
 import octo.feature.common.label
 import octo.feature.devices.DevicesDialog
@@ -71,10 +81,17 @@ import octo.ui.vm.MainUiState
 import octo.ui.vm.MainViewModel
 import octo.ui.vm.TaskDialog
 import octo.ui.vm.ViewModels
+import octo.ui.window.Chrome
+import octo.ui.window.SystemLook
+import octo.ui.window.WindowFrame
 import java.awt.Cursor
 
 @Composable
-fun OctoApp(models: ViewModels) {
+fun OctoApp(
+    models: ViewModels,
+    frame: WindowFrame = WindowFrame(),
+    look: SystemLook = SystemLook(),
+) {
     val main = models.main
     val state by main.state.collectAsState()
     val agents by models.agents.state.collectAsState()
@@ -83,41 +100,22 @@ fun OctoApp(models: ViewModels) {
         val focused = LocalWindowInfo.current.isWindowFocused
         LaunchedEffect(vm, focused) { vm.focused(focused) }
     }
-    ChosenTheme(models) {
+    ChosenTheme(models, frame, look) {
         Box(Modifier.fillMaxSize()) {
-            GlassBackdrop(Modifier.matchParentSize())
-            Row(Modifier.fillMaxSize().padding(Gap)) {
-                var dragging by remember { mutableStateOf<Float?>(null) }
-                val width = dragging ?: state.sidebarWidth
-                Sidebar(
-                    state,
-                    main,
-                    agents.rows,
-                    Modifier
-                        .width(width.dp)
-                        .fillMaxHeight()
-                        .glass(Pyrlyn.surfaceShape, GlassLevel.Chrome),
-                    onDevices = if (models.canPair) main::openDevices else null,
-                    onUsage = if (models.canShowUsage) main::openUsage else null,
-                    onSettings = if (models.canEditSettings) ({ main.showSettings(true) }) else null,
-                )
-                // Only the final width is persisted, not every frame of the drag.
-                SidebarHandle(
-                    onDrag = { delta -> dragging = clampWidth((dragging ?: state.sidebarWidth) + delta) },
-                    onDone = {
-                        dragging?.let(main::resizeSidebar)
-                        dragging = null
-                    },
-                )
-                Column(Modifier.weight(1f).fillMaxHeight()) {
-                    val search = if (models.canOpenPalette) main::togglePalette else null
-                    if (search != null || summary.label != null) Toolbar(summary.label, search)
-                    Column(
-                        Modifier.fillMaxSize().glass(Pyrlyn.surfaceShape, GlassLevel.Content, Elevation.E3),
-                    ) {
-                        Banners(state, main)
-                        Box(Modifier.weight(1f).fillMaxWidth()) { Content(state, models) }
-                    }
+            // A native material already shows the desktop through the window.
+            if (!look.material || Pyrlyn.opaque) GlassBackdrop(Modifier.matchParentSize())
+            val search = if (models.canOpenPalette) main::togglePalette else null
+            // Windows and Linux draw their own bar across the top, and the sidebar runs flush under it.
+            val flush = frame.chrome == Chrome.Caption || frame.chrome == Chrome.HeaderBar
+            Column(Modifier.fillMaxSize()) {
+                when (frame.chrome) {
+                    Chrome.Caption -> CaptionBar(frame)
+                    Chrome.HeaderBar -> HeaderBar(frame, state, models, search)
+                    Chrome.System, Chrome.MacOs -> Unit
+                }
+                Row(Modifier.weight(1f).fillMaxWidth().then(if (flush) Modifier else Modifier.padding(Gap))) {
+                    SidebarPane(state, models, agents.rows, frame, flush)
+                    Workspace(state, models, summary.label, search, frame, flush)
                 }
             }
             Overlays(state, models)
@@ -125,21 +123,95 @@ fun OctoApp(models: ViewModels) {
     }
 }
 
-/** The theme with the user's appearance settings applied. */
+/** The sidebar and the handle that resizes it. */
+@Composable
+private fun RowScope.SidebarPane(
+    state: MainUiState,
+    models: ViewModels,
+    agents: List<AgentRow>,
+    frame: WindowFrame,
+    flush: Boolean,
+) {
+    val main = models.main
+    var dragging by remember { mutableStateOf<Float?>(null) }
+    val width = dragging ?: state.sidebarWidth
+    val surface = if (flush) Modifier.chromeVeil() else Modifier.glass(Pyrlyn.surfaceShape, GlassLevel.Chrome)
+    Sidebar(
+        state,
+        main,
+        agents,
+        Modifier.width(width.dp).fillMaxHeight().then(surface),
+        onDevices = if (models.canPair) main::openDevices else null,
+        onUsage = if (models.canShowUsage) main::openUsage else null,
+        onSettings = if (models.canEditSettings) ({ main.showSettings(true) }) else null,
+        top = {
+            // The traffic lights sit over this strip.
+            if (frame.chrome == Chrome.MacOs) frame.dragArea(Modifier.fillMaxWidth().height(LightsHeight)) {}
+        },
+    )
+    // Only the final width is persisted, not every frame of the drag.
+    SidebarHandle(
+        onDrag = { delta -> dragging = clampWidth((dragging ?: state.sidebarWidth) + delta) },
+        onDone = {
+            dragging?.let(main::resizeSidebar)
+            dragging = null
+        },
+    )
+}
+
+/** The toolbar over the content panel, and the panel. */
+@Composable
+private fun RowScope.Workspace(
+    state: MainUiState,
+    models: ViewModels,
+    summary: String?,
+    search: (() -> Unit)?,
+    frame: WindowFrame,
+    flush: Boolean,
+) {
+    Column(
+        Modifier
+            .weight(1f)
+            .fillMaxHeight()
+            .then(if (flush) Modifier.padding(end = Gap, bottom = Gap) else Modifier),
+    ) {
+        // Linux keeps search in its header bar and has no toolbar.
+        if (frame.chrome != Chrome.HeaderBar && (search != null || summary != null)) {
+            frame.dragArea(Modifier.fillMaxWidth()) {
+                Toolbar(summary, search, if (flush) CaptionToolbarHeight else ToolbarHeight)
+            }
+        }
+        Column(Modifier.fillMaxSize().glass(Pyrlyn.surfaceShape, GlassLevel.Content, Elevation.E3)) {
+            Banners(state, models.main)
+            Box(Modifier.weight(1f).fillMaxWidth()) { Content(state, models) }
+        }
+    }
+}
+
+/** The theme with the user's appearance settings and the OS's accessibility settings applied. */
 @Composable
 private fun ChosenTheme(
     models: ViewModels,
+    frame: WindowFrame,
+    look: SystemLook,
     content: @Composable () -> Unit,
 ) {
-    val look = appearance(models)
+    val chosen = appearance(models)
     val dark =
-        when (look.theme) {
+        when (chosen.theme) {
             AppearanceTheme.System -> isSystemInDarkTheme()
             AppearanceTheme.Light -> false
             AppearanceTheme.Dark -> true
         }
-    val platform = remember(look.density) { glassPlatform(currentHostOs(), look.density) }
-    PyrlynTheme(dark, platform, opaque = look.transparency == Transparency.Opaque, content = content)
+    LaunchedEffect(dark) { frame.onDarkChanged(dark) }
+    val platform = remember(frame.os, chosen.density) { glassPlatform(frame.os, chosen.density) }
+    PyrlynTheme(
+        dark,
+        platform,
+        opaque = chosen.transparency == Transparency.Opaque || look.reducedTransparency,
+        reducedMotion = look.reducedMotion,
+        content = content,
+    )
 }
 
 /** The design system knows recipes, not host OSes or config values; the shell picks one. */
@@ -198,23 +270,28 @@ private fun Banners(
 private fun Toolbar(
     summary: String?,
     onSearch: (() -> Unit)?,
+    height: Dp,
 ) {
     val c = Pyrlyn.colors
     Row(
-        Modifier.fillMaxWidth().height(ToolbarHeight).padding(horizontal = Gap),
+        Modifier.fillMaxWidth().height(height).padding(horizontal = Gap),
         verticalAlignment = Alignment.CenterVertically,
     ) {
         Text(summary.orEmpty(), Modifier.weight(1f), style = Pyrlyn.type.small, color = c.fgMuted, maxLines = 1)
-        if (onSearch != null) SearchField(onSearch)
+        if (onSearch != null) SearchField(onSearch, SearchWidth, "Search tasks, agents, commands")
     }
 }
 
 @Composable
-private fun SearchField(onSearch: () -> Unit) {
+internal fun SearchField(
+    onSearch: () -> Unit,
+    width: Dp,
+    placeholder: String,
+) {
     val c = Pyrlyn.colors
     Row(
         Modifier
-            .width(SearchWidth)
+            .width(width)
             .height(Pyrlyn.platform.controlHeight)
             .glass(Pyrlyn.controlShape, GlassLevel.Control, Elevation.E1)
             .clickable(onClick = onSearch)
@@ -223,7 +300,7 @@ private fun SearchField(onSearch: () -> Unit) {
         horizontalArrangement = Arrangement.spacedBy(Gap),
     ) {
         Text("⌕", color = c.fgSubtle)
-        Text("Search tasks, agents, commands", Modifier.weight(1f), color = c.fgSubtle, maxLines = 1)
+        Text(placeholder, Modifier.weight(1f), color = c.fgSubtle, maxLines = 1)
         Row(horizontalArrangement = Arrangement.spacedBy(2.dp)) {
             Kbd(if (Pyrlyn.platform == GlassPlatform.MacOS) "⌘" else "Ctrl")
             Kbd("K")
@@ -421,5 +498,9 @@ private fun Empty(
 }
 
 private val ToolbarHeight = 44.dp
+private val CaptionToolbarHeight = 48.dp
+
+// macOS's unified title bar is 52pt tall, and the sidebar starts a gap below the window's top.
+private val LightsHeight = 44.dp
 private val DividerWidth = 8.dp
 private val SearchWidth = 340.dp

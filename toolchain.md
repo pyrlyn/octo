@@ -2,7 +2,7 @@
 
 | Program | How to install | Why here | Source |
 | --- | --- | --- | --- |
-| JDK 21 (Temurin) | mise | Runs Gradle and the desktop app | https://adoptium.net |
+| JDK 25 (Temurin) | mise | Runs Gradle and the desktop app | https://adoptium.net |
 | Gradle 9.7.1 | wrapper (`./gradlew`) | Build | https://github.com/gradle/gradle |
 | Kotlin 2.4.21 | Gradle plugin | Language, Kotlin Multiplatform | https://github.com/JetBrains/kotlin |
 | git | system | Version control, worktrees per task | https://git-scm.com |

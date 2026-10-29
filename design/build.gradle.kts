@@ -6,7 +6,7 @@ plugins {
 }
 
 kotlin {
-    jvmToolchain(21)
+    jvmToolchain(25)
     // Compose Multiplatform has no Linux or Windows native target, so only the desktop JVM for now.
     jvm()
 
