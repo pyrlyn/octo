@@ -1,6 +1,8 @@
 package octo.core.git
 
 import kotlinx.coroutines.runBlocking
+import octo.core.paths.HostOs
+import octo.core.paths.currentHostOs
 import octo.core.process.JvmProcessLauncher
 import java.io.File
 import java.nio.file.Files
@@ -225,6 +227,8 @@ class GitWorkspaceTest {
     @Test
     fun setupRunsInTheWorktreeWithAShell() =
         runBlocking {
+            // runSetup is /bin/sh by design (T25), which Windows does not have.
+            if (currentHostOs() == HostOs.Windows) return@runBlocking
             val repo = repo()
             val ok = workspace.runSetup(repo.path, "pwd && echo oops >&2 && touch ready")
             assertEquals(0, ok.exitCode)

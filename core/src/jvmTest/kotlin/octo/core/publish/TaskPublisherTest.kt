@@ -7,6 +7,8 @@ import octo.core.git.Git
 import octo.core.git.GitHubCli
 import octo.core.git.GitWorkspace
 import octo.core.orchestrator.UnknownTaskException
+import octo.core.paths.HostOs
+import octo.core.paths.currentHostOs
 import octo.core.process.JvmProcessLauncher
 import octo.core.status.AgentStatus
 import octo.core.task.OctoState
@@ -92,6 +94,8 @@ class TaskPublisherTest {
     @Test
     fun commitsPushesAndOpensOnePullRequest() =
         runBlocking {
+            // The stand-in gh is a POSIX shell script, which Windows cannot run.
+            if (currentHostOs() == HostOs.Windows) return@runBlocking
             val (publisher, worktree) = setUp()
             File(worktree, "b.txt").writeText("new\n")
 

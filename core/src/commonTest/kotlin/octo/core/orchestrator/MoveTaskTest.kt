@@ -4,6 +4,7 @@ import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.test.TestScope
 import kotlinx.coroutines.test.runTest
+import kotlinx.io.files.Path
 import octo.core.agent.AdapterRegistry
 import octo.core.agent.AgentId
 import octo.core.flags.FeatureFlags
@@ -156,7 +157,7 @@ class MoveTaskTest {
             val task = s.task(id)
             assertEquals("cave", task.machine)
             assertEquals("work from the box", cave.workspace.files[task.worktree])
-            assertEquals(listOf(s.home.toString() + "/relay.git"), s.workspace.bares)
+            assertEquals(listOf(Path(s.home, "relay.git").toString()), s.workspace.bares)
             assertTrue(s.workspace.refs.isEmpty(), "the relay keeps nothing")
         }
 

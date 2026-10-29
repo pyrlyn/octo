@@ -120,7 +120,12 @@ class GitWorkspace(
     private val dirs: Directories = LocalDirectories(),
 ) : Workspace,
     RefTransfer {
-    override suspend fun repoRoot(dir: String): String = git.run(dir, listOf("rev-parse", "--show-toplevel")).trim()
+    // git prints a Windows top level as C:/…; callers compare it with native paths. A remote
+    // machine's POSIX path never starts with a drive, so it is left alone.
+    override suspend fun repoRoot(dir: String): String =
+        git.run(dir, listOf("rev-parse", "--show-toplevel")).trim().let {
+            if (WINDOWS_DRIVE.containsMatchIn(it)) it.replace('/', '\\') else it
+        }
 
     // Refs come sorted by full name, so refs/heads lands before refs/remotes.
     override suspend fun branches(repo: String): List<String> =
@@ -297,6 +302,7 @@ class GitWorkspace(
         /** Reused by every fork of a worktree, so at most one is left in its git directory. */
         const val FORK_INDEX = "octo-fork-index"
         const val CHECKPOINT_INDEX = "octo-checkpoint-index"
+        val WINDOWS_DRIVE = Regex("^[A-Za-z]:/")
 
         val IDENTITY =
             mapOf(
