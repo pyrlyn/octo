@@ -43,3 +43,19 @@ first-run onboarding (welcome, repository, agent, permissions) in this task, wri
 8. Second drop: fonts as `:ui` resources, the floating underlay and an opaque material, a core
    `ConfigFile` that edits `config.json` in place, `appearance` in the config, settings and
    onboarding view models and screens, tests, renders compared with the proposed screens.
+9. Split `:ui` (the creator asked for it in this task):
+   - `:design`, Kotlin Multiplatform (JVM target only, since Compose has no Linux or Windows
+     native target): Pyrlyn colours, type, spacing, platform recipes, glass, and the reusable
+     components (buttons, field, switch, segmented control, dialog, menu, notice, tables, meter,
+     glyph, key cap). No `:core` types and no app state; controls keep only their own UI state.
+   - `:feature:common`: app-level pieces several features share (status dots and words, auth
+     colour, token counts, agent choice, vendor terms dialog, attachments, directory picker,
+     coroutine helpers).
+   - `:feature:{task,diff,newtask,agents,usage,devices,palette,settings,onboarding}`: each owns
+     its screens and view models and builds them from `:design`. The task screen takes a
+     `TaskPlaces` interface instead of the main view model.
+   - `:ui` stays the shell: window, sidebar, toolbar, tray, main and notification view models,
+     the view model graph, and the host OS → platform recipe mapping.
+   - Tests move with their view models; the mixed `ViewModelTest` stays in `:ui`.
+   - Check: `./gradlew check` green; no colour literals outside `:design`; jscpd finds no clone
+     across the new modules.

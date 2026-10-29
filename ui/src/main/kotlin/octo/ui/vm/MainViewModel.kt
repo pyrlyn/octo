@@ -13,6 +13,11 @@ import octo.core.task.TaskId
 import octo.core.task.TaskPlace
 import octo.core.task.TaskView
 import octo.core.task.rollup
+import octo.feature.common.action
+import octo.feature.common.userMessage
+import octo.feature.newtask.NewTaskDraft
+import octo.feature.palette.Command
+import octo.feature.task.TaskPlaces
 
 data class TaskRow(
     val id: TaskId,
@@ -101,7 +106,7 @@ class MainViewModel(
     private val now: () -> Long = System::currentTimeMillis,
     /** False while the `usage` flag is off: no task shows as limited. */
     private val limits: Boolean = false,
-) {
+) : TaskPlaces {
     private val mutable = MutableStateFlow(MainUiState().withCore(core.state.value, startupWarnings, sections, limits))
     val state: StateFlow<MainUiState> = mutable.asStateFlow()
 
@@ -201,13 +206,14 @@ class MainViewModel(
     /** Forks [id] and opens the fork. */
     fun fork(id: TaskId) = act { select(core.forkTask(id)) }
 
-    fun place(
+    override fun place(
         id: TaskId,
         place: TaskPlace,
-    ) = act { core.setPlace(id, place) }
+    ) {
+        act { core.setPlace(id, place) }
+    }
 
-    /** Snoozes [id] for [forMs], or with null until its agent's turn ends. */
-    fun snooze(
+    override fun snooze(
         id: TaskId,
         forMs: Long?,
     ) = place(id, TaskPlace.Snoozed(forMs?.let { now() + it }))

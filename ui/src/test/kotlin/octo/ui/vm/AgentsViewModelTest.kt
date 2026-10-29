@@ -10,6 +10,16 @@ import octo.core.process.ProcessUsage
 import octo.core.status.AgentStatus
 import octo.core.task.TaskId
 import octo.core.task.TaskView
+import octo.feature.agents.AgentsViewModel
+import octo.feature.agents.CREDENTIAL_MASK
+import octo.feature.agents.REMOTE
+import octo.feature.agents.contextLabel
+import octo.feature.agents.contextShare
+import octo.feature.agents.credentialLabel
+import octo.feature.agents.memoryLabel
+import octo.feature.agents.tokensLabel
+import octo.feature.common.NONE
+import octo.feature.common.tokenCount
 import octo.testing.FakeCatalog
 import octo.testing.FakeOctoCore
 import kotlin.test.Test

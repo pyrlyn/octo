@@ -14,7 +14,24 @@ import octo.core.preset.PresetLibrary
 import octo.core.publish.TaskPublisher
 import octo.core.task.TaskId
 import octo.core.usage.UsageReport
-import octo.ui.preview.FilePreviewer
+import octo.feature.agents.AgentsViewModel
+import octo.feature.devices.DevicesViewModel
+import octo.feature.diff.DiffViewModel
+import octo.feature.diff.FilePreviewer
+import octo.feature.newtask.NewTaskViewModel
+import octo.feature.newtask.PresetsViewModel
+import octo.feature.newtask.summary
+import octo.feature.onboarding.OnboardingViewModel
+import octo.feature.palette.Command
+import octo.feature.palette.PaletteViewModel
+import octo.feature.settings.SettingsViewModel
+import octo.feature.task.MoveTaskViewModel
+import octo.feature.task.PluginActionsViewModel
+import octo.feature.task.PublishViewModel
+import octo.feature.task.ShareViewModel
+import octo.feature.task.SwitchAgentViewModel
+import octo.feature.task.TaskViewModel
+import octo.feature.usage.UsageViewModel
 
 /** Builds the screens' view models, so composables never hold a reference to core. */
 class ViewModels(

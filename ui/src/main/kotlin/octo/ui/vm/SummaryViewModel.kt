@@ -14,6 +14,12 @@ import kotlinx.coroutines.flow.merge
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
 import octo.core.usage.UsageReport
+import octo.feature.agents.AgentsUiState
+import octo.feature.common.childScope
+import octo.feature.common.label
+import octo.feature.common.tokenCount
+import octo.feature.usage.UsagePeriod
+import octo.feature.usage.since
 import java.time.ZoneId
 import kotlin.coroutines.cancellation.CancellationException
 

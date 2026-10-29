@@ -7,6 +7,13 @@ import octo.core.status.AgentStatus
 import octo.core.task.TaskId
 import octo.core.task.TaskView
 import octo.core.task.TranscriptEntry
+import octo.design.Notice
+import octo.feature.palette.Command
+import octo.feature.palette.PaletteItem
+import octo.feature.palette.PaletteViewModel
+import octo.feature.palette.Searchable
+import octo.feature.palette.rank
+import octo.feature.palette.snippet
 import octo.testing.FakeCatalog
 import octo.testing.FakeOctoCore
 import kotlin.test.Test

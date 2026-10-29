@@ -27,8 +27,20 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
-import octo.ui.theme.Pyrlyn
-import octo.ui.vm.AgentRow
+import octo.design.AccentTile
+import octo.design.Gap
+import octo.design.GhostButton
+import octo.design.Glyph
+import octo.design.LargeGap
+import octo.design.Meter
+import octo.design.PrimaryButton
+import octo.design.Pyrlyn
+import octo.design.SectionLabel
+import octo.design.SmallGap
+import octo.feature.agents.AgentRow
+import octo.feature.agents.contextShare
+import octo.feature.common.StatusDot
+import octo.feature.common.label
 import octo.ui.vm.MainUiState
 import octo.ui.vm.MainViewModel
 import octo.ui.vm.TaskRow
@@ -133,7 +145,7 @@ private fun AgentItem(
         verticalAlignment = Alignment.CenterVertically,
         horizontalArrangement = Arrangement.spacedBy(Gap),
     ) {
-        AgentGlyph(row.icon, row.agent, AgentIconSize)
+        Glyph(row.icon?.svg, row.agent, AgentIconSize)
         Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(3.dp)) {
             Text(row.title, style = Pyrlyn.type.small, maxLines = 1, overflow = TextOverflow.Ellipsis)
             row.contextShare?.let { Meter(it, Modifier.fillMaxWidth()) }

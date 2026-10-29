@@ -1,7 +1,5 @@
 package octo.ui
 
-import androidx.compose.foundation.background
-import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.gestures.Orientation
 import androidx.compose.foundation.gestures.draggable
@@ -17,7 +15,6 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.width
-import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
@@ -37,19 +34,41 @@ import androidx.compose.ui.platform.LocalWindowInfo
 import androidx.compose.ui.unit.dp
 import octo.core.config.AppearanceConfig
 import octo.core.config.AppearanceTheme
+import octo.core.config.RowDensity
 import octo.core.config.Transparency
+import octo.core.paths.HostOs
 import octo.core.paths.currentHostOs
 import octo.core.task.TaskId
-import octo.ui.theme.Elevation
-import octo.ui.theme.GlassBackdrop
-import octo.ui.theme.GlassLevel
-import octo.ui.theme.GlassPlatform
-import octo.ui.theme.OctoTheme
-import octo.ui.theme.Pyrlyn
-import octo.ui.theme.glass
+import octo.design.Banner
+import octo.design.Elevation
+import octo.design.EmptyState
+import octo.design.Gap
+import octo.design.GlassBackdrop
+import octo.design.GlassLevel
+import octo.design.GlassPlatform
+import octo.design.Kbd
+import octo.design.PrimaryButton
+import octo.design.Pyrlyn
+import octo.design.PyrlynTheme
+import octo.design.SmallGap
+import octo.design.glass
+import octo.feature.agents.AgentsScreen
+import octo.feature.common.label
+import octo.feature.devices.DevicesDialog
+import octo.feature.diff.DiffScreen
+import octo.feature.newtask.NewTaskDialog
+import octo.feature.newtask.summary
+import octo.feature.onboarding.OnboardingScreen
+import octo.feature.palette.PaletteDialog
+import octo.feature.palette.PaletteItem
+import octo.feature.settings.SettingsScreen
+import octo.feature.task.MoveTaskDialog
+import octo.feature.task.PublishDialog
+import octo.feature.task.SwitchAgentDialog
+import octo.feature.task.TaskScreen
+import octo.feature.usage.UsageScreen
 import octo.ui.vm.MainUiState
 import octo.ui.vm.MainViewModel
-import octo.ui.vm.PaletteItem
 import octo.ui.vm.TaskDialog
 import octo.ui.vm.ViewModels
 import java.awt.Cursor
@@ -119,9 +138,20 @@ private fun ChosenTheme(
             AppearanceTheme.Light -> false
             AppearanceTheme.Dark -> true
         }
-    val platform = remember(look.density) { GlassPlatform.of(currentHostOs(), look.density) }
-    OctoTheme(dark, platform, opaque = look.transparency == Transparency.Opaque, content = content)
+    val platform = remember(look.density) { glassPlatform(currentHostOs(), look.density) }
+    PyrlynTheme(dark, platform, opaque = look.transparency == Transparency.Opaque, content = content)
 }
+
+/** The design system knows recipes, not host OSes or config values; the shell picks one. */
+private fun glassPlatform(
+    os: HostOs,
+    density: RowDensity,
+): GlassPlatform =
+    when (os) {
+        HostOs.MacOs -> GlassPlatform.MacOS
+        HostOs.Windows -> GlassPlatform.Windows
+        HostOs.Linux -> GlassPlatform.Linux
+    }.withRowStep(density.stepDp.dp)
 
 @Composable
 private fun Overlays(
@@ -199,21 +229,6 @@ private fun SearchField(onSearch: () -> Unit) {
             Kbd("K")
         }
     }
-}
-
-@Composable
-internal fun Kbd(key: String) {
-    val c = Pyrlyn.colors
-    val shape = RoundedCornerShape(4.dp)
-    Text(
-        key,
-        Modifier
-            .background(c.stateHover, shape)
-            .border(0.5.dp, c.glassRim, shape)
-            .padding(horizontal = 5.dp, vertical = 1.dp),
-        style = Pyrlyn.type.mono.copy(fontSize = Pyrlyn.type.small.fontSize),
-        color = c.fgMuted,
-    )
 }
 
 private fun clampWidth(width: Float) = width.coerceIn(MainUiState.MIN_SIDEBAR_WIDTH, MainUiState.MAX_SIDEBAR_WIDTH)
@@ -406,4 +421,5 @@ private fun Empty(
 }
 
 private val ToolbarHeight = 44.dp
+private val DividerWidth = 8.dp
 private val SearchWidth = 340.dp

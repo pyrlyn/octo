@@ -11,6 +11,9 @@ import octo.core.task.TaskId
 import octo.core.usage.UsageLog
 import octo.core.usage.UsageRecord
 import octo.core.usage.UsageReport
+import octo.feature.agents.AgentRow
+import octo.feature.agents.AgentsUiState
+import octo.feature.common.label
 import java.nio.file.Files
 import java.time.LocalDateTime
 import java.time.ZoneId

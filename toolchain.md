@@ -37,5 +37,5 @@
 
 | Asset | Where | Source | Why here |
 | --- | --- | --- | --- |
-| IBM Plex Sans 6.4.0 (Regular, Medium, SemiBold, Bold; OFL 1.1) | `ui/src/main/resources/fonts` | https://github.com/IBM/plex | UI face of the Pyrlyn Glass design |
-| JetBrains Mono 2.304 (Regular, Medium, Bold; OFL 1.1) | `ui/src/main/resources/fonts` | https://github.com/JetBrains/JetBrainsMono | Code, paths and commands |
+| IBM Plex Sans 6.4.0 (Regular, Medium, SemiBold, Bold; OFL 1.1) | `design/src/jvmMain/resources/fonts` | https://github.com/IBM/plex | UI face of the Pyrlyn Glass design |
+| JetBrains Mono 2.304 (Regular, Medium, Bold; OFL 1.1) | `design/src/jvmMain/resources/fonts` | https://github.com/JetBrains/JetBrainsMono | Code, paths and commands |

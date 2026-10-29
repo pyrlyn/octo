@@ -69,12 +69,26 @@ octo/
 │   ├── zcode/            "
 │   ├── antigravity/      "
 │   └── plugin/           " (the generic ACP adapter for agents plugins declare)
-├── ui/                   JVM + Compose; depends on core
+├── design/               KMP + Compose (jvm only for now): tokens and components, no core
+├── feature/
+│   ├── common/           JVM + Compose; pieces several features share; depends on core, design
+│   ├── task/             JVM + Compose; one feature's screens and view models; depends on common
+│   ├── diff/             "
+│   ├── newtask/          "
+│   ├── agents/           "
+│   ├── usage/            "
+│   ├── devices/          "
+│   ├── palette/          "
+│   ├── settings/         "
+│   └── onboarding/       "; also depends on newtask, whose dialog it fills in
+├── ui/                   JVM + Compose; the shell, wiring the features; depends on feature:*
 └── app/                  JVM + Compose Desktop application; depends on everything, wires it
 ```
 
-Dependencies point down only: `app → ui → core` and `app → adapters:* → adapters:base → core`.
-Neither `ui` nor `core` depends on any adapter.
+Dependencies point down only: `app → ui → feature:* → feature:common → core, design` and
+`app → adapters:* → adapters:base → core`. Neither the UI modules nor `core` depend on any
+adapter, `design` depends on nothing of Octo's, and a feature depends on no other feature except
+`onboarding` on `newtask`.
 
 **`core`** owns the domain and the agent service-provider interface (SPI):
 - the model (`Task`, `AgentSessionRef`, `AgentStatus`) and the status reducer;
@@ -126,10 +140,18 @@ event mapping, extensions and fixtures.
 | `demo` | In-process, no binary | Behind the `demo-agent` flag; asks for permission and writes `octo-demo.md` |
 | `plugin` | ACP, with the arguments a plugin's manifest gives | The bare command the manifest names, on `PATH` |
 
-**`ui`** follows MVVM, the creator's choice. Each screen has a view model that reads `OctoCore`
-flows and exposes one immutable UI state as a `StateFlow`, plus methods for user actions that
-call `OctoCore`. Composables only render that state and forward actions; they never touch
-`OctoCore` or adapters. The UI talks only to `OctoCore`.
+**`design`** is the Pyrlyn Glass design system: colours, type, spacing, the macOS, Windows and
+Linux recipes, the glass surface and the reusable components (buttons, field, switch, segmented
+control, dialog, menu, notice, table rows, meter, glyph, key cap). It knows no Octo type. Controls
+keep only their own UI state, such as an open menu; anything about tasks or agents comes in as
+parameters. Every screen draws from it, so a token or component change restyles the whole app.
+
+**`feature:*`** and the **`ui`** shell follow MVVM, the creator's choice. Each screen has a view
+model that reads `OctoCore` flows and exposes one immutable UI state as a `StateFlow`, plus
+methods for user actions that call `OctoCore`. Composables only render that state and forward
+actions; they never touch `OctoCore` or adapters. The UI talks only to `OctoCore`. A feature that
+needs the shell gets an interface instead (the task screen's `TaskPlaces`), so features never
+depend on `ui`.
 
 The agents screen lists running tasks with the adapter's icon, the probe's sign-in state (shown
 as a mask; Octo has no secret to show), `OctoCore.processUsage` for CPU and memory, and the
@@ -413,7 +435,7 @@ agent and writes the state. `close()` belongs to `app`, so it is not on the inte
   `AgentSession.compact()`, which Claude takes as `/compact`. A prompt or a stop cancels the time,
   and the compaction's own requests set none. The times live in memory only.
 - **File previews.** With the `previews` flag on, the app hands `ViewModels` a `FilePreviewer`
-  (`ui/preview`), which picks a renderer by extension. Repository files are untrusted: the real
+  (`feature:diff`), which picks a renderer by extension. Repository files are untrusted: the real
   path must stay inside the worktree and under 20 MB, pictures over 40 megapixels are refused,
   an archive is listed from its central directory without inflating it, and SQLite is read by
   the `sqlite3` CLI in read-only safe mode. Mermaid goes through `mmdc` to PNG, since Skia's SVG

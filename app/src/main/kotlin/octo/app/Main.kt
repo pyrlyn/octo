@@ -12,10 +12,10 @@ import octo.core.io.AtomicFile
 import octo.core.paths.OctoPaths
 import octo.core.paths.currentHostOs
 import octo.core.process.JvmProcessLauncher
+import octo.feature.diff.FilePreviewer
+import octo.feature.palette.isPaletteShortcut
 import octo.ui.NotificationTray
 import octo.ui.OctoApp
-import octo.ui.isPaletteShortcut
-import octo.ui.preview.FilePreviewer
 import octo.ui.vm.ViewModels
 
 fun main() {
