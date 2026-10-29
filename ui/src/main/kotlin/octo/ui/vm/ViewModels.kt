@@ -3,6 +3,9 @@ package octo.ui.vm
 import kotlinx.coroutines.CoroutineScope
 import octo.core.access.Devices
 import octo.core.access.Shares
+import octo.core.config.ConfigFile
+import octo.core.flags.CoreFlags
+import octo.core.flags.FeatureFlag
 import octo.core.notify.NotificationConfig
 import octo.core.orchestrator.AgentCatalog
 import octo.core.orchestrator.OctoCore
@@ -11,7 +14,24 @@ import octo.core.preset.PresetLibrary
 import octo.core.publish.TaskPublisher
 import octo.core.task.TaskId
 import octo.core.usage.UsageReport
-import octo.ui.preview.FilePreviewer
+import octo.feature.agents.AgentsViewModel
+import octo.feature.devices.DevicesViewModel
+import octo.feature.diff.DiffViewModel
+import octo.feature.diff.FilePreviewer
+import octo.feature.newtask.NewTaskViewModel
+import octo.feature.newtask.PresetsViewModel
+import octo.feature.newtask.summary
+import octo.feature.onboarding.OnboardingViewModel
+import octo.feature.palette.Command
+import octo.feature.palette.PaletteViewModel
+import octo.feature.settings.SettingsViewModel
+import octo.feature.task.MoveTaskViewModel
+import octo.feature.task.PluginActionsViewModel
+import octo.feature.task.PublishViewModel
+import octo.feature.task.ShareViewModel
+import octo.feature.task.SwitchAgentViewModel
+import octo.feature.task.TaskViewModel
+import octo.feature.usage.UsageViewModel
 
 /** Builds the screens' view models, so composables never hold a reference to core. */
 class ViewModels(
@@ -52,6 +72,12 @@ class ViewModels(
     private val shareBase: String? = null,
     /** Null while the `notifications` flag is off, which posts no OS notifications. */
     notificationConfig: NotificationConfig? = null,
+    /** Null leaves out settings and the first-run guide, as in tests. */
+    private val config: ConfigFile? = null,
+    /** Every flag settings can turn on, the adapters' included. */
+    private val flags: List<FeatureFlag> = CoreFlags.all,
+    /** The Octo home folder, shown in settings. */
+    private val home: String = "",
 ) {
     val main = MainViewModel(core, scope, startupWarnings, sections, limits = usage != null)
 
@@ -69,6 +95,10 @@ class ViewModels(
     val canFork: Boolean get() = fork
 
     val canMove: Boolean get() = moveTask
+
+    val canOpenPalette: Boolean get() = palette
+
+    val canEditSettings: Boolean get() = config != null
 
     fun task(id: TaskId) = TaskViewModel(core, id, scope, limits = usage != null, checkpoints = checkpoints)
 
@@ -100,6 +130,7 @@ class ViewModels(
                     Command.Move -> canMove
                     Command.Devices -> canPair
                     Command.Usage -> canShowUsage
+                    Command.Settings -> canEditSettings
                     else -> true
                 }
             }
@@ -109,7 +140,16 @@ class ViewModels(
         return PaletteViewModel(core, scope, commands, selected)
     }
 
-    fun agents() = AgentsViewModel(core, catalog, scope)
+    /** Lives as long as the window: the sidebar lists the running agents whatever screen is open. */
+    val agents by lazy { AgentsViewModel(core, catalog, scope) }
+
+    /** Today's tokens and the running agents, for the toolbar. */
+    val summary by lazy { SummaryViewModel(agents.state, usage, scope) }
+
+    /** Lives as long as the window, since its appearance styles the whole window. */
+    val settings: SettingsViewModel? by lazy { config?.let { SettingsViewModel(it, catalog, flags, home, scope) } }
+
+    val onboarding: OnboardingViewModel? by lazy { config?.let { OnboardingViewModel(it, catalog, core, scope) } }
 
     fun usage(): UsageViewModel? = usage?.let { UsageViewModel(it, catalog, scope) }
 

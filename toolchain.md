@@ -2,7 +2,7 @@
 
 | Program | How to install | Why here | Source |
 | --- | --- | --- | --- |
-| JDK 21 (Temurin) | mise | Runs Gradle and the desktop app | https://adoptium.net |
+| JDK 25 (Temurin) | mise | Runs Gradle and the desktop app | https://adoptium.net |
 | Gradle 9.7.1 | wrapper (`./gradlew`) | Build | https://github.com/gradle/gradle |
 | Kotlin 2.4.21 | Gradle plugin | Language, Kotlin Multiplatform | https://github.com/JetBrains/kotlin |
 | git | system | Version control, worktrees per task | https://git-scm.com |
@@ -32,3 +32,10 @@
 | pyrlyn.wasm:wasm | local (included build) | https://github.com/pyrlyn/kotlin-wasm | The engine-neutral WebAssembly interface the plugin loader uses |
 | pyrlyn.wasm:wasm-chasm (Chasm 2.3.0, `io.github.charlietap.chasm:chasm`) | local (included build) | https://github.com/CharlieTap/chasm | Runs plugins in a WebAssembly interpreter |
 | com.github.burrunan.s3-build-cache 1.9.10 | local (settings) | https://github.com/burrunan/gradle-s3-build-cache | Optional S3/R2 remote build cache (`ci.diffuser.settings`); off without its keys |
+
+## Bundled assets
+
+| Asset | Where | Source | Why here |
+| --- | --- | --- | --- |
+| IBM Plex Sans 6.4.0 (Regular, Medium, SemiBold, Bold; OFL 1.1) | `design/src/jvmMain/resources/fonts` | https://github.com/IBM/plex | UI face of the Pyrlyn Glass design |
+| JetBrains Mono 2.304 (Regular, Medium, Bold; OFL 1.1) | `design/src/jvmMain/resources/fonts` | https://github.com/JetBrains/JetBrainsMono | Code, paths and commands |

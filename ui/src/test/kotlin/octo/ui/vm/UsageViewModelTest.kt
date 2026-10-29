@@ -14,6 +14,13 @@ import octo.core.usage.UsageHistory
 import octo.core.usage.UsageLog
 import octo.core.usage.UsageRecord
 import octo.core.usage.UsageReport
+import octo.feature.task.TaskViewModel
+import octo.feature.task.limitLabel
+import octo.feature.usage.UsagePeriod
+import octo.feature.usage.UsageRow
+import octo.feature.usage.UsageViewModel
+import octo.feature.usage.bucketEdges
+import octo.feature.usage.since
 import octo.testing.FakeCatalog
 import octo.testing.FakeOctoCore
 import java.nio.file.Files
@@ -150,5 +157,27 @@ class UsageViewModelTest {
             }
             assertTrue(row(MainViewModel(core, backgroundScope, limits = true)))
             assertFalse(row(MainViewModel(core, backgroundScope)))
+        }
+
+    @Test
+    fun theChartHasAnHourlyOrDailyBarPerBucket() =
+        runTest {
+            assertEquals(24, bucketEdges(UsagePeriod.Today, now, zone).size)
+            assertEquals(at(22, 0), bucketEdges(UsagePeriod.Week, now, zone).first())
+            assertEquals(at(28, 0), bucketEdges(UsagePeriod.Week, now, zone).last())
+            assertEquals(30, bucketEdges(UsagePeriod.Month, now, zone).size)
+            assertEquals(emptyList(), bucketEdges(UsagePeriod.All, now, zone))
+
+            val vm = UsageViewModel(report(), FakeCatalog(core), backgroundScope, { now }, zone)
+            settle()
+            assertEquals(listOf(0L, 0L, 0L, 90L, 0L, 0L, 2_002_010L), vm.state.value.chart)
+            vm.choose(UsagePeriod.Today)
+            settle()
+            val today = vm.state.value.chart
+            assertEquals(2_000_010L, today[1], "the 01:00 bar")
+            assertEquals(2_000L, today[12], "the noon bar")
+            vm.choose(UsagePeriod.All)
+            settle()
+            assertEquals(emptyList(), vm.state.value.chart)
         }
 }

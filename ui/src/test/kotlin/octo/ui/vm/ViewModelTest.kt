@@ -25,6 +25,12 @@ import octo.core.task.SidebarStatus
 import octo.core.task.TaskId
 import octo.core.task.TaskView
 import octo.core.task.TranscriptEntry
+import octo.feature.diff.DiffViewModel
+import octo.feature.newtask.NewTaskUiState
+import octo.feature.newtask.NewTaskViewModel
+import octo.feature.newtask.summary
+import octo.feature.task.RemoveStep
+import octo.feature.task.TaskViewModel
 import octo.testing.FakeCatalog
 import octo.testing.FakeOctoCore
 import kotlin.test.Test

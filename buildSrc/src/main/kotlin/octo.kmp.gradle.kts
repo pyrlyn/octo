@@ -12,7 +12,7 @@ val allNativeTargets = providers.gradleProperty("octo.allNativeTargets").map { i
 val os = System.getProperty("os.name").lowercase()
 
 kotlin {
-    jvmToolchain(21)
+    jvmToolchain(25)
     jvm()
     if (allNativeTargets || os.contains("mac")) macosArm64()
     if (allNativeTargets || os.contains("linux")) linuxX64()

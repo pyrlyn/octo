@@ -13,6 +13,11 @@ import octo.core.task.TaskId
 import octo.core.task.TaskPlace
 import octo.core.task.TaskView
 import octo.core.task.rollup
+import octo.feature.common.action
+import octo.feature.common.userMessage
+import octo.feature.newtask.NewTaskDraft
+import octo.feature.palette.Command
+import octo.feature.task.TaskPlaces
 
 data class TaskRow(
     val id: TaskId,
@@ -71,6 +76,10 @@ data class MainUiState(
     val agentsOpen: Boolean = false,
     /** The usage screen, shown in the same place as the agents screen. */
     val usageOpen: Boolean = false,
+    /** Settings, shown in the same place as the agents screen. */
+    val settingsOpen: Boolean = false,
+    /** What the new-task dialog starts with, from onboarding. */
+    val newTaskDraft: NewTaskDraft? = null,
     /** A dialog over the selected task; picking another task closes it. */
     val taskDialog: TaskDialog? = null,
     val devicesOpen: Boolean = false,
@@ -97,7 +106,7 @@ class MainViewModel(
     private val now: () -> Long = System::currentTimeMillis,
     /** False while the `usage` flag is off: no task shows as limited. */
     private val limits: Boolean = false,
-) {
+) : TaskPlaces {
     private val mutable = MutableStateFlow(MainUiState().withCore(core.state.value, startupWarnings, sections, limits))
     val state: StateFlow<MainUiState> = mutable.asStateFlow()
 
@@ -106,8 +115,7 @@ class MainViewModel(
     }
 
     fun select(id: TaskId) {
-        closeAgents()
-        closeUsage()
+        mutable.update { it.copy(agentsOpen = false, usageOpen = false, settingsOpen = false) }
         mutable.update { s -> s.copy(taskDialog = s.taskDialog.takeIf { id == s.selected }) }
         act {
             core.updateLayout(
@@ -137,17 +145,30 @@ class MainViewModel(
         }
     }
 
-    fun openNewTask() = mutable.update { it.copy(newTaskOpen = true) }
+    fun openNewTask(draft: NewTaskDraft? = null) = mutable.update { it.copy(newTaskOpen = true, newTaskDraft = draft) }
 
-    fun openAgents() = mutable.update { it.copy(agentsOpen = true, usageOpen = false) }
+    fun openAgents() = mutable.update { it.copy(agentsOpen = true, usageOpen = false, settingsOpen = false) }
 
-    fun openUsage() = mutable.update { it.copy(usageOpen = true, agentsOpen = false) }
+    fun openUsage() = mutable.update { it.copy(usageOpen = true, agentsOpen = false, settingsOpen = false) }
+
+    fun showSettings(open: Boolean) =
+        mutable.update {
+            if (open) {
+                it.copy(
+                    settingsOpen = true,
+                    agentsOpen = false,
+                    usageOpen = false,
+                )
+            } else {
+                it.copy(settingsOpen = false)
+            }
+        }
 
     fun closeUsage() = mutable.update { it.copy(usageOpen = false) }
 
     fun closeAgents() = mutable.update { it.copy(agentsOpen = false) }
 
-    fun closeNewTask() = mutable.update { it.copy(newTaskOpen = false) }
+    fun closeNewTask() = mutable.update { it.copy(newTaskOpen = false, newTaskDraft = null) }
 
     fun openTaskDialog(dialog: TaskDialog) = mutable.update { it.copy(taskDialog = dialog) }
 
@@ -172,6 +193,7 @@ class MainViewModel(
             Command.Agents -> openAgents()
             Command.Usage -> openUsage()
             Command.Devices -> openDevices()
+            Command.Settings -> showSettings(true)
             Command.Diff -> showDiff(!state.value.diffOpen)
             Command.Publish -> openTaskDialog(TaskDialog.Publish)
             Command.SwitchAgent -> openTaskDialog(TaskDialog.SwitchAgent)
@@ -184,13 +206,14 @@ class MainViewModel(
     /** Forks [id] and opens the fork. */
     fun fork(id: TaskId) = act { select(core.forkTask(id)) }
 
-    fun place(
+    override fun place(
         id: TaskId,
         place: TaskPlace,
-    ) = act { core.setPlace(id, place) }
+    ) {
+        act { core.setPlace(id, place) }
+    }
 
-    /** Snoozes [id] for [forMs], or with null until its agent's turn ends. */
-    fun snooze(
+    override fun snooze(
         id: TaskId,
         forMs: Long?,
     ) = place(id, TaskPlace.Snoozed(forMs?.let { now() + it }))

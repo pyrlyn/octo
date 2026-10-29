@@ -24,6 +24,12 @@ dependencies {
 compose.desktop {
     application {
         mainClass = "octo.app.MainKt"
+        // Run and package on the toolchain's JDK, not whichever JDK runs Gradle: the classes need 25.
+        javaHome =
+            javaToolchains
+                .launcherFor { languageVersion = JavaLanguageVersion.of(25) }
+                .get()
+                .metadata.installationPath.asFile.absolutePath
         // Skiko loads its native renderer with System.load; JDK 24+ warns about that and will block it.
         jvmArgs += "--enable-native-access=ALL-UNNAMED"
         nativeDistributions {

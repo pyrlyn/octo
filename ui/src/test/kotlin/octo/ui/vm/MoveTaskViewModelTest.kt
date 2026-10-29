@@ -5,8 +5,13 @@ import kotlinx.coroutines.test.runTest
 import octo.core.status.AgentStatus
 import octo.core.task.TaskId
 import octo.core.task.TaskView
+import octo.feature.palette.Command
+import octo.feature.palette.PaletteItem
+import octo.feature.task.MoveTaskViewModel
 import octo.testing.FakeCatalog
 import octo.testing.FakeOctoCore
+import octo.ui.vm.TaskDialog
+import octo.ui.vm.ViewModels
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertFalse

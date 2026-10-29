@@ -143,4 +143,22 @@ class UsageTest {
                     .inputTokens,
             )
         }
+
+    @Test
+    fun theSeriesSumsEachBucketAndSkipsWhatCameBefore() =
+        runTest {
+            val log = UsageLog.open(AtomicFile(Path(tempDir("octo-usage"), "usage.json")))
+            log.add(
+                listOf(
+                    UsageRecord(5, kimi, "k2", inputTokens = 1_000),
+                    UsageRecord(10, kimi, "k2", inputTokens = 4, outputTokens = 1),
+                    UsageRecord(19, kimi, "k2", cacheReadTokens = 2),
+                    UsageRecord(20, kimi, "k2", inputTokens = 7),
+                    UsageRecord(99, kimi, "k2", cacheWriteTokens = 3),
+                ),
+            )
+            val report = UsageReport(log, emptyMap())
+            assertEquals(listOf(7L, 7L, 3L), report.totals(sinceMs = 10, edges = listOf(10, 20, 30)).series)
+            assertEquals(emptyList(), report.totals(sinceMs = null).series, "no buckets asked for")
+        }
 }

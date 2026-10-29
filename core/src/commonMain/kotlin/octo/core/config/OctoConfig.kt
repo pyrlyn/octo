@@ -40,6 +40,7 @@ data class OctoConfig(
     val maxChildTasks: Int = DEFAULT_MAX_CHILD_TASKS,
     /** Used only with the `notifications` flag on. */
     val notifications: NotificationConfig = NotificationConfig(),
+    val appearance: AppearanceConfig = AppearanceConfig(),
 ) {
     fun featureFlags(): FeatureFlags = FeatureFlags(flags)
 
@@ -108,10 +109,11 @@ data class MachineConfig(
             else -> null
         }
 
-    private companion object {
-        val ID = Regex("[a-z0-9][a-z0-9-]*")
+    // Not private: the generated serializer lives on the companion, and settings encode machines.
+    companion object {
+        private val ID = Regex("[a-z0-9][a-z0-9-]*")
 
-        fun badRepo(entry: Map.Entry<String, String>) = entry.key.isBlank() || !entry.value.startsWith("/")
+        private fun badRepo(entry: Map.Entry<String, String>) = entry.key.isBlank() || !entry.value.startsWith("/")
     }
 }
 
