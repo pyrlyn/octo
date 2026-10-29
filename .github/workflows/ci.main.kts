@@ -13,6 +13,7 @@ import io.github.typesafegithub.workflows.actions.gradle.ActionsSetupGradle
 import io.github.typesafegithub.workflows.domain.Mode
 import io.github.typesafegithub.workflows.domain.Permission
 import io.github.typesafegithub.workflows.domain.RunnerType.UbuntuLatest
+import io.github.typesafegithub.workflows.domain.triggers.PullRequest
 import io.github.typesafegithub.workflows.domain.triggers.Push
 import io.github.typesafegithub.workflows.dsl.workflow
 import io.github.typesafegithub.workflows.yaml.CheckoutActionVersionSource
@@ -20,7 +21,7 @@ import io.github.typesafegithub.workflows.yaml.DEFAULT_CONSISTENCY_CHECK_JOB_CON
 
 workflow(
     name = "CI",
-    on = listOf(Push(branches = listOf("main"))),
+    on = listOf(Push(branches = listOf("main")), PullRequest()),
     permissions = mapOf(Permission.Contents to Mode.Read),
     sourceFile = __FILE__,
     targetFileName = "ci.yml",
@@ -30,8 +31,20 @@ workflow(
             checkoutActionVersion = CheckoutActionVersionSource.InferFromClasspath(),
         ),
 ) {
-    job(id = "check", runsOn = UbuntuLatest) {
+    job(
+        id = "check",
+        runsOn = UbuntuLatest,
+        // Shared builds from github.com/pyrlyn/packages, checked out below; absolute, since the
+        // included kotlin-wasm build reads the same variables relative to its own directory.
+        env =
+            mapOf(
+                "SHARED_SETTINGS_DIR" to "\${{ github.workspace }}/packages/shared-settings",
+                "KOTLIN_WASM_DIR" to "\${{ github.workspace }}/packages/kotlin-wasm",
+            ),
+    ) {
         uses(action = Checkout())
+        // Pinned release tag; bump when octo needs newer shared builds.
+        uses(action = Checkout(repository = "pyrlyn/packages", ref = "0.0.1", path = "packages"))
         uses(action = SetupJava(distribution = SetupJava.Distribution.Temurin, javaVersion = "25"))
         uses(action = ActionsSetupGradle())
         // Builds every native target the host can build, so commonMain stays free of JVM-only code.
