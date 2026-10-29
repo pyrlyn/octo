@@ -190,7 +190,7 @@ fun GlassChip(
         modifier
             .clip(shape)
             .background(c.stateHover)
-            .border(0.5.dp, c.glassRim, shape)
+            .border(hairline, c.glassRim, shape)
             .clickable(role = Role.Button, onClick = onClick)
             .padding(horizontal = Gap, vertical = SmallGap),
         verticalAlignment = Alignment.CenterVertically,
