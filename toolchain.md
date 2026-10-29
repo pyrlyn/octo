@@ -27,6 +27,7 @@
 | com.soywiz.korge:korlibs-time 5.4.0 | local (through krontab) | https://github.com/korlibs/korlibs-time | The date type krontab takes and returns |
 | org.jetbrains.kotlin:kotlin-test | local | https://github.com/JetBrains/kotlin | Tests |
 | Compose Multiplatform 1.12.2 (`org.jetbrains.compose`) | local | https://github.com/JetBrains/compose-multiplatform | Desktop UI |
+| Compose Hot Reload 1.2.0 (`org.jetbrains.compose.hot-reload`) | local (`app`) | https://github.com/JetBrains/compose-hot-reload | `hotRun`: reloads UI code into the running app (development only) |
 | org.jlleitschuh.gradle.ktlint 14.2.0 (ktlint 1.8.0) | via shared-settings | https://github.com/JLLeitschuh/ktlint-gradle | Formatting lint (`shared.settings.ktlint`) |
 | dev.detekt 2.0.0-alpha.6 | via shared-settings | https://github.com/detekt/detekt | Static analysis (`shared.settings.detekt`) |
 | pyrlyn.wasm:wasm | local (included build) | https://github.com/pyrlyn/packages/tree/main/kotlin-wasm | The engine-neutral WebAssembly interface the plugin loader uses |
