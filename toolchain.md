@@ -5,6 +5,7 @@
 | JDK 25 (Temurin) | mise | Runs Gradle and the desktop app | https://adoptium.net |
 | Gradle 9.7.1 | wrapper (`./gradlew`) | Build | https://github.com/gradle/gradle |
 | Kotlin 2.4.21 | Gradle plugin | Language, Kotlin Multiplatform | https://github.com/JetBrains/kotlin |
+| Kotlin CLI (`kotlin`) | mise or brew; preinstalled on GitHub's Ubuntu runners | Runs the `.github/workflows/*.main.kts` scripts that generate the CI YAML | https://github.com/JetBrains/kotlin |
 | git | system | Version control, worktrees per task | https://git-scm.com |
 | gh | brew | Repository and PRs | https://github.com/cli/cli |
 | shared-settings | `packages/shared-settings` above the build (or `SHARED_SETTINGS_DIR`), local included build | Shared ktlint, detekt and settings conventions | https://github.com/pyrlyn/packages/tree/main/shared-settings |
@@ -33,6 +34,13 @@
 | pyrlyn.wasm:wasm | local (included build) | https://github.com/pyrlyn/packages/tree/main/kotlin-wasm | The engine-neutral WebAssembly interface the plugin loader uses |
 | pyrlyn.wasm:wasm-chasm (Chasm 2.3.0, `io.github.charlietap.chasm:chasm`) | local (included build) | https://github.com/CharlieTap/chasm | Runs plugins in a WebAssembly interpreter |
 | com.github.burrunan.s3-build-cache 1.9.10 | local (settings) | https://github.com/burrunan/gradle-s3-build-cache | Optional S3/R2 remote build cache (`shared.settings`); off without its keys |
+
+## Kotlin scripts (`@file:DependsOn`)
+
+| Package | Where | Source | Why here |
+| --- | --- | --- | --- |
+| io.github.typesafegithub:github-workflows-kt 4.0.0 | local (`.github/workflows/*.main.kts`) | https://github.com/typesafegithub/github-workflows-kt | Writes the CI workflows in Kotlin and adds the YAML consistency check |
+| actions:checkout v7.0.1, actions:setup-java v6.1.0, gradle:actions__setup-gradle v6.4.0 | local (`.github/workflows/*.main.kts`), from https://bindings.krzeminski.it | https://github.com/typesafegithub/github-workflows-kt | Typed bindings of the actions the CI uses |
 
 ## Bundled assets
 
