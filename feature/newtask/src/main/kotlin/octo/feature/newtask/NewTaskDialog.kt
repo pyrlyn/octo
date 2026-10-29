@@ -2,6 +2,7 @@ package octo.feature.newtask
 
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
@@ -10,14 +11,6 @@ import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.text.KeyboardActions
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.verticalScroll
-import androidx.compose.material3.DropdownMenuItem
-import androidx.compose.material3.ExperimentalMaterial3Api
-import androidx.compose.material3.ExposedDropdownMenuAnchorType
-import androidx.compose.material3.ExposedDropdownMenuBox
-import androidx.compose.material3.ExposedDropdownMenuDefaults
-import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.RadioButton
-import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
@@ -33,16 +26,24 @@ import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.unit.dp
 import octo.core.agent.PermissionMode
 import octo.core.task.TaskId
-import octo.design.DialogWidth
+import octo.design.Chevron
+import octo.design.Choice
+import octo.design.FieldLabel
 import octo.design.Gap
 import octo.design.GhostButton
 import octo.design.GlassDialog
 import octo.design.GlassField
+import octo.design.GlassMenu
+import octo.design.GlassMenuItem
+import octo.design.GlassSelect
 import octo.design.LargeGap
 import octo.design.Notice
 import octo.design.PrimaryButton
+import octo.design.Pyrlyn
 import octo.design.SecondaryButton
+import octo.design.Text
 import octo.design.Tone
+import octo.design.WideDialogWidth
 import octo.feature.common.AgentChoice
 import octo.feature.common.AttachButton
 import octo.feature.common.AttachmentInput
@@ -91,7 +92,7 @@ private fun FormDialog(
 ) {
     GlassDialog(
         onDismissRequest = onDismiss,
-        modifier = Modifier.width(DialogWidth),
+        modifier = Modifier.width(WideDialogWidth),
         title = {
             Text(
                 when {
@@ -119,8 +120,6 @@ private fun Form(
     onEditPresets: () -> Unit,
 ) {
     Column(Modifier.verticalScroll(rememberScrollState()), verticalArrangement = Arrangement.spacedBy(Gap)) {
-        if (state.presetsEnabled || state.compareEnabled) ModeChoice(state, vm)
-        if (state.machines.isNotEmpty()) MachineChoice(state, vm)
         Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(Gap)) {
             GlassField(
                 state.repo,
@@ -135,17 +134,18 @@ private fun Form(
             }
         }
         BranchChoice(state, vm)
+        if (state.presetsEnabled || state.compareEnabled) ModeChoice(state, vm)
         when {
             state.team -> TeamChoice(state, vm, onEditPresets)
             state.compare -> CompareChoice(state, vm)
             else -> SingleAgent(state, vm)
         }
+        if (state.machines.isNotEmpty()) MachineChoice(state, vm)
         state.error?.let { Notice(it, Tone.Error) }
     }
 }
 
 /** A select whose field doubles as a search box; whatever is typed, only a listed branch is taken. */
-@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 private fun BranchChoice(
     state: NewTaskUiState,
@@ -176,37 +176,33 @@ private fun BranchChoice(
         query = branch
     }
     val note = branchNote(state, searching && matches.isEmpty())
-    ExposedDropdownMenuBox(open, onExpandedChange = {
-        if (it &&
-            state.branches.isNotEmpty()
-        ) {
+    GlassField(
+        query,
+        {
+            query = it
             open = true
-        } else {
-            close()
-        }
-    }) {
-        GlassField(
-            query,
-            {
-                query = it
+        },
+        Modifier.fillMaxWidth().onFocusChanged {
+            if (!it.isFocused) {
+                close()
+            } else if (state.branches.isNotEmpty()) {
                 open = true
-            },
-            Modifier
-                .menuAnchor(ExposedDropdownMenuAnchorType.PrimaryEditable)
-                .fillMaxWidth()
-                .onFocusChanged { if (!it.isFocused) close() },
-            label = { Text("Base branch") },
-            trailingIcon = { ExposedDropdownMenuDefaults.TrailingIcon(open) },
-            supportingText = note?.let { { Text(it.first) } },
-            isError = note?.second == true,
-            keyboardOptions = KeyboardOptions(imeAction = ImeAction.Done),
-            keyboardActions = KeyboardActions(onDone = { matches.firstOrNull()?.let(pick) }),
-            singleLine = true,
-        )
-        ExposedDropdownMenu(open && matches.isNotEmpty(), onDismissRequest = close) {
-            matches.forEach { branch -> DropdownMenuItem(text = { Text(branch) }, onClick = { pick(branch) }) }
-        }
-    }
+            }
+        },
+        label = { Text("Base branch") },
+        trailingIcon = { Chevron(open) },
+        supportingText = note?.let { { Text(it.first) } },
+        isError = note?.second == true,
+        keyboardOptions = KeyboardOptions(imeAction = ImeAction.Done),
+        keyboardActions = KeyboardActions(onDone = { matches.firstOrNull()?.let(pick) }),
+        singleLine = true,
+        // The keyboard stays in the field, so typing keeps narrowing the list.
+        menu = { width ->
+            GlassMenu(open && matches.isNotEmpty(), close, Modifier.width(width), focusable = false) {
+                matches.forEach { branch -> GlassMenuItem(onClick = { pick(branch) }) { Text(branch) } }
+            }
+        },
+    )
 }
 
 /** The hint under the branch field and whether it is an error. */
@@ -228,8 +224,8 @@ private fun SingleAgent(
     state: NewTaskUiState,
     vm: NewTaskViewModel,
 ) {
-    TitleAndPrompt(state, vm)
     AgentSelect(state, vm)
+    TitleAndPrompt(state, vm)
     if (state.permissionModes.size > 1) PermissionChoice(state, vm)
 }
 
@@ -239,7 +235,7 @@ private fun CompareChoice(
     vm: NewTaskViewModel,
 ) {
     TitleAndPrompt(state, vm)
-    Text("Agents", style = MaterialTheme.typography.titleSmall)
+    FieldLabel("Agents")
     if (state.loadingAgents) Text("Looking for installed agents…")
     state.agents.forEach { agent ->
         val models = state.compared[agent.id]
@@ -257,8 +253,8 @@ private fun CompareChoice(
     }
     Text(
         "${state.picks.size} tasks, one branch each",
-        style = MaterialTheme.typography.bodySmall,
-        color = MaterialTheme.colorScheme.onSurfaceVariant,
+        style = Pyrlyn.type.small,
+        color = Pyrlyn.colors.fgMuted,
     )
 }
 
@@ -294,11 +290,17 @@ private fun PermissionChoice(
     state: NewTaskUiState,
     vm: NewTaskViewModel,
 ) {
-    Text("Permissions", style = MaterialTheme.typography.titleSmall)
-    (listOf<PermissionMode?>(null) + state.permissionModes).forEach { mode ->
-        Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(6.dp)) {
-            RadioButton(selected = state.chosenPermissionMode == mode, onClick = { vm.selectPermissionMode(mode) })
-            Text(mode?.label ?: "Default from the config")
+    FieldLabel("Permissions")
+    FlowRow(
+        horizontalArrangement = Arrangement.spacedBy(ChoiceSpacing),
+        verticalArrangement = Arrangement.spacedBy(Gap),
+    ) {
+        (listOf<PermissionMode?>(null) + state.permissionModes).forEach { mode ->
+            Choice(
+                mode?.label ?: "Default from the config",
+                state.chosenPermissionMode == mode,
+                { vm.selectPermissionMode(mode) },
+            )
         }
     }
 }
@@ -308,17 +310,10 @@ private fun ModeChoice(
     state: NewTaskUiState,
     vm: NewTaskViewModel,
 ) {
-    Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(6.dp)) {
-        RadioButton(selected = !state.team && !state.compare, onClick = { vm.useTeam(false) })
-        Text("One agent")
-        if (state.presetsEnabled) {
-            RadioButton(selected = state.team, onClick = { vm.useTeam(true) })
-            Text("Team preset")
-        }
-        if (state.compareEnabled) {
-            RadioButton(selected = state.compare, onClick = { vm.useCompare(true) })
-            Text("Compare agents")
-        }
+    Row(horizontalArrangement = Arrangement.spacedBy(ChoiceSpacing)) {
+        Choice("One agent", !state.team && !state.compare, { vm.useTeam(false) })
+        if (state.presetsEnabled) Choice("Team preset", state.team, { vm.useTeam(true) })
+        if (state.compareEnabled) Choice("Compare agents", state.compare, { vm.useCompare(true) })
     }
 }
 
@@ -329,22 +324,17 @@ private fun TeamChoice(
     onEditPresets: () -> Unit,
 ) {
     Row(verticalAlignment = Alignment.CenterVertically) {
-        Text("Preset", Modifier.weight(1f), style = MaterialTheme.typography.titleSmall)
+        FieldLabel("Preset", Modifier.weight(1f))
         GhostButton(onClick = onEditPresets) { Text("Edit presets…") }
     }
     if (state.presets.isEmpty()) Text("No presets yet.")
     state.presets.forEach { preset ->
-        Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(6.dp)) {
-            RadioButton(selected = preset.name == state.preset, onClick = { vm.selectPreset(preset.name) })
-            Column {
-                Text(preset.name)
-                Text(
-                    preset.summary(state.agents),
-                    style = MaterialTheme.typography.bodySmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                )
-            }
-        }
+        Choice(
+            preset.name,
+            preset.name == state.preset,
+            { vm.selectPreset(preset.name) },
+            note = preset.summary(state.agents),
+        )
     }
     if (state.loadingAgents) Text("Looking for installed agents…")
     if (!state.loadingAgents && state.missingAgents.isNotEmpty()) {
@@ -357,23 +347,24 @@ private fun MachineChoice(
     state: NewTaskUiState,
     vm: NewTaskViewModel,
 ) {
-    Text("Machine", style = MaterialTheme.typography.titleSmall)
-    (listOf<String?>(null) + state.machines).forEach { id ->
-        Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(6.dp)) {
-            RadioButton(selected = state.machine == id, onClick = { vm.selectMachine(id) })
-            Text(id ?: "This computer")
-        }
+    Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(Gap)) {
+        FieldLabel("Machine")
+        GlassSelect(
+            listOf<String?>(null) + state.machines,
+            state.machine,
+            vm::selectMachine,
+            { it ?: "This computer" },
+            Modifier.width(MachineWidth),
+        )
     }
 }
 
 /** A select rather than a list, so every agent stays reachable however short the window is. */
-@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 private fun AgentSelect(
     state: NewTaskUiState,
     vm: NewTaskViewModel,
 ) {
-    var open by remember { mutableStateOf(false) }
     val selected = state.selectedAgent
     val note =
         when {
@@ -382,39 +373,19 @@ private fun AgentSelect(
             state.agents.isNotEmpty() -> "No agent is installed here"
             else -> null
         }
-    ExposedDropdownMenuBox(open, onExpandedChange = { open = it && state.agents.isNotEmpty() }) {
-        GlassField(
-            selected?.displayName.orEmpty(),
-            {},
-            Modifier.menuAnchor(ExposedDropdownMenuAnchorType.PrimaryNotEditable).fillMaxWidth(),
-            readOnly = true,
-            label = { Text("Agent") },
-            trailingIcon = { ExposedDropdownMenuDefaults.TrailingIcon(open) },
-            supportingText = note?.let { { Text(it) } },
-            isError = !state.loadingAgents && selected == null && state.agents.isNotEmpty(),
-            singleLine = true,
-        )
-        ExposedDropdownMenu(open, onDismissRequest = { open = false }) {
-            state.agents.forEach { agent ->
-                DropdownMenuItem(
-                    text = {
-                        Column {
-                            Text(agent.displayName)
-                            Text(
-                                agentNote(agent),
-                                style = MaterialTheme.typography.bodySmall,
-                                color = MaterialTheme.colorScheme.onSurfaceVariant,
-                            )
-                        }
-                    },
-                    onClick = {
-                        vm.selectAgent(agent.id)
-                        open = false
-                    },
-                    // Shown anyway, so the user sees which agents Octo knows and that this one needs installing.
-                    enabled = agent.probe.installed,
-                )
-            }
-        }
-    }
+    GlassSelect(
+        state.agents,
+        selected,
+        { vm.selectAgent(it.id) },
+        { it.displayName },
+        Modifier.fillMaxWidth(),
+        label = "Agent",
+        supportingText = note,
+        isError = !state.loadingAgents && selected == null && state.agents.isNotEmpty(),
+        optionNote = ::agentNote,
+        optionEnabled = { it.probe.installed },
+    )
 }
+
+private val ChoiceSpacing = 18.dp
+private val MachineWidth = 220.dp

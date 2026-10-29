@@ -1,19 +1,14 @@
 package octo.design
 
+import androidx.compose.foundation.LocalIndication
 import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.material3.ColorScheme
-import androidx.compose.material3.LocalContentColor
-import androidx.compose.material3.LocalMinimumInteractiveComponentSize
-import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.Shapes
-import androidx.compose.material3.Typography
+import androidx.compose.foundation.text.selection.LocalTextSelectionColors
+import androidx.compose.foundation.text.selection.TextSelectionColors
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.Immutable
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.staticCompositionLocalOf
-import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.graphics.compositeOver
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.Dp
@@ -57,6 +52,8 @@ class GlassPlatform private constructor(
 @Immutable
 data class PyrlynType(
     val body: TextStyle,
+    /** Body text that heads a group, such as "Permissions" over its choices. */
+    val strong: TextStyle,
     val small: TextStyle,
     val label: TextStyle,
     val title: TextStyle,
@@ -68,6 +65,13 @@ private fun typeFor(platform: GlassPlatform): PyrlynType {
     val ui = UiFont
     return PyrlynType(
         body = TextStyle(fontFamily = ui, fontSize = body.sp, lineHeight = (body + 5).sp),
+        strong =
+            TextStyle(
+                fontFamily = ui,
+                fontSize = body.sp,
+                lineHeight = (body + 5).sp,
+                fontWeight = FontWeight.SemiBold,
+            ),
         small = TextStyle(fontFamily = ui, fontSize = (body - 2).sp, lineHeight = (body + 2).sp),
         label =
             TextStyle(
@@ -109,10 +113,7 @@ object Pyrlyn {
         @Composable get() = RoundedCornerShape(platform.radiusSurface)
 }
 
-/**
- * Pyrlyn Glass for the whole UI. Material 3 components stay, so the tokens are also mapped into
- * its colour scheme, type and shapes; glass surfaces read [Pyrlyn] directly.
- */
+/** Pyrlyn Glass for the whole UI: every component reads [Pyrlyn] and the content locals it sets. */
 @Composable
 fun PyrlynTheme(
     dark: Boolean,
@@ -122,107 +123,27 @@ fun PyrlynTheme(
 ) {
     val colors = if (dark) PyrlynDark else PyrlynLight
     val type = remember(platform) { typeFor(platform) }
+    val selection =
+        remember(colors) {
+            TextSelectionColors(colors.accentSolid, colors.accentSolid.copy(alpha = SELECTION_ALPHA))
+        }
+    val stateLayer =
+        remember(colors) {
+            StateLayer(colors.stateHover, colors.stateHover.copy(alpha = colors.stateHover.alpha * PRESS_DEPTH))
+        }
     CompositionLocalProvider(
         LocalPyrlynColors provides colors,
         LocalGlassPlatform provides platform,
         LocalPyrlynType provides type,
         LocalOpaque provides opaque,
-    ) {
-        MaterialTheme(colorScheme(colors), shapes(platform), typography(type)) {
-            // No root Surface sets it: the window is glass over the backdrop.
-            // A desktop pointer needs no 48dp touch target; Pyrlyn sizes controls per platform.
-            CompositionLocalProvider(
-                LocalContentColor provides colors.fg,
-                LocalMinimumInteractiveComponentSize provides Dp.Unspecified,
-                content = content,
-            )
-        }
-    }
-}
-
-private fun colorScheme(c: PyrlynColors): ColorScheme =
-    ColorScheme(
-        primary = c.accentSolid,
-        onPrimary = c.onAccent,
-        primaryContainer = c.accentBg,
-        onPrimaryContainer = c.stateSelectedFg,
-        inversePrimary = c.accentFg,
-        secondary = c.accentFg,
-        onSecondary = c.onAccent,
-        secondaryContainer = c.accentBg,
-        onSecondaryContainer = c.stateSelectedFg,
-        tertiary = c.info,
-        onTertiary = c.onAccent,
-        tertiaryContainer = c.info.copy(alpha = TINT),
-        onTertiaryContainer = c.fg,
-        background = c.bgApp,
-        onBackground = c.fg,
-        // Compose has no backdrop blur, so floating surfaces stay opaque: text behind must not show.
-        surface = c.veilFloating.compositeOver(c.solidFloating),
-        onSurface = c.fg,
-        surfaceVariant = c.bgSunken,
-        onSurfaceVariant = c.fgMuted,
-        surfaceTint = Color.Transparent,
-        inverseSurface = c.fg,
-        inverseOnSurface = c.bgCanvas,
-        error = c.danger,
-        onError = Color.White,
-        errorContainer = c.danger.copy(alpha = TINT),
-        onErrorContainer = c.fg,
-        outline = c.borderStrong,
-        outlineVariant = c.border,
-        scrim = c.scrim,
-        surfaceBright = c.bgRaised,
-        surfaceContainer = c.veilFloating.compositeOver(c.solidFloating),
-        surfaceContainerHigh = c.veilFloating.compositeOver(c.solidFloating),
-        surfaceContainerHighest = c.bgActive,
-        surfaceContainerLow = c.bgSunken,
-        surfaceContainerLowest = c.bgCanvas,
-        surfaceDim = c.bgApp,
-        primaryFixed = c.accentBg,
-        primaryFixedDim = c.accentBg,
-        onPrimaryFixed = c.stateSelectedFg,
-        onPrimaryFixedVariant = c.stateSelectedFg,
-        secondaryFixed = c.accentBg,
-        secondaryFixedDim = c.accentBg,
-        onSecondaryFixed = c.stateSelectedFg,
-        onSecondaryFixedVariant = c.stateSelectedFg,
-        tertiaryFixed = c.info.copy(alpha = TINT),
-        tertiaryFixedDim = c.info.copy(alpha = TINT),
-        onTertiaryFixed = c.fg,
-        onTertiaryFixedVariant = c.fg,
-    )
-
-private fun shapes(p: GlassPlatform) =
-    Shapes(
-        extraSmall = RoundedCornerShape(p.radiusControl),
-        small = RoundedCornerShape(p.radiusControl),
-        medium = RoundedCornerShape(p.radiusSurface),
-        large = RoundedCornerShape(p.radiusSurface),
-        extraLarge = RoundedCornerShape(p.radiusWindow),
-    )
-
-private fun typography(t: PyrlynType): Typography {
-    val medium = t.body.copy(fontWeight = FontWeight.Medium)
-    val semibold = t.body.copy(fontWeight = FontWeight.SemiBold)
-    return Typography(
-        displayLarge = t.title,
-        displayMedium = t.title,
-        displaySmall = t.title,
-        headlineLarge = t.title,
-        headlineMedium = t.title,
-        headlineSmall = t.title,
-        titleLarge = t.title,
-        titleMedium = semibold,
-        titleSmall = semibold,
-        bodyLarge = t.body,
-        bodyMedium = t.body,
-        bodySmall = t.small,
-        labelLarge = medium,
-        labelMedium = t.label,
-        labelSmall = t.label,
+        // No root surface sets them: the window is glass over the backdrop.
+        LocalContentColor provides colors.fg,
+        LocalTextStyle provides type.body,
+        LocalTextSelectionColors provides selection,
+        LocalIndication provides stateLayer,
+        content = content,
     )
 }
 
-/** Alpha of a status colour used as a container tint. */
-private const val TINT = 0.16f
+private const val SELECTION_ALPHA = 0.35f
+private const val PRESS_DEPTH = 2f

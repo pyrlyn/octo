@@ -8,9 +8,6 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
-import androidx.compose.material3.DropdownMenuItem
-import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
@@ -29,10 +26,13 @@ import octo.design.GhostButton
 import octo.design.GlassDialog
 import octo.design.GlassField
 import octo.design.GlassMenu
+import octo.design.GlassMenuItem
 import octo.design.Hairline
 import octo.design.Notice
 import octo.design.PrimaryButton
+import octo.design.Pyrlyn
 import octo.design.SecondaryButton
+import octo.design.Text
 import octo.design.Tone
 import octo.feature.common.label
 
@@ -95,8 +95,8 @@ private fun PresetList(
                 Text(preset.name)
                 Text(
                     preset.summary(state.agents),
-                    style = MaterialTheme.typography.bodySmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    style = Pyrlyn.type.small,
+                    color = Pyrlyn.colors.fgMuted,
                 )
             }
             GhostButton(onClick = { vm.edit(preset.name) }) { Text("Edit") }
@@ -118,7 +118,7 @@ private fun DraftForm(
     }
     SecondaryButton(onClick = vm::addMember) { Text("Add member") }
     draft.preset.problem()?.let {
-        Text(it, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+        Text(it, style = Pyrlyn.type.small, color = Pyrlyn.colors.fgMuted)
     }
 }
 
@@ -161,17 +161,14 @@ private fun AgentPicker(
         SecondaryButton(onClick = { open = true }) { Text(agents.nameOf(selected)) }
         GlassMenu(expanded = open, onDismissRequest = { open = false }) {
             agents.forEach { agent ->
-                DropdownMenuItem(
-                    text = {
-                        Text(
-                            if (agent.probe.installed) agent.displayName else "${agent.displayName} (not installed)",
-                        )
-                    },
-                    onClick = {
-                        onSelect(agent.id)
-                        open = false
-                    },
-                )
+                GlassMenuItem(onClick = {
+                    onSelect(agent.id)
+                    open = false
+                }) {
+                    Text(
+                        if (agent.probe.installed) agent.displayName else "${agent.displayName} (not installed)",
+                    )
+                }
             }
         }
     }

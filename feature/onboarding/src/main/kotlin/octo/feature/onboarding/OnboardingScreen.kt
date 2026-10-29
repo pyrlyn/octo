@@ -13,8 +13,6 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.shape.CircleShape
-import androidx.compose.material3.RadioButton
-import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
@@ -27,6 +25,7 @@ import octo.core.agent.AuthState
 import octo.core.agent.PermissionMode
 import octo.core.orchestrator.AgentInfo
 import octo.design.AccentTile
+import octo.design.Choice
 import octo.design.Elevation
 import octo.design.Gap
 import octo.design.GhostButton
@@ -37,6 +36,7 @@ import octo.design.Notice
 import octo.design.PrimaryButton
 import octo.design.Pyrlyn
 import octo.design.SmallGap
+import octo.design.Text
 import octo.design.Tone
 import octo.design.glass
 import octo.feature.common.description
@@ -223,16 +223,7 @@ private fun AgentChoice(
             probe.auth == AuthState.LoggedIn -> "$found · signed in"
             else -> found
         }
-    Row(
-        Modifier.fillMaxWidth().clickable(enabled = probe.installed, onClick = onSelect),
-        verticalAlignment = Alignment.CenterVertically,
-    ) {
-        RadioButton(selected = selected, onClick = onSelect, enabled = probe.installed)
-        Column {
-            Text(agent.displayName, color = if (probe.installed) Pyrlyn.colors.fg else Pyrlyn.colors.fgDisabled)
-            Text(detail, style = Pyrlyn.type.small, color = Pyrlyn.colors.fgMuted)
-        }
-    }
+    Choice(agent.displayName, selected, onSelect, Modifier.fillMaxWidth(), note = detail, enabled = probe.installed)
 }
 
 @Composable
@@ -258,13 +249,7 @@ private fun Modes(
     onSelect: (PermissionMode) -> Unit,
 ) {
     OnboardingModes.forEach {
-        Row(Modifier.fillMaxWidth().clickable { onSelect(it) }, verticalAlignment = Alignment.CenterVertically) {
-            RadioButton(selected = it == mode, onClick = { onSelect(it) })
-            Column {
-                Text(it.label, fontWeight = FontWeight.Medium)
-                Text(it.description, style = Pyrlyn.type.small, color = Pyrlyn.colors.fgMuted)
-            }
-        }
+        Choice(it.label, it == mode, { onSelect(it) }, Modifier.fillMaxWidth(), note = it.description)
     }
 }
 

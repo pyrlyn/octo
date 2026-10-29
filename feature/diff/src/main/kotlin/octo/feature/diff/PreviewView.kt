@@ -15,8 +15,6 @@ import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.text.selection.SelectionContainer
 import androidx.compose.foundation.verticalScroll
-import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -29,7 +27,9 @@ import androidx.compose.ui.unit.dp
 import octo.design.Gap
 import octo.design.LargeGap
 import octo.design.Notice
+import octo.design.Pyrlyn
 import octo.design.SmallGap
+import octo.design.Text
 import octo.design.Tone
 
 private val ColumnWidth = 160.dp
@@ -69,7 +69,7 @@ private fun Ready(preview: Preview) {
 
         is Preview.Source -> {
             Column(Modifier.verticalScroll(rememberScrollState())) {
-                Text(preview.note, style = MaterialTheme.typography.bodySmall)
+                Text(preview.note, style = Pyrlyn.type.small)
                 SelectionContainer { Text(preview.text, fontFamily = FontFamily.Monospace) }
             }
         }
@@ -93,17 +93,17 @@ private fun NotebookCell(cell: Cell) {
             cell.source,
             Modifier
                 .fillMaxWidth()
-                .background(if (code) MaterialTheme.colorScheme.surfaceVariant else MaterialTheme.colorScheme.surface)
+                .background(if (code) Pyrlyn.colors.bgSunken else Pyrlyn.colors.bgRaised)
                 .padding(Gap),
             fontFamily = if (code) FontFamily.Monospace else FontFamily.Default,
         )
         cell.outputs.forEach { output ->
             when (output) {
                 is Output.Text -> {
-                    val colors = MaterialTheme.colorScheme
+                    val colors = Pyrlyn.colors
                     Text(
                         output.text,
-                        color = if (output.error) colors.error else colors.onSurface,
+                        color = if (output.error) colors.danger else colors.fg,
                         fontFamily = FontFamily.Monospace,
                     )
                 }
@@ -119,12 +119,12 @@ private fun NotebookCell(cell: Cell) {
 @Composable
 private fun Archive(archive: Preview.Archive) {
     Column(verticalArrangement = Arrangement.spacedBy(SmallGap)) {
-        Text("${archive.total} entries", style = MaterialTheme.typography.bodySmall)
+        Text("${archive.total} entries", style = Pyrlyn.type.small)
         LazyColumn(Modifier.weight(1f, fill = false)) {
             items(archive.entries) { entry ->
                 Row(horizontalArrangement = Arrangement.spacedBy(Gap)) {
                     Text(entry.name, Modifier.weight(1f), fontFamily = FontFamily.Monospace)
-                    if (entry.size >= 0) Text("${entry.size} B", style = MaterialTheme.typography.bodySmall)
+                    if (entry.size >= 0) Text("${entry.size} B", style = Pyrlyn.type.small)
                 }
             }
             val more = archive.total - archive.entries.size
@@ -136,9 +136,9 @@ private fun Archive(archive: Preview.Archive) {
 @Composable
 private fun DatabaseTable(table: Table) {
     Column(verticalArrangement = Arrangement.spacedBy(SmallGap)) {
-        Text(table.name, style = MaterialTheme.typography.titleSmall)
+        Text(table.name, style = Pyrlyn.type.strong)
         if (table.rows.isEmpty()) {
-            Text("No rows.", style = MaterialTheme.typography.bodySmall)
+            Text("No rows.", style = Pyrlyn.type.small)
             return
         }
         Column(Modifier.horizontalScroll(rememberScrollState())) {

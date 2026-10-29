@@ -1,8 +1,6 @@
 package octo.feature.task
 
 import androidx.compose.foundation.layout.Box
-import androidx.compose.material3.DropdownMenuItem
-import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -12,6 +10,8 @@ import octo.core.task.TaskId
 import octo.core.task.TaskPlace
 import octo.design.GhostButton
 import octo.design.GlassMenu
+import octo.design.GlassMenuItem
+import octo.design.Text
 import octo.feature.common.action
 import java.time.Instant
 import java.time.ZoneId
@@ -34,22 +34,16 @@ internal fun PlaceMenu(
         GhostButton(onClick = { open = true }) { Text(place.label()) }
         GlassMenu(open, onDismissRequest = { open = false }) {
             if (place != TaskPlace.Active) {
-                DropdownMenuItem(
-                    text = { Text("Move to active") },
-                    onClick = { choose { vm.place(id, TaskPlace.Active) } },
-                )
+                GlassMenuItem(onClick = { choose { vm.place(id, TaskPlace.Active) } }) { Text("Move to active") }
             }
             if (place != TaskPlace.Pinned) {
-                DropdownMenuItem(text = { Text("Pin") }, onClick = { choose { vm.place(id, TaskPlace.Pinned) } })
+                GlassMenuItem(onClick = { choose { vm.place(id, TaskPlace.Pinned) } }) { Text("Pin") }
             }
-            DropdownMenuItem(text = { Text("Snooze for an hour") }, onClick = { choose { vm.snooze(id, HOUR_MS) } })
-            DropdownMenuItem(text = { Text("Snooze for a day") }, onClick = { choose { vm.snooze(id, DAY_MS) } })
-            DropdownMenuItem(
-                text = { Text("Snooze until the turn ends") },
-                onClick = { choose { vm.snooze(id, null) } },
-            )
+            GlassMenuItem(onClick = { choose { vm.snooze(id, HOUR_MS) } }) { Text("Snooze for an hour") }
+            GlassMenuItem(onClick = { choose { vm.snooze(id, DAY_MS) } }) { Text("Snooze for a day") }
+            GlassMenuItem(onClick = { choose { vm.snooze(id, null) } }) { Text("Snooze until the turn ends") }
             if (place != TaskPlace.Settled) {
-                DropdownMenuItem(text = { Text("Settle") }, onClick = { choose { vm.place(id, TaskPlace.Settled) } })
+                GlassMenuItem(onClick = { choose { vm.place(id, TaskPlace.Settled) } }) { Text("Settle") }
             }
         }
     }

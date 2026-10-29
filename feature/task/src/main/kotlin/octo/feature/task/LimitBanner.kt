@@ -1,10 +1,10 @@
 package octo.feature.task
 
-import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import octo.core.task.UsageLimit
 import octo.design.Notice
 import octo.design.SecondaryButton
+import octo.design.Text
 import octo.design.Tone
 import java.time.Instant
 import java.time.ZoneId

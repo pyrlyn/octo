@@ -16,8 +16,6 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.material3.LocalContentColor
-import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.DisposableEffect
@@ -50,9 +48,11 @@ import octo.design.GlassField
 import octo.design.GlassLevel
 import octo.design.Kbd
 import octo.design.LargeGap
+import octo.design.LocalContentColor
 import octo.design.Pyrlyn
 import octo.design.SectionLabel
 import octo.design.SmallGap
+import octo.design.Text
 import octo.design.glass
 import octo.feature.common.label
 

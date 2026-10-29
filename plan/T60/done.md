@@ -4,9 +4,8 @@
 
 - `ui/.../theme/`: Pyrlyn colours (dark, light), the macOS, Windows and Linux recipes (radii,
   control and row height, highlight, depth, body size) chosen by `currentHostOs()`, type,
-  `Modifier.glass` (shadows, veil, tint, sheen, specular line, rim) and `GlassBackdrop`. `OctoTheme`
-  maps the tokens into the Material 3 colour scheme, typography and shapes, and drops the 48dp
-  touch target, which a desktop pointer does not need.
+  `Modifier.glass` (shadows, veil, tint, sheen, specular line, rim) and `GlassBackdrop`. The theme
+  first mapped the tokens into Material 3; it now stands on its own (see "No Material 3" below).
 - `Kit.kt`, `Fields.kt`: primary, secondary, danger and ghost buttons, `GlassDialog`, `GlassMenu`,
   `Notice`/`Banner`, pane header, table header and rows, section label, empty state, meter, accent
   tile, and `GlassField`, a compact field with its label above it.
@@ -68,6 +67,21 @@
     models, and the view model graph. Tests that build a `MainViewModel` or `ViewModels` stay
     there; the rest moved with their view models.
 
+- No Material 3 (the creator asked for it in this task): `:design` depends only on Compose
+  runtime, foundation and ui.
+  - `PyrlynTheme` provides Pyrlyn's colours, type, platform recipe and material, plus the default
+    text style and colour, selection colours and a flat hover and press tint for every
+    `clickable` in place of the ripple.
+  - Own `Text` (and `ProvideContent` for a slot's style and colour), buttons with hover, press and
+    focus states, `GlassCheckbox`, `GlassRadio`, `Choice` (a whole labelled row that selects or
+    toggles), `GlassChip`, `GlassField` on `BasicTextField`, `GlassSelect` (it owns only whether
+    it is open), `GlassMenu` and `GlassMenuItem` on `Popup` (arrow keys move between items; an
+    item can carry a tick column), and `GlassDialog` on `Dialog`.
+  - Feature screens moved off Material: radio and checkbox rows became `Choice`, dropdowns
+    `GlassMenu` or `GlassSelect`, Material type and colour roles Pyrlyn's. The new-task dialog
+    follows the design's order (repository, branch, mode, agent, title, prompt, permissions,
+    machine) and is 620dp wide.
+
 ## Not done, and why
 
 - No native window vibrancy, reduced transparency or reduced motion: the creator chose an in-app
@@ -93,6 +107,11 @@
 - After the split the same harness rendered the task, empty, agents, new-task and palette screens
   in both themes; all ten PNGs are byte-identical to the renders from before it. Changing the
   `Gap` token alone changed all ten, then it was put back.
+- After dropping Material 3, `check` is green with the same test counts and `git grep material3`
+  finds nothing in Kotlin or Gradle files. The harness rendered the task, new-task, settings,
+  palette and agents screens and the open permission menu in both themes. I compared them with
+  the design renders: the new-task dialog's order, width, labels, placeholders and select arrows,
+  and the menu's width, fill, tick column and selected row were fixed until they matched.
 - jscpd over the UI modules finds 12 clones (91 lines), down from 15 (124) before the split; what
   is left is import blocks and a one-line `showError` per view model.
 - The design archive was corrected to match: the agent step of onboarding picks one agent with

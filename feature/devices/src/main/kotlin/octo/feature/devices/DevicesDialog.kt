@@ -7,8 +7,6 @@ import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.text.selection.SelectionContainer
 import androidx.compose.foundation.verticalScroll
-import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
@@ -21,6 +19,8 @@ import octo.design.GhostButton
 import octo.design.GlassDialog
 import octo.design.Notice
 import octo.design.PrimaryButton
+import octo.design.Pyrlyn
+import octo.design.Text
 import octo.design.Tone
 
 @Composable
@@ -54,7 +54,7 @@ private fun Address(state: DevicesUiState) {
     Text("Octo listens on ${state.url} on this computer only.")
     Text(
         "Reach it from a phone or another computer through your own tunnel, which also encrypts it:",
-        color = MaterialTheme.colorScheme.onSurfaceVariant,
+        color = Pyrlyn.colors.fgMuted,
     )
     SelectionContainer {
         Text(
@@ -73,7 +73,7 @@ private fun Pairing(
     Text("Enter this code on the device. It works once, for ${state.validMinutes} minutes.")
     Row(verticalAlignment = Alignment.CenterVertically) {
         SelectionContainer(Modifier.weight(1f)) {
-            Text(code, style = MaterialTheme.typography.headlineMedium, fontFamily = FontFamily.Monospace)
+            Text(code, style = Pyrlyn.type.title, fontFamily = FontFamily.Monospace)
         }
         GhostButton(onClick = vm::stopPairing) { Text("Cancel") }
     }
@@ -84,7 +84,7 @@ private fun DeviceList(
     state: DevicesUiState,
     vm: DevicesViewModel,
 ) {
-    if (state.devices.isEmpty()) Text("No devices paired yet.", color = MaterialTheme.colorScheme.onSurfaceVariant)
+    if (state.devices.isEmpty()) Text("No devices paired yet.", color = Pyrlyn.colors.fgMuted)
     state.devices.forEach { device ->
         Row(verticalAlignment = Alignment.CenterVertically) {
             Text(device.name, Modifier.weight(1f))

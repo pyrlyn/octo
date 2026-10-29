@@ -5,8 +5,6 @@ import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.text.selection.SelectionContainer
-import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
@@ -20,7 +18,9 @@ import octo.design.GhostButton
 import octo.design.GlassDialog
 import octo.design.Notice
 import octo.design.PrimaryButton
+import octo.design.Pyrlyn
 import octo.design.SecondaryButton
+import octo.design.Text
 import octo.design.Tone
 
 @Composable
@@ -60,14 +60,14 @@ private fun ShareDialog(vm: ShareViewModel) {
                 Text(
                     "A guest with the link watches this task and proposes messages; " +
                         "a message reaches the agent only once you send it.",
-                    style = MaterialTheme.typography.bodySmall,
+                    style = Pyrlyn.type.small,
                 )
                 state.link?.let {
                     Text("Copy the link now; it is not shown again.", fontWeight = FontWeight.SemiBold)
-                    SelectionContainer { Text(it, style = MaterialTheme.typography.bodySmall) }
+                    SelectionContainer { Text(it, style = Pyrlyn.type.small) }
                 }
                 if (state.shared && state.link == null) {
-                    Text("Shared. A new link ends the old one.", style = MaterialTheme.typography.bodySmall)
+                    Text("Shared. A new link ends the old one.", style = Pyrlyn.type.small)
                 }
                 state.error?.let { Notice(it, Tone.Error) }
             }

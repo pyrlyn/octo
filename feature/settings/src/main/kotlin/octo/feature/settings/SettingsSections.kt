@@ -4,7 +4,6 @@ import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.width
-import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -28,6 +27,7 @@ import octo.design.Pyrlyn
 import octo.design.SecondaryButton
 import octo.design.SettingRow
 import octo.design.SettingsGroup
+import octo.design.Text
 import octo.design.Tone
 import octo.feature.common.authColor
 import octo.feature.common.label

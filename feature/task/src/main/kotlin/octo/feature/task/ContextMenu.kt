@@ -11,8 +11,6 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -30,6 +28,7 @@ import octo.design.GhostButton
 import octo.design.GlassMenu
 import octo.design.LargeGap
 import octo.design.Pyrlyn
+import octo.design.Text
 import octo.feature.common.label
 
 private val PopupWidth = 300.dp
@@ -47,14 +46,14 @@ internal fun ContextMenu(summary: ContextSummary) {
                 Modifier.width(PopupWidth).padding(horizontal = LargeGap, vertical = Gap),
                 verticalArrangement = Arrangement.spacedBy(Gap),
             ) {
-                Text("Context", style = MaterialTheme.typography.titleSmall)
+                Text("Context", style = Pyrlyn.type.strong)
                 Row(verticalAlignment = Alignment.CenterVertically) {
                     Text(
                         summary.percent?.let { "$it% used" } ?: "Used",
                         Modifier.weight(1f),
-                        style = MaterialTheme.typography.titleMedium,
+                        style = Pyrlyn.type.strong,
                     )
-                    Text(summary.usedLabel, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                    Text(summary.usedLabel, color = Pyrlyn.colors.fgMuted)
                 }
                 Bar(summary)
                 summary.rows.forEach { row ->

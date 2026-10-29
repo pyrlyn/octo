@@ -14,7 +14,6 @@ import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.text.selection.SelectionContainer
-import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
@@ -38,6 +37,7 @@ import octo.design.PanePadding
 import octo.design.Pyrlyn
 import octo.design.SecondaryButton
 import octo.design.SmallGap
+import octo.design.Text
 import octo.design.Tone
 import octo.design.addedLine
 import octo.design.removedLine

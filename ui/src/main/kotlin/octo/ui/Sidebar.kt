@@ -16,7 +16,6 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.remember
@@ -37,6 +36,7 @@ import octo.design.PrimaryButton
 import octo.design.Pyrlyn
 import octo.design.SectionLabel
 import octo.design.SmallGap
+import octo.design.Text
 import octo.feature.agents.AgentRow
 import octo.feature.agents.contextShare
 import octo.feature.common.StatusDot

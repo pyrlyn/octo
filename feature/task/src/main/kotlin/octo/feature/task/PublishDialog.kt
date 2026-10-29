@@ -4,8 +4,6 @@ import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.width
-import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
@@ -19,6 +17,8 @@ import octo.design.GlassDialog
 import octo.design.GlassField
 import octo.design.Notice
 import octo.design.PrimaryButton
+import octo.design.Pyrlyn
+import octo.design.Text
 import octo.design.Tone
 import octo.feature.common.label
 
@@ -59,7 +59,7 @@ fun PublishDialog(
                     )
                     Text(
                         "Uses your own git and gh login. Nothing is committed when the worktree is clean.",
-                        style = MaterialTheme.typography.bodySmall,
+                        style = Pyrlyn.type.small,
                     )
                 }
                 state.error?.let { Notice(it, Tone.Error) }

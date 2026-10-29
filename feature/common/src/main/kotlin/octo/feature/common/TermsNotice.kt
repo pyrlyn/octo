@@ -3,7 +3,6 @@ package octo.feature.common
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.width
-import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalUriHandler
@@ -17,6 +16,7 @@ import octo.design.Gap
 import octo.design.GhostButton
 import octo.design.GlassDialog
 import octo.design.PrimaryButton
+import octo.design.Text
 
 /** Vendor terms the user still has to accept before [agent] runs. */
 data class TermsNotice(

@@ -16,6 +16,9 @@ val DotSize = 8.dp
 val PanePadding = 20.dp
 val DialogWidth = 560.dp
 
+/** For a dialog that is a whole form, such as a new task. */
+val WideDialogWidth = 620.dp
+
 /** Background of an added diff line. */
 @Composable
 fun addedLine(): Color = Pyrlyn.colors.success.copy(alpha = DIFF_TINT)

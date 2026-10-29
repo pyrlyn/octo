@@ -2,7 +2,7 @@
 status: in progress
 priority: P1
 complexity: 4
-readiness: 95%
+readiness: 100%
 agent: Claude Code / claude-opus-5-5
 ---
 
@@ -59,3 +59,15 @@ first-run onboarding (welcome, repository, agent, permissions) in this task, wri
    - Tests move with their view models; the mixed `ViewModelTest` stays in `:ui`.
    - Check: `./gradlew check` green; no colour literals outside `:design`; jscpd finds no clone
      across the new modules.
+10. Drop Material 3 as the base (the creator asked for it in this task): Pyrlyn's theme and
+    controls are its own, on Compose foundation only.
+    - `PyrlynTheme` provides only Pyrlyn's locals: colours, platform, type, opaque, content
+      colour, text style, text selection colours and a Pyrlyn state-layer indication instead of
+      Material's ripple. No `MaterialTheme`, colour scheme, shapes or typography.
+    - `:design` gains `Text`, `GlassCheckbox`, `GlassRadio`, `GlassMenuItem`, `GlassSelect` and
+      `GlassChip`; the buttons, dialog, menu and field decoration are rewritten on foundation
+      (`Popup`, `Dialog`, `BasicTextField`), drawn to the prototype's specs.
+    - Every feature module and `:ui` move off `androidx.compose.material3`;
+      `compose.material3` leaves `design/build.gradle.kts`.
+    - Check: `./gradlew check` green; `git grep material3` finds nothing in code or build files;
+      renders compared with the design screens in both themes.

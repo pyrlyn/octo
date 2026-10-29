@@ -4,9 +4,6 @@ import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.draganddrop.dragAndDropTarget
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.FlowRow
-import androidx.compose.material3.InputChip
-import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.remember
 import androidx.compose.ui.ExperimentalComposeUiApi
@@ -26,6 +23,9 @@ import octo.core.task.NewAttachment
 import octo.core.task.read
 import octo.design.Gap
 import octo.design.GhostButton
+import octo.design.GlassChip
+import octo.design.Pyrlyn
+import octo.design.Text
 import java.awt.Image
 import java.awt.Toolkit
 import java.awt.datatransfer.DataFlavor
@@ -158,12 +158,7 @@ fun PendingAttachments(
     if (files.isEmpty()) return
     FlowRow(horizontalArrangement = Arrangement.spacedBy(Gap)) {
         files.forEachIndexed { index, file ->
-            InputChip(
-                selected = false,
-                onClick = { onRemove(index) },
-                label = { Text(file.name) },
-                trailingIcon = { Text("×") },
-            )
+            GlassChip(file.name, { onRemove(index) }, trailing = "×")
         }
     }
 }
@@ -173,5 +168,5 @@ fun List<Attachment>.label(): String = joinToString(", ", prefix = "Attached: ")
 
 @Composable
 fun AttachedFiles(files: List<Attachment>) {
-    if (files.isNotEmpty()) Text(files.label(), color = MaterialTheme.colorScheme.onSurfaceVariant)
+    if (files.isNotEmpty()) Text(files.label(), color = Pyrlyn.colors.fgMuted)
 }

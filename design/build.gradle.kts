@@ -18,7 +18,6 @@ kotlin {
         commonMain.dependencies {
             api(compose.runtime)
             api(compose.foundation)
-            api(compose.material3)
             api(compose.ui)
         }
         commonTest.dependencies {

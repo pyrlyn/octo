@@ -1,17 +1,9 @@
 package octo.feature.common
 
-import androidx.compose.foundation.layout.Arrangement
-import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.Row
-import androidx.compose.material3.Checkbox
-import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.RadioButton
-import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
-import androidx.compose.ui.Alignment
-import androidx.compose.ui.unit.dp
 import octo.core.agent.AuthState
 import octo.core.orchestrator.AgentInfo
+import octo.design.Choice
 import octo.design.Pyrlyn
 
 @Composable
@@ -22,22 +14,14 @@ fun AgentChoice(
     /** A checkbox, for picking several agents, instead of a radio button. */
     check: Boolean = false,
 ) {
-    val installed = agent.probe.installed
-    Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(6.dp)) {
-        if (check) {
-            Checkbox(checked = selected, onCheckedChange = { onSelect() }, enabled = installed)
-        } else {
-            RadioButton(selected = selected, onClick = onSelect, enabled = installed)
-        }
-        Column {
-            Text(agent.displayName)
-            Text(
-                agentNote(agent),
-                style = MaterialTheme.typography.bodySmall,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
-            )
-        }
-    }
+    Choice(
+        agent.displayName,
+        selected,
+        onSelect,
+        note = agentNote(agent),
+        enabled = agent.probe.installed,
+        multiple = check,
+    )
 }
 
 /** The version, or why the agent cannot run yet. */

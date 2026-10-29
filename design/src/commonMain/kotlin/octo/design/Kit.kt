@@ -1,13 +1,17 @@
 package octo.design
 
-import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
+import androidx.compose.foundation.clickable
+import androidx.compose.foundation.interaction.MutableInteractionSource
+import androidx.compose.foundation.interaction.collectIsFocusedAsState
+import androidx.compose.foundation.interaction.collectIsHoveredAsState
+import androidx.compose.foundation.interaction.collectIsPressedAsState
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.ColumnScope
-import androidx.compose.foundation.layout.PaddingValues
+import androidx.compose.foundation.layout.IntrinsicSize
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.RowScope
 import androidx.compose.foundation.layout.Spacer
@@ -15,47 +19,67 @@ import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.layout.widthIn
+import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.material3.BasicAlertDialog
-import androidx.compose.material3.ButtonDefaults
-import androidx.compose.material3.DropdownMenu
-import androidx.compose.material3.ExperimentalMaterial3Api
-import androidx.compose.material3.LocalContentColor
-import androidx.compose.material3.LocalTextStyle
-import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.Text
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.CompositionLocalProvider
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.draw.shadow
+import androidx.compose.ui.focus.FocusDirection
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.graphics.compositeOver
+import androidx.compose.ui.graphics.Shape
+import androidx.compose.ui.input.key.Key
+import androidx.compose.ui.input.key.KeyEventType
+import androidx.compose.ui.input.key.key
+import androidx.compose.ui.input.key.onPreviewKeyEvent
+import androidx.compose.ui.input.key.type
+import androidx.compose.ui.platform.LocalDensity
+import androidx.compose.ui.platform.LocalFocusManager
+import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.Dp
+import androidx.compose.ui.unit.IntOffset
+import androidx.compose.ui.unit.IntRect
+import androidx.compose.ui.unit.IntSize
+import androidx.compose.ui.unit.LayoutDirection
 import androidx.compose.ui.unit.dp
-import androidx.compose.material3.Button as M3Button
-import androidx.compose.material3.TextButton as M3TextButton
+import androidx.compose.ui.window.Dialog
+import androidx.compose.ui.window.DialogProperties
+import androidx.compose.ui.window.Popup
+import androidx.compose.ui.window.PopupPositionProvider
+import androidx.compose.ui.window.PopupProperties
 
-private val ButtonPadding = PaddingValues(horizontal = 12.dp)
 private val DialogPadding = 22.dp
 private val DialogMinWidth = 440.dp
-private val DialogMaxWidth = 620.dp
 private val EmptyIconSize = 64.dp
 private val EmptyIconRadius = 18.dp
 private val NoticeRadius = 10.dp
 private val MenuRadius = 12.dp
-private val MenuShadow = 12.dp
+private val MenuItemRadius = 6.dp
+private val MenuMinWidth = 240.dp
+private val MenuCheckWidth = 16.dp
+private val MenuPadding = 5.dp
 private const val TINT_DARK = 0.16f
 private const val TINT_LIGHT = 0.12f
 private const val TINT_BORDER = 0.45f
 private const val LABEL_SCALE = 0.9f
+private const val DIALOG_VEIL_DARK = 0.55f
+private const val DIALOG_VEIL_LIGHT = 0.6f
+private const val SHEEN_DARK = 0.06f
+private const val SHEEN_LIGHT = 0.35f
+private const val PRESSED_ACCENT = 0.85f
 
 /** The main action of a view: accent fill. */
 @Composable
@@ -66,7 +90,22 @@ fun PrimaryButton(
     content: @Composable RowScope.() -> Unit,
 ) {
     val c = Pyrlyn.colors
-    FilledButton(onClick, modifier, enabled, c.accentSolid, c.onAccent, content)
+    val pressed =
+        c.accentSolid.copy(
+            red = c.accentSolid.red * PRESSED_ACCENT,
+            green =
+                c.accentSolid.green * PRESSED_ACCENT,
+            blue = c.accentSolid.blue * PRESSED_ACCENT,
+        )
+    ButtonBase(
+        onClick,
+        modifier,
+        enabled,
+        ButtonFills(c.accentSolid, c.accentSolidHover, pressed),
+        c.onAccent,
+        raised = true,
+        content,
+    )
 }
 
 /** A raised, opaque control for the other actions that sit next to the primary one. */
@@ -78,7 +117,7 @@ fun SecondaryButton(
     content: @Composable RowScope.() -> Unit,
 ) {
     val c = Pyrlyn.colors
-    FilledButton(onClick, modifier, enabled, c.bgRaised, c.fg, content)
+    ButtonBase(onClick, modifier, enabled, ButtonFills(c.bgRaised, c.bgHover, c.bgActive), c.fg, raised = true, content)
 }
 
 /** Destroys work: delete anyway, full access. */
@@ -89,7 +128,16 @@ fun DangerButton(
     enabled: Boolean = true,
     content: @Composable RowScope.() -> Unit,
 ) {
-    FilledButton(onClick, modifier, enabled, Pyrlyn.colors.danger, Color.White, content)
+    val danger = Pyrlyn.colors.danger
+    ButtonBase(
+        onClick,
+        modifier,
+        enabled,
+        ButtonFills(danger, danger, danger.copy(alpha = PRESSED_ACCENT)),
+        Color.White,
+        raised = true,
+        content,
+    )
 }
 
 /** A label-only action: toolbars, dialog dismissals, links. */
@@ -104,54 +152,108 @@ fun GhostButton(
     content: @Composable RowScope.() -> Unit,
 ) {
     val c = Pyrlyn.colors
-    M3TextButton(
-        onClick = onClick,
-        modifier = modifier.height(Pyrlyn.platform.controlHeight),
-        enabled = enabled,
-        shape = Pyrlyn.controlShape,
-        colors =
-            ButtonDefaults.textButtonColors(
-                containerColor = if (selected) c.stateSelected else Color.Transparent,
-                contentColor = if (selected) c.stateSelectedFg else contentColor,
-                disabledContentColor = c.fgDisabled,
-            ),
-        contentPadding = ButtonPadding,
-        content = content,
+    val fills =
+        if (selected) {
+            ButtonFills(c.stateSelected, c.stateSelected, c.stateSelected)
+        } else {
+            ButtonFills(Color.Transparent, c.stateHover, c.bgActive)
+        }
+    ButtonBase(
+        onClick,
+        modifier,
+        enabled,
+        fills,
+        if (selected) c.stateSelectedFg else contentColor,
+        raised = false,
+        content,
     )
 }
 
+private class ButtonFills(
+    val rest: Color,
+    val hover: Color,
+    val press: Color,
+)
+
 @Composable
-private fun FilledButton(
+private fun ButtonBase(
     onClick: () -> Unit,
     modifier: Modifier,
     enabled: Boolean,
-    fill: Color,
+    fills: ButtonFills,
     fg: Color,
+    raised: Boolean,
     content: @Composable RowScope.() -> Unit,
 ) {
     val c = Pyrlyn.colors
-    M3Button(
-        onClick = onClick,
-        // A fixed height wins over Material's 40dp minimum, which is too tall for desktop rows.
-        modifier = modifier.height(Pyrlyn.platform.controlHeight),
-        enabled = enabled,
-        shape = Pyrlyn.controlShape,
-        colors =
-            ButtonDefaults.buttonColors(
-                containerColor = fill,
-                contentColor = fg,
-                disabledContainerColor = c.bgSunken,
-                disabledContentColor = c.fgDisabled,
-            ),
-        elevation = ButtonDefaults.buttonElevation(defaultElevation = 1.dp, pressedElevation = 0.dp),
-        border = BorderStroke(1.dp, Brush.verticalGradient(listOf(c.specular.copy(alpha = 0.5f), c.glassEdge))),
-        contentPadding = ButtonPadding,
-        content = content,
-    )
+    val p = Pyrlyn.platform
+    val shape = Pyrlyn.controlShape
+    val interaction = remember { MutableInteractionSource() }
+    val hovered by interaction.collectIsHoveredAsState()
+    val pressed by interaction.collectIsPressedAsState()
+    val focused by interaction.collectIsFocusedAsState()
+    val fill =
+        when {
+            !enabled -> if (raised) c.bgSunken else Color.Transparent
+            pressed -> fills.press
+            hovered -> fills.hover
+            else -> fills.rest
+        }
+    Row(
+        modifier
+            .height(p.controlHeight)
+            .then(
+                if (raised) {
+                    Modifier.raised(
+                        shape,
+                        fill,
+                        flat = pressed || !enabled,
+                    )
+                } else {
+                    Modifier.clip(shape).background(fill)
+                },
+            ).then(if (focused) Modifier.border(FocusWidth, c.accentSolid, shape) else Modifier)
+            .clickable(interaction, null, enabled, role = Role.Button, onClick = onClick)
+            .padding(horizontal = if (p.controlHeight > ROOMY_CONTROL.dp) 18.dp else 10.dp),
+        horizontalArrangement = Arrangement.spacedBy(6.dp, Alignment.CenterHorizontally),
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        ProvideContent(Pyrlyn.type.body.copy(fontWeight = FontWeight.Medium), if (enabled) fg else c.fgDisabled) {
+            content()
+        }
+    }
 }
 
-/** [androidx.compose.material3.AlertDialog]'s slots on a floating glass panel. */
-@OptIn(ExperimentalMaterial3Api::class)
+/** An opaque control lifted off the glass: contact shadow, top sheen and a specular rim. */
+@Composable
+private fun Modifier.raised(
+    shape: Shape,
+    fill: Color,
+    flat: Boolean,
+): Modifier {
+    val c = Pyrlyn.colors
+    return this
+        .then(
+            if (flat) {
+                Modifier
+            } else {
+                Modifier.shadow(
+                    2.dp,
+                    shape,
+                    ambientColor = c.shadowContact,
+                    spotColor = c.shadowKey,
+                )
+            },
+        ).clip(shape)
+        .background(fill)
+        .background(
+            Brush.verticalGradient(
+                listOf(Color.White.copy(alpha = if (c.dark) SHEEN_DARK else SHEEN_LIGHT), Color.Transparent),
+            ),
+        ).border(1.dp, Brush.verticalGradient(listOf(c.specular.copy(alpha = 0.5f), c.glassEdge)), shape)
+}
+
+/** An alert dialog's slots on a floating glass panel. */
 @Composable
 fun GlassDialog(
     onDismissRequest: () -> Unit,
@@ -162,26 +264,24 @@ fun GlassDialog(
     text: (@Composable () -> Unit)? = null,
 ) {
     val c = Pyrlyn.colors
-    BasicAlertDialog(onDismissRequest, modifier.widthIn(DialogMinWidth, DialogMaxWidth)) {
+    // The platform's default width would cap a form dialog below its own width.
+    Dialog(onDismissRequest = onDismissRequest, DialogProperties(usePlatformDefaultWidth = false)) {
         Column(
-            Modifier
-                .glass(MaterialTheme.shapes.extraLarge, GlassLevel.Floating, Elevation.E3)
+            modifier
+                .widthIn(DialogMinWidth, DialogWidth)
+                .glass(RoundedCornerShape(Pyrlyn.platform.radiusWindow), GlassLevel.Floating, Elevation.E3)
+                .background(veil())
                 .padding(DialogPadding),
-            verticalArrangement = Arrangement.spacedBy(LargeGap),
+            verticalArrangement = Arrangement.spacedBy(12.dp),
         ) {
-            title?.let {
-                CompositionLocalProvider(
-                    LocalTextStyle provides Pyrlyn.type.title,
-                    LocalContentColor provides c.fg,
-                ) { it() }
-            }
+            title?.let { ProvideContent(Pyrlyn.type.title, c.fg, it) }
             text?.let {
-                CompositionLocalProvider(LocalTextStyle provides Pyrlyn.type.body, LocalContentColor provides c.fg) {
+                ProvideContent(Pyrlyn.type.body, c.fg) {
                     Box(Modifier.weight(1f, fill = false)) { it() }
                 }
             }
             Row(
-                Modifier.fillMaxWidth(),
+                Modifier.fillMaxWidth().padding(top = 6.dp),
                 horizontalArrangement = Arrangement.spacedBy(Gap, Alignment.End),
                 verticalAlignment = Alignment.CenterVertically,
             ) {
@@ -192,27 +292,132 @@ fun GlassDialog(
     }
 }
 
-/** A dropdown on floating glass; takes [DropdownMenu]'s main arguments. */
+/**
+ * A dropdown on floating glass under the layout that holds it, or above when there is no room.
+ * [focusable] off keeps the keyboard in a field the menu belongs to.
+ */
 @Composable
 fun GlassMenu(
     expanded: Boolean,
     onDismissRequest: () -> Unit,
     modifier: Modifier = Modifier,
+    focusable: Boolean = true,
     content: @Composable ColumnScope.() -> Unit,
 ) {
-    val c = Pyrlyn.colors
-    DropdownMenu(
-        expanded,
-        onDismissRequest,
-        modifier,
-        shape = RoundedCornerShape(minOf(Pyrlyn.platform.radiusSurface, MenuRadius)),
-        // Compose has no backdrop blur, so a menu must not let the text behind it show.
-        containerColor = if (Pyrlyn.opaque) c.solidFloating else c.veilFloating.compositeOver(c.solidFloating),
-        shadowElevation = MenuShadow,
-        border = BorderStroke(1.dp, Brush.verticalGradient(listOf(c.glassRim, c.glassEdge))),
-        content = content,
-    )
+    if (!expanded) return
+    val gap = with(LocalDensity.current) { SmallGap.roundToPx() }
+    val focus = LocalFocusManager.current
+    Popup(remember(gap) { DropPosition(gap) }, onDismissRequest, PopupProperties(focusable = focusable)) {
+        Column(
+            modifier
+                .widthIn(min = MenuMinWidth)
+                .glass(
+                    RoundedCornerShape(minOf(Pyrlyn.platform.radiusSurface, MenuRadius)),
+                    GlassLevel.Floating,
+                    Elevation.E2,
+                ).background(veil())
+                .onPreviewKeyEvent {
+                    // Arrow keys walk the items, as in a native menu; Tab already does.
+                    when {
+                        it.type != KeyEventType.KeyDown -> false
+                        it.key == Key.DirectionDown -> focus.moveFocus(FocusDirection.Next)
+                        it.key == Key.DirectionUp -> focus.moveFocus(FocusDirection.Previous)
+                        else -> false
+                    }
+                }.padding(MenuPadding)
+                .width(IntrinsicSize.Max)
+                .verticalScroll(rememberScrollState()),
+            content = content,
+        )
+    }
 }
+
+/** One menu entry: accent fill under the pointer, as in the design. */
+@Composable
+fun GlassMenuItem(
+    onClick: () -> Unit,
+    modifier: Modifier = Modifier,
+    enabled: Boolean = true,
+    /** Destroys work or widens what an agent may do, such as full access. */
+    danger: Boolean = false,
+    /** Non-null keeps a column for a tick, so a menu of choices lines up; true ticks and tints this one. */
+    checked: Boolean? = null,
+    content: @Composable RowScope.() -> Unit,
+) {
+    val c = Pyrlyn.colors
+    val interaction = remember { MutableInteractionSource() }
+    val hovered by interaction.collectIsHoveredAsState()
+    val focused by interaction.collectIsFocusedAsState()
+    val hot = enabled && (hovered || focused)
+    val fg =
+        when {
+            hot -> c.onAccent
+            !enabled -> c.fgDisabled
+            danger -> c.danger
+            else -> c.fg
+        }
+    val shape = RoundedCornerShape(MenuItemRadius)
+    Row(
+        modifier
+            .fillMaxWidth()
+            .heightIn(min = Pyrlyn.platform.controlHeight)
+            .clip(shape)
+            .background(
+                when {
+                    hot -> c.accentSolid
+                    checked == true -> c.stateSelected
+                    else -> Color.Transparent
+                },
+            ).clickable(interaction, null, enabled, role = Role.Button, onClick = onClick)
+            .padding(horizontal = Gap, vertical = 2.dp),
+        verticalAlignment = Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.spacedBy(Gap),
+    ) {
+        ProvideContent(Pyrlyn.type.body, fg) {
+            checked?.let { Text(if (it) "✓" else "", Modifier.width(MenuCheckWidth), style = Pyrlyn.type.small) }
+            content()
+        }
+    }
+}
+
+/** A floating panel's own fill under its glass, so text behind a menu or dialog does not read through it. */
+@Composable
+private fun veil(): Color {
+    val c = Pyrlyn.colors
+    return if (Pyrlyn.opaque) {
+        Color.Transparent
+    } else {
+        c.bgRaised.copy(
+            alpha = if (c.dark) DIALOG_VEIL_DARK else DIALOG_VEIL_LIGHT,
+        )
+    }
+}
+
+/** Under the anchor and lined up with its start; above it, or pinned inside the window, when it does not fit. */
+private class DropPosition(
+    private val gap: Int,
+) : PopupPositionProvider {
+    override fun calculatePosition(
+        anchorBounds: IntRect,
+        windowSize: IntSize,
+        layoutDirection: LayoutDirection,
+        popupContentSize: IntSize,
+    ): IntOffset {
+        val x = anchorBounds.left.coerceAtMost(windowSize.width - popupContentSize.width).coerceAtLeast(0)
+        val below = anchorBounds.bottom + gap
+        val above = anchorBounds.top - gap - popupContentSize.height
+        val y =
+            when {
+                below + popupContentSize.height <= windowSize.height -> below
+                above >= 0 -> above
+                else -> (windowSize.height - popupContentSize.height).coerceAtLeast(0)
+            }
+        return IntOffset(x, y)
+    }
+}
+
+private val FocusWidth = 2.dp
+private const val ROOMY_CONTROL = 36
 
 enum class Tone { Info, Warning, Error }
 
@@ -303,10 +508,7 @@ fun TableHeader(content: @Composable RowScope.() -> Unit) {
         Modifier.fillMaxWidth().background(Pyrlyn.colors.bgSunken).padding(horizontal = PanePadding, vertical = 6.dp),
         horizontalArrangement = Arrangement.spacedBy(LargeGap),
     ) {
-        CompositionLocalProvider(
-            LocalTextStyle provides tableLabel(),
-            LocalContentColor provides Pyrlyn.colors.fgSubtle,
-        ) { content() }
+        ProvideContent(tableLabel(), Pyrlyn.colors.fgSubtle) { content() }
     }
 }
 

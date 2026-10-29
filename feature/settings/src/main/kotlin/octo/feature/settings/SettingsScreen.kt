@@ -6,6 +6,7 @@ import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
@@ -16,8 +17,6 @@ import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.selection.SelectionContainer
 import androidx.compose.foundation.verticalScroll
-import androidx.compose.material3.RadioButton
-import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
@@ -34,6 +33,7 @@ import octo.core.config.AppearanceTheme
 import octo.core.config.RowDensity
 import octo.core.config.Transparency
 import octo.core.flags.FeatureFlag
+import octo.design.Choice
 import octo.design.DangerButton
 import octo.design.Gap
 import octo.design.GhostButton
@@ -49,6 +49,7 @@ import octo.design.SecondaryButton
 import octo.design.Segmented
 import octo.design.SettingRow
 import octo.design.SettingsGroup
+import octo.design.Text
 import octo.design.Tone
 import octo.feature.common.description
 import octo.feature.common.label
@@ -192,19 +193,14 @@ private fun Permissions(
     SettingsGroup("Default for new tasks") {
         PermissionMode.entries.forEachIndexed { i, mode ->
             if (i > 0) Hairline()
-            Row(
-                Modifier.fillMaxWidth().clickable { vm.setPermissionMode(mode) }.padding(horizontal = Gap),
-                verticalAlignment = Alignment.CenterVertically,
-            ) {
-                RadioButton(
-                    selected = state.config.defaultPermissionMode == mode,
-                    onClick = { vm.setPermissionMode(mode) },
-                )
-                Column(Modifier.padding(vertical = Gap)) {
-                    Text(mode.label, fontWeight = FontWeight.Medium)
-                    Text(mode.description, style = Pyrlyn.type.small, color = Pyrlyn.colors.fgMuted)
-                }
-            }
+            Choice(
+                mode.label,
+                state.config.defaultPermissionMode == mode,
+                { vm.setPermissionMode(mode) },
+                Modifier.fillMaxWidth(),
+                note = mode.description,
+                contentPadding = PaddingValues(horizontal = LargeGap, vertical = 9.dp),
+            )
         }
     }
     Text(

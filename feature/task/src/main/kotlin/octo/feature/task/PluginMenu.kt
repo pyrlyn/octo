@@ -2,8 +2,6 @@ package octo.feature.task
 
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.text.selection.SelectionContainer
-import androidx.compose.material3.DropdownMenuItem
-import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
@@ -14,7 +12,9 @@ import octo.design.Banner
 import octo.design.GhostButton
 import octo.design.GlassDialog
 import octo.design.GlassMenu
+import octo.design.GlassMenuItem
 import octo.design.SecondaryButton
+import octo.design.Text
 
 /** The Plugins button of the task header, and what an action shows. */
 @Composable
@@ -27,10 +27,10 @@ internal fun PluginMenu(vm: PluginActionsViewModel) {
         }
         GlassMenu(expanded = open, onDismissRequest = { open = false }) {
             state.actions.forEach { item ->
-                DropdownMenuItem(text = { Text(item.title) }, onClick = {
+                GlassMenuItem(onClick = {
                     open = false
                     vm.run(item)
-                })
+                }) { Text(item.title) }
             }
         }
     }

@@ -4,8 +4,6 @@ import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.width
-import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
@@ -18,6 +16,8 @@ import octo.design.GlassDialog
 import octo.design.GlassField
 import octo.design.Notice
 import octo.design.PrimaryButton
+import octo.design.Pyrlyn
+import octo.design.Text
 import octo.design.Tone
 import octo.feature.common.AgentChoice
 import octo.feature.common.TermsDialog
@@ -58,7 +58,7 @@ fun SwitchAgentDialog(
                     } else {
                         "The running session switches when the agent can; otherwise a fresh one takes over."
                     },
-                    style = MaterialTheme.typography.bodySmall,
+                    style = Pyrlyn.type.small,
                 )
                 state.error?.let { Notice(it, Tone.Error) }
             }

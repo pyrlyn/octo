@@ -17,8 +17,6 @@ import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.selection.SelectionContainer
-import androidx.compose.material3.DropdownMenuItem
-import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
@@ -29,7 +27,6 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.alpha
-import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.input.key.Key
 import androidx.compose.ui.input.key.KeyEventType
 import androidx.compose.ui.input.key.isCtrlPressed
@@ -54,6 +51,7 @@ import octo.design.GlassDialog
 import octo.design.GlassField
 import octo.design.GlassLevel
 import octo.design.GlassMenu
+import octo.design.GlassMenuItem
 import octo.design.Hairline
 import octo.design.LargeGap
 import octo.design.Notice
@@ -62,6 +60,7 @@ import octo.design.PrimaryButton
 import octo.design.Pyrlyn
 import octo.design.SecondaryButton
 import octo.design.SmallGap
+import octo.design.Text
 import octo.design.Tone
 import octo.design.glass
 import octo.feature.common.AttachButton
@@ -206,18 +205,14 @@ private fun PermissionMenu(
         GhostButton(onClick = { open = true }, selected = true) { Text("◐  Permissions: ${current.label}") }
         GlassMenu(open, onDismissRequest = { open = false }) {
             PermissionMode.entries.forEach { mode ->
-                DropdownMenuItem(
-                    text = {
-                        Text(
-                            (if (mode == current) "✓  " else "    ") + mode.label,
-                            color = if (mode == PermissionMode.FullAccess) Pyrlyn.colors.danger else Color.Unspecified,
-                        )
-                    },
+                GlassMenuItem(
                     onClick = {
                         open = false
                         if (mode != current) onSelect(mode)
                     },
-                )
+                    danger = mode == PermissionMode.FullAccess,
+                    checked = mode == current,
+                ) { Text(mode.label) }
             }
         }
     }

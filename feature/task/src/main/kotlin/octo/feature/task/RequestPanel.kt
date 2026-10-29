@@ -5,19 +5,16 @@ import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
-import androidx.compose.material3.Checkbox
-import androidx.compose.material3.RadioButton
-import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.font.FontWeight
-import androidx.compose.ui.unit.dp
 import octo.core.agent.PermissionKind
 import octo.core.agent.Question
 import octo.core.task.NewAttachment
 import octo.core.task.PendingRequest
+import octo.design.Choice
 import octo.design.Dot
 import octo.design.Elevation
 import octo.design.Gap
@@ -28,6 +25,7 @@ import octo.design.LargeGap
 import octo.design.PrimaryButton
 import octo.design.Pyrlyn
 import octo.design.SecondaryButton
+import octo.design.Text
 import octo.design.glass
 import octo.feature.common.AttachButton
 import octo.feature.common.AttachmentInput
@@ -125,16 +123,8 @@ private fun Question(
         return
     }
     question.options.forEach { option ->
-        Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(6.dp)) {
-            if (question.multiSelect) {
-                Checkbox(
-                    checked = option in values,
-                    onCheckedChange = { vm.answer(requestId, question.id, option, toggle = true) },
-                )
-            } else {
-                RadioButton(selected = option in values, onClick = { vm.answer(requestId, question.id, option) })
-            }
-            Text(option)
-        }
+        Choice(option, option in values, {
+            vm.answer(requestId, question.id, option, toggle = question.multiSelect)
+        }, multiple = question.multiSelect)
     }
 }
