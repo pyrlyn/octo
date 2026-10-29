@@ -1,3 +1,5 @@
+# DO NOT EDIT: generated from ci.main.kts; edit that file and run it to regenerate.
+
 # This file was generated using Kotlin DSL (.github/workflows/ci.main.kts).
 # If you want to modify the workflow, please change the Kotlin file and regenerate this YAML file.
 # Generated with https://github.com/typesafegithub/github-workflows-kt
