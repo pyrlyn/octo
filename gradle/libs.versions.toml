@@ -1,6 +1,8 @@
 [versions]
 kotlin = "2.4.21"
 compose = "1.12.2"
+# The version Compose 1.12.2 itself depends on (optionally, so it must be named here).
+hot-reload = "1.2.0"
 coroutines = "1.11.0"
 serialization = "1.12.0"
 kotlinx-io = "0.9.1"
@@ -24,3 +26,4 @@ kotlin-gradle-plugin = { module = "org.jetbrains.kotlin:kotlin-gradle-plugin", v
 kotlin-serialization-plugin = { module = "org.jetbrains.kotlin:kotlin-serialization", version.ref = "kotlin" }
 compose-compiler-plugin = { module = "org.jetbrains.kotlin:compose-compiler-gradle-plugin", version.ref = "kotlin" }
 compose-gradle-plugin = { module = "org.jetbrains.compose:compose-gradle-plugin", version.ref = "compose" }
+compose-hot-reload-plugin = { module = "org.jetbrains.compose.hot-reload:hot-reload-gradle-plugin", version.ref = "hot-reload" }

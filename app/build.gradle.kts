@@ -2,6 +2,8 @@ import org.jetbrains.compose.desktop.application.dsl.TargetFormat
 
 plugins {
     id("octo.compose")
+    // hotRun: reloads changed UI code into the running app; needs a JetBrains Runtime.
+    id("org.jetbrains.compose.hot-reload")
 }
 
 dependencies {
