@@ -41,10 +41,21 @@ fun JobBuilder<*>.setUp() {
     uses(action = ActionsSetupGradle())
 }
 
+// Fail-fast: a failed job cancels the whole run, so no other job keeps running.
+fun JobBuilder<*>.cancelRunOnFailure() {
+    run(
+        name = "Cancel the run on failure",
+        command = "gh run cancel \${{ github.run_id }} --repo \${{ github.repository }}",
+        condition = "failure()",
+        env = mapOf("GH_TOKEN" to "\${{ github.token }}"),
+        shell = Shell.Bash,
+    )
+}
+
 workflow(
     name = "CI",
     on = listOf(Push(branches = listOf("main")), PullRequest()),
-    permissions = mapOf(Permission.Contents to Mode.Read),
+    permissions = mapOf(Permission.Contents to Mode.Read, Permission.Actions to Mode.Write),
     sourceFile = __FILE__,
     targetFileName = "ci.yml",
     // Ahead of the library's own note, so nobody edits the YAML by hand.
@@ -55,7 +66,7 @@ workflow(
             checkoutActionVersion = CheckoutActionVersionSource.InferFromClasspath(),
         ),
 ) {
-    job(
+    val check = job(
         id = "check",
         runsOn = UbuntuLatest,
         env = sharedBuilds,
@@ -63,13 +74,16 @@ workflow(
         setUp()
         // Builds every native target the host can build, so commonMain stays free of JVM-only code.
         run(command = "./gradlew check -Pocto.allNativeTargets=true --console=plain")
+        cancelRunOnFailure()
     }
     // Renders the design sample at 100-200% on each desktop OS, to compare text and border sharpness.
-    // Informational: nothing depends on it, and the PNGs are kept as an artifact.
+    // Informational: nothing depends on it, and the PNGs are kept as an artifact. Linux runs
+    // alongside `check`; Windows starts only after `check` (Linux tests) passed.
     for ((os, runner) in listOf("linux" to UbuntuLatest, "windows" to WindowsLatest)) {
         job(
             id = "screenshots-$os",
             runsOn = runner,
+            needs = if (os == "linux") emptyList() else listOf(check),
             env = sharedBuilds + ("OCTO_SHOTS" to "\${{ github.workspace }}/shots"),
         ) {
             setUp()
@@ -78,6 +92,7 @@ workflow(
                 shell = Shell.Bash,
             )
             uses(action = UploadArtifact(name = "screenshots-$os", path = listOf("shots/")))
+            cancelRunOnFailure()
         }
     }
 }
