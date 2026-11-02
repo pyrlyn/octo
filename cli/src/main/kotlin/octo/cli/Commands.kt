@@ -23,6 +23,7 @@ import octo.core.access.NewTaskBody
 import octo.core.access.PairBody
 import octo.core.access.PairedBody
 import octo.core.access.PromptBody
+import octo.core.access.SwitchBody
 import octo.core.access.TaskBody
 import octo.core.access.TaskListBody
 import octo.core.access.TranscriptBody
@@ -54,7 +55,7 @@ class PairCommand(
 }
 
 class TaskCommand : CliktCommand(name = "task") {
-    override fun help(context: Context) = "List, start, message, read and wait for tasks"
+    override fun help(context: Context) = "List, start, message, read, switch and wait for tasks"
 
     override fun run() = Unit
 }
@@ -141,6 +142,26 @@ class TaskReadCommand(
         val body = client.get("/tasks/$id/transcript")
         if (json) return line(body)
         client.decode(body, TranscriptBody.serializer()).entries.forEach { line(TranscriptText.line(it)) }
+    }
+}
+
+class TaskSwitchCommand(
+    private val octo: Octo,
+) : CliktCommand(name = "switch") {
+    private val id by argument(help = "The task's id")
+    private val agent by argument(help = "The agent's id, e.g. cursor")
+    private val model by option("--model", help = "The model; the agent's own choice when left out")
+    private val json by jsonFlag()
+
+    override fun help(context: Context) =
+        "Hand the task to another agent in the same worktree; print its id, agent and status"
+
+    override fun run() {
+        val client = octo.client()
+        val body = client.post("/tasks/$id/switch", SwitchBody.serializer(), SwitchBody(agent, model))
+        if (json) return line(body)
+        val task = client.decode(body, TaskBody.serializer())
+        line(listOf(task.id.value, task.agent, task.status.name).joinToString("\t"))
     }
 }
 
