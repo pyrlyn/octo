@@ -370,6 +370,11 @@ agent and writes the state. `close()` belongs to `app`, so it is not on the inte
   `Handoff.build` makes from Octo's transcript: the original request, then the newest messages
   and command outcomes (each output's tail) that fit a token budget. The new request is never
   cut. The handoff goes out once.
+- **One agent per task.** A task never has two live agents, so two agents never edit one
+  worktree. Every start goes through `launchAgent`, which throws `AgentAlreadyRunningException`
+  while the task still has a live one; every path that changes the agent stops the old one first,
+  under the task's lock. A `switchAgent` asked for while another is under way for the same task
+  throws `HandoffInProgressException` at once instead of waiting for the lock.
 - **Forks.** `forkTask` cuts a new branch from the parent's HEAD and copies its uncommitted and
   untracked files over through a separate git index, so the parent's index and files stay as they
   are. The fork keeps the parent's agent, options and transcript, and `Task.parentId` puts it under
