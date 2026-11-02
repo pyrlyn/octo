@@ -28,10 +28,12 @@ class Git(
     }
 }
 
+/** A git command exited with [exitCode]. */
 class GitException(
     args: List<String>,
     val exitCode: Int,
     val stderr: String,
 ) : IllegalStateException("git ${args.joinToString(" ")} failed ($exitCode): $stderr")
 
+/** `git` is not on PATH. */
 class GitNotFoundException : IllegalStateException("git is not installed or not on PATH")

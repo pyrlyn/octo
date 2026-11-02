@@ -115,6 +115,7 @@ fun interface GitRemotes {
     suspend fun at(path: String): GitRemote
 }
 
+/** [Workspace] and [RefTransfer] on top of the user's own `git`. */
 class GitWorkspace(
     private val git: Git,
     private val dirs: Directories = LocalDirectories(),
