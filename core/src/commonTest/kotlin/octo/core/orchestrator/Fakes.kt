@@ -1,5 +1,6 @@
 package octo.core.orchestrator
 
+import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.channels.Channel
 import kotlinx.coroutines.flow.Flow
@@ -54,6 +55,10 @@ internal class FakeSession(
     val rollbacks = mutableListOf<Int>()
     var refuseRollback = false
     var compactions = 0
+    var closed = false
+
+    /** Holds [close] until completed, for a stop that takes a while. */
+    var closeGate: CompletableDeferred<Unit>? = null
 
     /** The pictures each prompt carried, in step with [prompts]. */
     val images = mutableListOf<List<PromptImage>>()
@@ -106,6 +111,8 @@ internal class FakeSession(
     }
 
     override suspend fun close() {
+        closeGate?.await()
+        closed = true
         channel.trySend(AgentEvent.Exited(0))
         channel.close()
     }
@@ -125,10 +132,14 @@ internal class FakeAdapter(
     val specs = mutableListOf<SessionSpec>()
     val sessions = mutableListOf<FakeSession>()
 
+    /** Runs as each session starts, before it exists. */
+    var beforeStart: () -> Unit = {}
+
     override suspend fun probe() = AgentProbe("/bin/fake", "1", "1", AuthState.Unknown)
 
     override suspend fun start(spec: SessionSpec): AgentSession {
         if (failStart) error("fake is not installed")
+        beforeStart()
         specs += spec
         return FakeSession(pid, refuseModel).also {
             val ref = spec.resume.takeUnless { spec.fork } ?: AgentSessionRef("s${sessions.size + 1}")

@@ -84,7 +84,9 @@ interface OctoCore {
     /**
      * Moves the task to [agent], optionally on [model]; the worktree and branch stay. The same
      * agent switches its model in place when it can. Otherwise a fresh session starts and the
-     * next prompt goes out with a handoff built from the transcript.
+     * next prompt goes out with a handoff built from the transcript. The old agent is stopped
+     * before the new one starts; a second switch while one is under way throws
+     * [HandoffInProgressException].
      */
     suspend fun switchAgent(
         taskId: TaskId,
@@ -183,6 +185,14 @@ class UnknownAgentException(
 class TaskNotRunningException(
     id: TaskId,
 ) : IllegalStateException("Task '${id.value}' has no running agent")
+
+class AgentAlreadyRunningException(
+    id: TaskId,
+) : IllegalStateException("Task '${id.value}' already has a running agent")
+
+class HandoffInProgressException(
+    id: TaskId,
+) : IllegalStateException("Task '${id.value}' is already being handed to another agent")
 
 class WorktreeDirtyException(
     id: TaskId,

@@ -10,6 +10,7 @@ import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.collectLatest
 import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.flow.flowOf
+import kotlinx.coroutines.flow.getAndUpdate
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.flow.updateAndGet
@@ -87,6 +88,7 @@ class Orchestrator private constructor(
     private val transcripts = MutableStateFlow<Map<TaskId, List<TranscriptEntry>>>(emptyMap())
     private val runtimes = MutableStateFlow<Map<TaskId, Runtime>>(emptyMap())
     private val locks = MutableStateFlow<Map<TaskId, Mutex>>(emptyMap())
+    private val handoffs = MutableStateFlow<Set<TaskId>>(emptySet())
     private val saver = StateSaver(store, ::warn)
     private val starts =
         StartQueue(agentLimits, scope, mutableState, ::withTask, { running(it) != null }) {
@@ -382,27 +384,39 @@ class Orchestrator private constructor(
         agent: AgentId,
         model: String?,
     ) {
-        withTask(taskId) {
-            val task = view(taskId).task
-            val target = machines[task.machine].adapter(agent)
-            terms.requireAcknowledged(target)
-            // Another agent's model name means nothing to this one, so the old choice never carries over.
-            val options = task.options - MODEL_OPTION + listOfNotNull(model?.let { MODEL_OPTION to it })
-            val runtime = running(taskId)
-            val inPlace =
-                agent == task.agent && model != null && runtime != null &&
-                    Capability.ModelSelection in target.capabilities && switchModel(runtime, model)
-            if (inPlace) {
-                updateView(taskId) { it.copy(task = it.task.copy(options = options)) }
-                note(taskId, TranscriptEntry.Notice("Model: $model"))
-                return@withTask
-            }
-            stopLocked(taskId, keepSlot = true)
-            handOver(taskId, "Switched to ${target.displayName}${model?.let { " ($it)" }.orEmpty()}") {
-                it.copy(agent = agent, options = options)
-            }
-            startAgent(taskId, resume = false)
+        // A second handoff waiting for the lock would only restart the agent the first one starts.
+        if (taskId in handoffs.getAndUpdate { it + taskId }) throw HandoffInProgressException(taskId)
+        try {
+            withTask(taskId) { switchLocked(taskId, agent, model) }
+        } finally {
+            handoffs.update { it - taskId }
         }
+    }
+
+    private suspend fun switchLocked(
+        taskId: TaskId,
+        agent: AgentId,
+        model: String?,
+    ) {
+        val task = view(taskId).task
+        val target = machines[task.machine].adapter(agent)
+        terms.requireAcknowledged(target)
+        // Another agent's model name means nothing to this one, so the old choice never carries over.
+        val options = task.options - MODEL_OPTION + listOfNotNull(model?.let { MODEL_OPTION to it })
+        val runtime = running(taskId)
+        val inPlace =
+            agent == task.agent && model != null && runtime != null &&
+                Capability.ModelSelection in target.capabilities && switchModel(runtime, model)
+        if (inPlace) {
+            updateView(taskId) { it.copy(task = it.task.copy(options = options)) }
+            note(taskId, TranscriptEntry.Notice("Model: $model"))
+            return
+        }
+        stopLocked(taskId, keepSlot = true)
+        handOver(taskId, "Switched to ${target.displayName}${model?.let { " ($it)" }.orEmpty()}") {
+            it.copy(agent = agent, options = options)
+        }
+        startAgent(taskId, resume = false)
     }
 
     override fun moveTargets(taskId: TaskId): List<String?> = move.targets(view(taskId).task)
@@ -605,6 +619,8 @@ class Orchestrator private constructor(
         resume: Boolean,
         forkFrom: AgentSessionRef?,
     ) {
+        // Two agents in one worktree would edit the same files, so every start goes through this check.
+        if (running(id) != null) throw AgentAlreadyRunningException(id)
         val task = view(id).task
         val adapter = machines[task.machine].adapter(task.agent)
         terms.requireAcknowledged(adapter)
