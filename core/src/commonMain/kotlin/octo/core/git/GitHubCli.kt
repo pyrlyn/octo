@@ -23,10 +23,12 @@ class GitHubCli(
     }
 }
 
+/** A `gh` command exited with [exitCode]. */
 class GitHubCliException(
     args: List<String>,
     val exitCode: Int,
     val stderr: String,
 ) : IllegalStateException("gh ${args.take(2).joinToString(" ")} failed ($exitCode): $stderr")
 
+/** `gh` is not on PATH. */
 class GitHubCliNotFoundException : IllegalStateException("gh is not installed or not on PATH")

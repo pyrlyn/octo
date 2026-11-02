@@ -7,8 +7,10 @@ data class TaskDiff(
     val files: List<FileDiff>,
 )
 
+/** How a file changed in a diff. */
 enum class FileChange { Added, Deleted, Modified, Renamed }
 
+/** One file's changes; [oldPath] is set for renames. */
 data class FileDiff(
     val path: String,
     val oldPath: String?,
@@ -20,6 +22,7 @@ data class FileDiff(
     val deletions: Int get() = hunks.sumOf { hunk -> hunk.lines.count { it.kind == LineKind.Removed } }
 }
 
+/** A run of changed lines with its line ranges in the old and new file. */
 data class Hunk(
     val oldStart: Int,
     val oldCount: Int,
@@ -30,8 +33,10 @@ data class Hunk(
     val lines: List<DiffLine>,
 )
 
+/** Whether a diff line is unchanged context, added or removed. */
 enum class LineKind { Context, Added, Removed }
 
+/** One line of a hunk. */
 data class DiffLine(
     val kind: LineKind,
     val text: String,

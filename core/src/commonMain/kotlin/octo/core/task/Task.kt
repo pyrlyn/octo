@@ -11,6 +11,7 @@ import octo.core.agent.SessionStats
 import octo.core.status.AgentStatus
 import kotlin.jvm.JvmInline
 
+/** Stable id of a task. */
 @Serializable
 @JvmInline
 value class TaskId(
@@ -145,6 +146,7 @@ sealed interface PendingRequest {
     ) : PendingRequest
 }
 
+/** A task together with its live state: agent status, open requests and session figures. */
 data class TaskView(
     val task: Task,
     val status: AgentStatus,
@@ -189,6 +191,7 @@ data class Layout(
     val diffOpen: Boolean = false,
 )
 
+/** Everything the UI shows: all tasks, the window layout and load warnings. */
 data class OctoState(
     val tasks: List<TaskView> = emptyList(),
     val layout: Layout = Layout(),

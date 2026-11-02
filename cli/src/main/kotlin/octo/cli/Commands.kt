@@ -33,6 +33,7 @@ import octo.core.task.read
 import java.io.File
 import java.io.IOException
 
+/** `octo pair <code>`: pairs with Octo and saves the URL and token to `cli.json`. */
 class PairCommand(
     private val octo: Octo,
 ) : CliktCommand(name = "pair") {
@@ -53,12 +54,14 @@ class PairCommand(
     }
 }
 
+/** `octo task`: the parent of the task subcommands. */
 class TaskCommand : CliktCommand(name = "task") {
     override fun help(context: Context) = "List, start, message, read and wait for tasks"
 
     override fun run() = Unit
 }
 
+/** `octo task list [--json]`. */
 class TaskListCommand(
     private val octo: Octo,
 ) : CliktCommand(name = "list") {
@@ -76,6 +79,7 @@ class TaskListCommand(
     }
 }
 
+/** `octo task start`: starts a task and prints its id. */
 class TaskStartCommand(
     private val octo: Octo,
 ) : CliktCommand(name = "start") {
@@ -112,6 +116,7 @@ class TaskStartCommand(
     }
 }
 
+/** `octo task send <id> [message] [--attach file]`. */
 class TaskSendCommand(
     private val octo: Octo,
 ) : CliktCommand(name = "send") {
@@ -128,6 +133,7 @@ class TaskSendCommand(
     }
 }
 
+/** `octo task read <id>`: prints the transcript, one entry per line. */
 class TaskReadCommand(
     private val octo: Octo,
 ) : CliktCommand(name = "read") {
@@ -144,6 +150,7 @@ class TaskReadCommand(
     }
 }
 
+/** `octo task wait <id>`: exits 0 when idle, 2 when blocked, 124 on timeout and 1 otherwise. */
 class TaskWaitCommand(
     private val octo: Octo,
 ) : CliktCommand(name = "wait") {

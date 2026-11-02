@@ -174,26 +174,32 @@ interface OctoCore {
     val processUsage: Flow<Map<TaskId, ProcessUsage>>
 }
 
+/** No task has this id. */
 class UnknownTaskException(
     id: TaskId,
 ) : IllegalArgumentException("No task '${id.value}'")
 
+/** No registered adapter has this id, or its feature flag is off. */
 class UnknownAgentException(
     id: AgentId,
 ) : IllegalArgumentException("Agent '${id.value}' is not available")
 
+/** The call needs a running agent and the task has none. */
 class TaskNotRunningException(
     id: TaskId,
 ) : IllegalStateException("Task '${id.value}' has no running agent")
 
+/** The task already has a running agent. */
 class AgentAlreadyRunningException(
     id: TaskId,
 ) : IllegalStateException("Task '${id.value}' already has a running agent")
 
+/** A [OctoCore.switchAgent] call for this task is still under way. */
 class HandoffInProgressException(
     id: TaskId,
 ) : IllegalStateException("Task '${id.value}' is already being handed to another agent")
 
+/** The task's [worktree] has uncommitted changes the call would lose. */
 class WorktreeDirtyException(
     id: TaskId,
     val worktree: String,
