@@ -119,8 +119,8 @@ token; every other call sends it as `Authorization: Bearer <token>`. The calls:
 `attachments` is a list of `{name, mimeType?, data}` with each file's bytes in base64, at most 20 MB
 a file; a message may be files alone.
 - `POST /tasks/{id}/cancel`, `/stop` and `/restart`.
-- with `handoff` on, `POST /tasks/{id}/switch` with `{agent, model?}`, which answers with the task
-  on its new agent. A second switch while one is under way answers 409.
+- with `handoff` on, `POST /tasks/{id}/switch` with `{agent, model?, summary?}`, which answers with
+  the task on its new agent. A second switch while one is under way answers 409.
 
 Vendor terms are accepted only in the Octo window; until then creating a task answers 409.
 `devices.json` keeps only a SHA-256 of each token, and Revoke locks a device out at once.
@@ -144,7 +144,7 @@ the token is sent only to the Octo it was paired with.
 - `octo task send <id> [message] [--attach file]`; repeat `--attach` for more files, read from
   your current directory;
 - `octo task read <id>`, which prints the transcript one entry per line;
-- `octo task switch <id> <agent> [--model …]`, which hands the task to another agent (needs
+- `octo task switch <id> <agent> [--model …] [--summary]`, which hands the task to another agent (needs
   `handoff`) and prints its id, agent and status;
 - `octo task wait <id> [--timeout seconds]`, which returns when the turn ends: exit 0 when the task
   is idle, 1 when it failed or stopped, 2 when it waits for an answer, 124 on timeout.
@@ -155,6 +155,9 @@ the token is sent only to the Octo it was paired with.
 worktree and branch. A model change stays in the running session when the agent can switch live;
 otherwise a fresh session starts, and your next prompt carries the conversation over from Octo's
 transcript (the original request and as many recent messages and command outcomes as fit).
+With "Ask for a summary first", on by default while the agent is idle, the agent you leave first
+writes a short summary for the next one; if it is busy, asks for permission or takes over two
+minutes, the handoff goes on with the transcript alone.
 
 `"fork": true` adds Fork to each task: a new task on a new branch that starts from the task's
 worktree as it is, uncommitted files included, listed under it in the sidebar. Claude and Codex

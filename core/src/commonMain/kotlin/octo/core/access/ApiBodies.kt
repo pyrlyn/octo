@@ -80,11 +80,15 @@ data class PromptBody(
     val attachments: List<AttachmentBody> = emptyList(),
 )
 
-/** Hands the task to [agent]; a null [model] leaves the choice to the agent. */
+/**
+ * Hands the task to [agent]; a null [model] leaves the choice to the agent. With [summary], the
+ * leaving agent writes a summary for the next one first.
+ */
 @Serializable
 data class SwitchBody(
     val agent: String,
     val model: String? = null,
+    val summary: Boolean = false,
 )
 
 @Serializable

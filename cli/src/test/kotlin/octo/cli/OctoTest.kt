@@ -157,6 +157,8 @@ class OctoTest {
         assertEquals("switch cursor fast", core.calls.last())
         assertTrue("\"agent\":\"claude\"" in octo("task switch t9 claude --json").stdout)
         assertEquals("switch claude", core.calls.last())
+        assertEquals(0, octo("task switch t9 cursor --summary").statusCode)
+        assertEquals("switch cursor summary", core.calls.last())
         assertEquals(1, octo("task switch nope cursor").statusCode)
     }
 

@@ -288,7 +288,7 @@ class RemoteApi(
     ): ApiResponse {
         if (!handoff) return error(NOT_FOUND, "Not found")
         return post(request, SwitchBody.serializer()) {
-            core.switchAgent(id, AgentId(it.agent), it.model?.trim()?.ifEmpty { null })
+            core.switchAgent(id, AgentId(it.agent), it.model?.trim()?.ifEmpty { null }, it.summary)
             ok(TaskBody.serializer(), (core.state.value[id] ?: throw UnknownTaskException(id)).dto())
         }
     }
