@@ -374,7 +374,9 @@ agent and writes the state. `close()` belongs to `app`, so it is not on the inte
   worktree. Every start goes through `launchAgent`, which throws `AgentAlreadyRunningException`
   while the task still has a live one; every path that changes the agent stops the old one first,
   under the task's lock. A `switchAgent` asked for while another is under way for the same task
-  throws `HandoffInProgressException` at once instead of waiting for the lock.
+  throws `HandoffInProgressException` at once instead of waiting for the lock. With `handoff`
+  on, a paired device switches through `POST tasks/{id}/switch` (`SwitchBody`), and the `octo`
+  command through `octo task switch`; the refusal answers 409.
 - **Forks.** `forkTask` cuts a new branch from the parent's HEAD and copies its uncommitted and
   untracked files over through a separate git index, so the parent's index and files stay as they
   are. The fork keeps the parent's agent, options and transcript, and `Task.parentId` puts it under

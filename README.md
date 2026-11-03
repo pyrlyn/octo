@@ -119,6 +119,8 @@ token; every other call sends it as `Authorization: Bearer <token>`. The calls:
 `attachments` is a list of `{name, mimeType?, data}` with each file's bytes in base64, at most 20 MB
 a file; a message may be files alone.
 - `POST /tasks/{id}/cancel`, `/stop` and `/restart`.
+- with `handoff` on, `POST /tasks/{id}/switch` with `{agent, model?}`, which answers with the task
+  on its new agent. A second switch while one is under way answers 409.
 
 Vendor terms are accepted only in the Octo window; until then creating a task answers 409.
 `devices.json` keeps only a SHA-256 of each token, and Revoke locks a device out at once.
@@ -142,10 +144,12 @@ the token is sent only to the Octo it was paired with.
 - `octo task send <id> [message] [--attach file]`; repeat `--attach` for more files, read from
   your current directory;
 - `octo task read <id>`, which prints the transcript one entry per line;
+- `octo task switch <id> <agent> [--model …]`, which hands the task to another agent (needs
+  `handoff`) and prints its id, agent and status;
 - `octo task wait <id> [--timeout seconds]`, which returns when the turn ends: exit 0 when the task
   is idle, 1 when it failed or stopped, 2 when it waits for an answer, 124 on timeout.
 
-`--json` on `list`, `start`, `read` and `wait` prints Octo's JSON instead of text.
+`--json` on `list`, `start`, `read`, `switch` and `wait` prints Octo's JSON instead of text.
 
 `"handoff": true` adds Switch agent to each task: pick another agent or model for the same
 worktree and branch. A model change stays in the running session when the agent can switch live;

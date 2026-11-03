@@ -80,6 +80,13 @@ data class PromptBody(
     val attachments: List<AttachmentBody> = emptyList(),
 )
 
+/** Hands the task to [agent]; a null [model] leaves the choice to the agent. */
+@Serializable
+data class SwitchBody(
+    val agent: String,
+    val model: String? = null,
+)
+
 @Serializable
 data class TaskListBody(
     val tasks: List<TaskBody>,

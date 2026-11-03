@@ -35,7 +35,7 @@ class OctoTest {
     private val home = Files.createTempDirectory("octo-cli").toString()
     private val core = FakeOctoCore()
     private val devices = runBlocking { Devices.open(AtomicFile(Path(home, "devices.json")), JvmSecrets) }
-    private val server = RemoteHttpServer(RemoteApi(core, devices), 0).start()
+    private val server = RemoteHttpServer(RemoteApi(core, devices, handoff = true), 0).start()
     private val t9 = TaskId("t9")
     private var clock = 0L
 
@@ -146,6 +146,18 @@ class OctoTest {
             octo("task read t9").stdout,
         )
         assertTrue("\"entries\"" in octo("task read t9 --json").stdout)
+    }
+
+    @Test
+    fun switchHandsTheTaskToAnotherAgent() {
+        pair()
+        status(AgentStatus.Idle)
+        val switched = octo("task switch t9 cursor --model fast")
+        assertEquals("t9\tcursor\tIdle\n", switched.stdout, switched.stderr)
+        assertEquals("switch cursor fast", core.calls.last())
+        assertTrue("\"agent\":\"claude\"" in octo("task switch t9 claude --json").stdout)
+        assertEquals("switch claude", core.calls.last())
+        assertEquals(1, octo("task switch nope cursor").statusCode)
     }
 
     @Test

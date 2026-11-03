@@ -52,6 +52,8 @@ class RemoteApi(
     private val hooks: Webhooks? = null,
     /** Null while the `guest-share` flag is off. */
     private val shares: Shares? = null,
+    /** The `handoff` flag: without it a device cannot switch a task's agent. */
+    private val handoff: Boolean = false,
 ) {
     @Suppress("TooGenericExceptionCaught")
     suspend fun handle(request: ApiRequest): ApiResponse =
@@ -257,6 +259,10 @@ class RemoteApi(
                 }
             }
 
+            "switch" -> {
+                switch(request, id)
+            }
+
             "cancel", "stop", "restart" -> {
                 if (request.method != POST) {
                     ApiResponse(METHOD_NOT_ALLOWED, allow = POST)
@@ -273,6 +279,17 @@ class RemoteApi(
             else -> {
                 error(NOT_FOUND, "Not found")
             }
+        }
+    }
+
+    private suspend fun switch(
+        request: ApiRequest,
+        id: TaskId,
+    ): ApiResponse {
+        if (!handoff) return error(NOT_FOUND, "Not found")
+        return post(request, SwitchBody.serializer()) {
+            core.switchAgent(id, AgentId(it.agent), it.model?.trim()?.ifEmpty { null })
+            ok(TaskBody.serializer(), (core.state.value[id] ?: throw UnknownTaskException(id)).dto())
         }
     }
 
