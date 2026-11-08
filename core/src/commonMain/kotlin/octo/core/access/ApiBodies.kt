@@ -22,18 +22,21 @@ val ApiJson =
         explicitNulls = false
     }
 
+/** `POST /pair`: the one-time [code] from Devices and the device's [name]. */
 @Serializable
 data class PairBody(
     val code: String,
     val name: String,
 )
 
+/** The answer to a pairing: the bearer [token] for every later call. */
 @Serializable
 data class PairedBody(
     val token: String,
     val deviceId: String?,
 )
 
+/** `POST /tasks`: what a new task runs; mirrors [octo.core.task.NewTask]. */
 @Serializable
 data class NewTaskBody(
     val repo: String,
@@ -69,11 +72,13 @@ data class AttachmentBody(
     }
 }
 
+/** The id of a task `POST /tasks` created. */
 @Serializable
 data class CreatedBody(
     val id: TaskId,
 )
 
+/** `POST /tasks/{id}/prompt`: a message, with optional files. */
 @Serializable
 data class PromptBody(
     val text: String,
@@ -81,8 +86,8 @@ data class PromptBody(
 )
 
 /**
- * Hands the task to [agent]; a null [model] leaves the choice to the agent. With [summary], the
- * leaving agent writes a summary for the next one first.
+ * `POST /tasks/{id}/switch`: hands the task to [agent]; a null [model] leaves the choice to the
+ * agent. With [summary], the leaving agent writes a summary for the next one first.
  */
 @Serializable
 data class SwitchBody(
@@ -91,16 +96,19 @@ data class SwitchBody(
     val summary: Boolean = false,
 )
 
+/** `GET /tasks`. */
 @Serializable
 data class TaskListBody(
     val tasks: List<TaskBody>,
 )
 
+/** `GET /tasks/{id}/transcript`. */
 @Serializable
 data class TranscriptBody(
     val entries: List<TranscriptEntry>,
 )
 
+/** One task as the API shows it, with its open requests in [pending]. */
 @Serializable
 data class TaskBody(
     val id: TaskId,
@@ -116,6 +124,7 @@ data class TaskBody(
     val pending: List<PendingBody>,
 )
 
+/** A request the agent is waiting on: a permission with [options], or [questions]. */
 @Serializable
 data class PendingBody(
     val id: String,
@@ -136,6 +145,7 @@ data class GuestBody(
     val proposals: List<GuestProposalBody>,
 )
 
+/** One of a guest's proposed messages and its [status]. */
 @Serializable
 data class GuestProposalBody(
     val id: String,
@@ -143,6 +153,7 @@ data class GuestProposalBody(
     val status: ProposalStatus,
 )
 
+/** A message a guest proposes; it reaches the agent only once the owner sends it. */
 @Serializable
 data class ProposeBody(
     val text: String,

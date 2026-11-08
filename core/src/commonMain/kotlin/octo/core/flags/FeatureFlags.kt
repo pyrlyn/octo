@@ -11,6 +11,7 @@ data class FeatureFlag(
     val requires: Set<Capability> = emptySet(),
 )
 
+/** The `flags` from `config.json`; a flag left out takes its [FeatureFlag.default]. */
 class FeatureFlags(
     private val values: Map<String, Boolean> = emptyMap(),
 ) {

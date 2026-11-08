@@ -6,6 +6,7 @@ import octo.core.flags.FeatureFlag
 import octo.core.usage.UsageHistory
 import kotlin.jvm.JvmInline
 
+/** Stable id of an agent integration, such as `claude` or `codex`. */
 @Serializable
 @JvmInline
 value class AgentId(
@@ -22,6 +23,7 @@ value class AgentSessionRef(
 /** The option an adapter with [Capability.ModelSelection] reads its model from. */
 const val MODEL_OPTION = "model"
 
+/** What an adapter can do; the core and features check these instead of the agent's id. */
 enum class Capability {
     Resume,
     Cancel,
@@ -53,8 +55,10 @@ class PromptImage(
     val data: ByteArray,
 )
 
+/** Whether the agent's CLI is signed in, as far as its adapter can tell without reading credentials. */
 enum class AuthState { LoggedIn, LoggedOut, Unknown }
 
+/** What [AgentAdapter.probe] found: the binary on PATH, its version and its sign-in state. */
 data class AgentProbe(
     val binaryPath: String?,
     val version: String?,
@@ -80,6 +84,7 @@ data class VendorTerms(
     val url: String,
 )
 
+/** How to start one agent session: the worktree, an optional session to resume, and its options. */
 data class SessionSpec(
     val workingDir: String,
     val resume: AgentSessionRef? = null,
@@ -129,6 +134,7 @@ interface AgentAdapter {
     suspend fun start(spec: SessionSpec): AgentSession
 }
 
+/** One running agent process, driven through prompts and observed through [events]. */
 interface AgentSession {
     /** The agent's root process on the machine that launched it, for CPU and memory figures. */
     val processId: Long? get() = null
@@ -190,6 +196,7 @@ interface AgentSession {
     suspend fun close()
 }
 
+/** The agent's CLI was not found on PATH. */
 class AgentNotInstalledException(
     id: AgentId,
 ) : IllegalStateException("Agent '${id.value}' is not installed or not on PATH")

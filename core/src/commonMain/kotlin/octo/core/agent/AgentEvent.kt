@@ -81,20 +81,26 @@ sealed interface AgentEvent {
     ) : AgentEvent
 }
 
+/** Who wrote a message in the transcript. */
 @Serializable
 enum class Role { User, Assistant }
 
+/** The state of one tool call. */
 @Serializable
 enum class ToolStatus { Pending, InProgress, Completed, Failed }
 
+/** Why a turn ended. [Error] and [Refusal] mark the task failed. */
 @Serializable
 enum class StopReason { EndTurn, MaxTurns, Cancelled, Refusal, Error }
 
+/** Where a log line came from: the agent's stderr or its protocol stream. */
 enum class LogStream { Stderr, Protocol }
 
+/** The kind of answer a permission option gives. */
 @Serializable
 enum class PermissionKind { AllowOnce, AllowAlways, RejectOnce, RejectAlways }
 
+/** One answer the agent offers to a permission request. */
 @Serializable
 data class PermissionOption(
     val id: String,
@@ -102,6 +108,7 @@ data class PermissionOption(
     val kind: PermissionKind,
 )
 
+/** One question the agent asks, with optional fixed [options]. */
 @Serializable
 data class Question(
     val id: String,
@@ -110,12 +117,14 @@ data class Question(
     val multiSelect: Boolean = false,
 )
 
+/** One step of the agent's plan. */
 @Serializable
 data class PlanEntry(
     val text: String,
     val done: Boolean,
 )
 
+/** Token and cost figures an agent reports; any of them may be missing. */
 @Serializable
 data class Usage(
     val inputTokens: Long? = null,
@@ -167,6 +176,7 @@ data class ContextParts(
     val output: Long? = null,
 )
 
+/** The user's answer to a pending permission request or question. */
 sealed interface RequestResponse {
     data class Option(
         val optionId: String,

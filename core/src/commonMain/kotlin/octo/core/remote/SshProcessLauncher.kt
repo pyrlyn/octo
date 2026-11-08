@@ -177,9 +177,11 @@ class SharedConnection(
 /** POSIX single quotes: nothing inside is special, and a quote is closed, escaped and reopened. */
 fun shellQuote(value: String): String = "'" + value.replace("'", "'\\''") + "'"
 
+/** `ssh` could not reach the machine. */
 class SshException(
     host: String,
     stderr: String,
 ) : IllegalStateException("Could not reach $host over SSH: $stderr")
 
+/** `ssh` is not on PATH. */
 class SshNotFoundException : IllegalStateException("ssh is not installed or not on PATH")

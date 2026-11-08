@@ -4,6 +4,7 @@ import kotlinx.serialization.Serializable
 import octo.core.agent.AgentEvent
 import octo.core.agent.StopReason
 
+/** A task's agent state, derived from its events by [AgentState]. */
 @Serializable
 enum class AgentStatus {
     Starting,

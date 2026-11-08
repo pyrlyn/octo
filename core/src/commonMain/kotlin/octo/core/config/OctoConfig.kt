@@ -151,6 +151,7 @@ data class AgentLimits(
     val warnings: List<String> = emptyList(),
 )
 
+/** A loaded config and a [warning] to show when part of it could not be read. */
 data class ParsedConfig(
     val config: OctoConfig,
     val warning: String?,
