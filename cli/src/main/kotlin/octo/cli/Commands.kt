@@ -151,6 +151,7 @@ class TaskSwitchCommand(
     private val id by argument(help = "The task's id")
     private val agent by argument(help = "The agent's id, e.g. cursor")
     private val model by option("--model", help = "The model; the agent's own choice when left out")
+    private val summary by option("--summary", help = "Ask the leaving agent for a summary first").flag()
     private val json by jsonFlag()
 
     override fun help(context: Context) =
@@ -158,7 +159,7 @@ class TaskSwitchCommand(
 
     override fun run() {
         val client = octo.client()
-        val body = client.post("/tasks/$id/switch", SwitchBody.serializer(), SwitchBody(agent, model))
+        val body = client.post("/tasks/$id/switch", SwitchBody.serializer(), SwitchBody(agent, model, summary))
         if (json) return line(body)
         val task = client.decode(body, TaskBody.serializer())
         line(listOf(task.id.value, task.agent, task.status.name).joinToString("\t"))

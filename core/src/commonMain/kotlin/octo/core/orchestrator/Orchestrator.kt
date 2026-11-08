@@ -9,6 +9,7 @@ import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.collectLatest
 import kotlinx.coroutines.flow.distinctUntilChanged
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.flowOf
 import kotlinx.coroutines.flow.getAndUpdate
 import kotlinx.coroutines.flow.map
@@ -179,6 +180,7 @@ class Orchestrator private constructor(
                 machine = parent.machine,
                 permissionMode = parent.permissionMode,
                 handoffFrom = if (native) parent.handoffFrom else parent.handoffFrom ?: adapter.displayName,
+                handoffSummary = parent.handoffSummary,
                 parentId = parent.id,
             )
         mutableState.update { it.copy(tasks = it.tasks + TaskView(task, AgentStatus.Starting)) }
@@ -247,7 +249,10 @@ class Orchestrator private constructor(
         // Built before the new message lands, so the handoff ends with it exactly once.
         val task = view(id).task
         val from = task.handoffFrom
-        val handedOver = from?.let { Handoff.build(transcripts.value[id].orEmpty(), text, it) } ?: text
+        val handedOver =
+            from?.let {
+                Handoff.build(transcripts.value[id].orEmpty(), text, it, summary = task.handoffSummary)
+            } ?: text
         val sent = TaskAttachments.withPaths(task.revertNote?.let { "$it\n\n$handedOver" } ?: handedOver, files)
         val images = if (Capability.Images in runtime.capabilities) attached.images(task, files) else emptyList()
         // The first turn gets a starting point too, so it can be undone like any other.
@@ -255,7 +260,7 @@ class Orchestrator private constructor(
         note(id, TranscriptEntry.Text(Role.User, text, attachments = files))
         compaction?.cancel(id)
         startTurn(id, runtime) { runtime.session.prompt(sent, images) }
-        updateView(id) { it.copy(task = it.task.copy(handoffFrom = null, revertNote = null)) }
+        updateView(id) { it.copy(task = it.task.copy(handoffFrom = null, handoffSummary = null, revertNote = null)) }
         if (from != null) note(id, TranscriptEntry.Notice("Handed the conversation over from $from"))
     }
 
@@ -383,11 +388,12 @@ class Orchestrator private constructor(
         taskId: TaskId,
         agent: AgentId,
         model: String?,
+        summary: Boolean,
     ) {
         // A second handoff waiting for the lock would only restart the agent the first one starts.
         if (taskId in handoffs.getAndUpdate { it + taskId }) throw HandoffInProgressException(taskId)
         try {
-            withTask(taskId) { switchLocked(taskId, agent, model) }
+            withTask(taskId) { switchLocked(taskId, agent, model, summary) }
         } finally {
             handoffs.update { it - taskId }
         }
@@ -397,6 +403,7 @@ class Orchestrator private constructor(
         taskId: TaskId,
         agent: AgentId,
         model: String?,
+        summary: Boolean,
     ) {
         val task = view(taskId).task
         val target = machines[task.machine].adapter(agent)
@@ -412,9 +419,11 @@ class Orchestrator private constructor(
             note(taskId, TranscriptEntry.Notice("Model: $model"))
             return
         }
+        val written = if (summary) summarize(taskId, runtime) else null
         stopLocked(taskId, keepSlot = true)
         handOver(taskId, "Switched to ${target.displayName}${model?.let { " ($it)" }.orEmpty()}") {
-            it.copy(agent = agent, options = options)
+            // An earlier summary still stands when the agent in between never took a prompt.
+            it.copy(agent = agent, options = options, handoffSummary = written ?: it.handoffSummary)
         }
         startAgent(taskId, resume = false)
     }
@@ -461,6 +470,72 @@ class Orchestrator private constructor(
         val from = task.handoffFrom ?: machines[task.machine].registry[task.agent]?.displayName ?: task.agent.value
         updateView(id) { it.copy(task = change(it.task).copy(sessionRef = null, handoffFrom = from)) }
         note(id, TranscriptEntry.Notice("$what; the next prompt carries the conversation over"))
+    }
+
+    /**
+     * The leaving agent's own summary for the next one: its last message in one extra turn. Null,
+     * with a notice saying why, when it cannot write one; the handoff then uses the transcript alone.
+     */
+    private suspend fun summarize(
+        id: TaskId,
+        runtime: Runtime?,
+    ): String? {
+        val view = view(id)
+        val name = machines[view.task.machine].registry[view.task.agent]?.displayName ?: view.task.agent.value
+        val unable =
+            when {
+                runtime == null -> "is not running"
+                view.limit != null -> "hit its usage limit"
+                view.status != AgentStatus.Idle || view.pending.isNotEmpty() -> "is busy"
+                else -> null
+            }
+        return if (runtime == null || unable != null) noSummary(id, "$name $unable") else askSummary(id, runtime, name)
+    }
+
+    // Whatever goes wrong, the switch goes on without the summary.
+    @Suppress("TooGenericExceptionCaught")
+    private suspend fun askSummary(
+        id: TaskId,
+        runtime: Runtime,
+        name: String,
+    ): String? {
+        val asked = TranscriptEntry.Notice("Asking $name for a handoff summary")
+        note(id, asked)
+        val ended =
+            try {
+                startTurn(id, runtime) { runtime.session.prompt(SUMMARY_PROMPT) }
+                withTimeoutOrNull(SUMMARY_TIMEOUT_MS) { runtime.agent.first { it.status != AgentStatus.Working } }
+            } catch (e: CancellationException) {
+                throw e
+            } catch (e: Exception) {
+                return noSummary(id, "$name could not take the request: ${e.message}")
+            }
+        // The turn is cancelled first, so the agent stops writing before its session closes.
+        val cancel = runCatching { if (ended == null) runtime.session.cancel() }
+        cancel.onFailure { if (it is CancellationException) throw it }
+        val entries = transcripts.value[id].orEmpty()
+        val reply =
+            entries
+                .drop(entries.lastIndexOf(asked) + 1)
+                .lastOrNull { it is TranscriptEntry.Text && it.role == Role.Assistant && !it.partial }
+                ?.let { (it as TranscriptEntry.Text).text.trim() }
+                ?.takeIf { it.isNotEmpty() }
+        val why =
+            when {
+                ended == null -> "did not answer in time"
+                ended.status != AgentStatus.Idle -> "is ${ended.status.name.lowercase()}"
+                reply == null -> "wrote nothing"
+                else -> null
+            }
+        return if (why == null) reply else noSummary(id, "$name $why")
+    }
+
+    private fun noSummary(
+        id: TaskId,
+        why: String,
+    ): String? {
+        note(id, TranscriptEntry.Notice("No summary: $why; the handoff uses the transcript alone"))
+        return null
     }
 
     // Whatever the reason an agent refuses, the model still arrives through a fresh session.
@@ -777,6 +852,15 @@ class Orchestrator private constructor(
         const val BRANCH_PREFIX = "octo/"
         const val MAX_QUEUED = 20
         private const val STOP_TIMEOUT_MS = 10_000L
+
+        /** Long enough for a few paragraphs from a slow model, short enough that a stuck one does not hold the switch. */
+        private const val SUMMARY_TIMEOUT_MS = 120_000L
+
+        private const val SUMMARY_PROMPT =
+            "You are about to hand this task to another coding agent, which will continue in the same " +
+                "worktree and branch. Do not run tools or change files. Reply with a short summary for it: " +
+                "the goal, what is done, what you tried that did not work, what is left, and anything it " +
+                "must know to carry on."
         private const val PROCESS_SAMPLE_MS = 2_000L
 
         /** Loads the saved state (every task comes back stopped) and starts saving changes. */

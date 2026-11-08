@@ -11,6 +11,7 @@ import octo.core.agent.MODEL_OPTION
 import octo.core.orchestrator.AgentCatalog
 import octo.core.orchestrator.AgentInfo
 import octo.core.orchestrator.OctoCore
+import octo.core.status.AgentStatus
 import octo.core.task.TaskId
 import octo.feature.common.TermsNotice
 import octo.feature.common.acceptAndRetry
@@ -26,6 +27,9 @@ data class SwitchAgentUiState(
     val agent: AgentId? = null,
     /** Empty leaves the choice to the agent. */
     val model: String = "",
+    /** The task's agent is running and idle, so it can write a summary before it goes. */
+    val canSummarize: Boolean = false,
+    val summary: Boolean = false,
     val switching: Boolean = false,
     val done: Boolean = false,
     val terms: TermsNotice? = null,
@@ -56,7 +60,17 @@ class SwitchAgentViewModel(
     init {
         val task = core.state.value[taskId]?.task
         val model = task?.options?.get(MODEL_OPTION).orEmpty()
-        mutable.update { it.copy(current = task?.agent, currentModel = model, agent = task?.agent, model = model) }
+        val idle = core.state.value[taskId]?.let { it.status == AgentStatus.Idle && it.limit == null } == true
+        mutable.update {
+            it.copy(
+                current = task?.agent,
+                currentModel = model,
+                agent = task?.agent,
+                model = model,
+                canSummarize = idle,
+                summary = idle,
+            )
+        }
         scope.action(::fail) {
             val agents = catalog.agents(task?.machine)
             mutable.update { it.copy(agents = agents, loading = false) }
@@ -69,6 +83,8 @@ class SwitchAgentViewModel(
 
     fun editModel(value: String) = mutable.update { it.copy(model = value) }
 
+    fun toggleSummary() = mutable.update { it.copy(summary = !it.summary) }
+
     fun switch() {
         val s = state.value.takeIf { it.canSwitch } ?: return
         val agent = s.selectedAgent ?: return
@@ -78,7 +94,9 @@ class SwitchAgentViewModel(
                 mutable.update { it.copy(switching = false, terms = TermsNotice(agent, terms)) }
                 return@action
             }
-            core.switchAgent(taskId, agent.id, s.model.trim().ifEmpty { null })
+            // Only a fresh session needs it; a model switch in place keeps the conversation.
+            val summary = s.summary && s.canSummarize && s.handsOver
+            core.switchAgent(taskId, agent.id, s.model.trim().ifEmpty { null }, summary)
             mutable.update { it.copy(switching = false, done = true) }
         }
     }

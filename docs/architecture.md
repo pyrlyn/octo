@@ -369,7 +369,12 @@ agent and writes the state. `close()` belongs to `app`, so it is not on the inte
   the task remembers whom it came from, and the next prompt is wrapped in a handoff that
   `Handoff.build` makes from Octo's transcript: the original request, then the newest messages
   and command outcomes (each output's tail) that fit a token budget. The new request is never
-  cut. The handoff goes out once.
+  cut. The handoff goes out once. With `summary`, a running idle agent first gets one more turn
+  with a fixed prompt, not recorded as a user message; its last message in that turn becomes
+  `Task.handoffSummary`, which `Handoff.build` puts under its own heading after the original
+  request (at most a third of the budget) and leaves out of the recent lines. A busy, blocked,
+  failed or rate-limited agent, an empty reply or two minutes without an answer (the turn is
+  cancelled) leave a notice, and the handoff goes on from the transcript alone.
 - **One agent per task.** A task never has two live agents, so two agents never edit one
   worktree. Every start goes through `launchAgent`, which throws `AgentAlreadyRunningException`
   while the task still has a live one; every path that changes the agent stops the old one first,
