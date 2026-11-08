@@ -23,13 +23,15 @@ class SwitchAgentViewModelTest {
     private val core = FakeOctoCore()
     private val id = TaskId("a")
 
-    private fun put(machine: String? = null) =
-        core.put(
-            TaskView(
-                FakeOctoCore.task(id).copy(machine = machine, options = mapOf(MODEL_OPTION to "small")),
-                AgentStatus.Idle,
-            ),
-        )
+    private fun put(
+        machine: String? = null,
+        status: AgentStatus = AgentStatus.Idle,
+    ) = core.put(
+        TaskView(
+            FakeOctoCore.task(id).copy(machine = machine, options = mapOf(MODEL_OPTION to "small")),
+            status,
+        ),
+    )
 
     @Test
     fun theSameAgentSwitchesOnlyItsModel() =
@@ -79,7 +81,32 @@ class SwitchAgentViewModelTest {
             vm.acceptTerms()
             testScheduler.runCurrent()
             assertEquals(listOf(AgentId("claude")), catalog.acknowledged)
+            assertEquals(listOf("switch claude summary"), core.calls, "an idle agent writes a summary by default")
+        }
+
+    @Test
+    fun theSummaryIsTheUsersChoiceAndOnlyAnIdleAgentsToGive() =
+        runTest {
+            // Claude is installed only on that machine in the fake catalog.
+            put(machine = "box")
+            val vm = SwitchAgentViewModel(core, FakeCatalog(core), id, backgroundScope)
+            testScheduler.runCurrent()
+            vm.selectAgent(AgentId("claude"))
+            vm.toggleSummary()
+            assertFalse(vm.state.value.summary)
+            vm.switch()
+            testScheduler.runCurrent()
             assertEquals(listOf("switch claude"), core.calls)
+
+            put(machine = "box", status = AgentStatus.Working)
+            val busy = SwitchAgentViewModel(core, FakeCatalog(core), id, backgroundScope)
+            testScheduler.runCurrent()
+            assertFalse(busy.state.value.canSummarize)
+            busy.selectAgent(AgentId("claude"))
+            busy.toggleSummary()
+            busy.switch()
+            testScheduler.runCurrent()
+            assertEquals("switch claude", core.calls.last(), "a busy agent is not asked")
         }
 
     @Test

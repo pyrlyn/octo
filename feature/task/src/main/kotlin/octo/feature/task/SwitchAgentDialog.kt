@@ -9,6 +9,7 @@ import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.Modifier
+import octo.design.Choice
 import octo.design.DialogWidth
 import octo.design.Gap
 import octo.design.GhostButton
@@ -52,6 +53,21 @@ fun SwitchAgentDialog(
                     placeholder = { Text("The agent's default") },
                     singleLine = true,
                 )
+                if (state.handsOver) {
+                    Choice(
+                        "Ask for a summary first",
+                        selected = state.summary && state.canSummarize,
+                        onClick = vm::toggleSummary,
+                        note =
+                            if (state.canSummarize) {
+                                "The current agent writes what the next one needs to know"
+                            } else {
+                                "Only an idle agent can write one"
+                            },
+                        enabled = state.canSummarize,
+                        multiple = true,
+                    )
+                }
                 Text(
                     if (state.handsOver) {
                         "A fresh session starts in the same worktree; your next prompt carries the conversation over."

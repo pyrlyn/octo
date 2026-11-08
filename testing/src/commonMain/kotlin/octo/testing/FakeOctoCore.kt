@@ -151,8 +151,10 @@ class FakeOctoCore : OctoCore {
         taskId: TaskId,
         agent: AgentId,
         model: String?,
+        summary: Boolean,
     ) {
-        calls += listOfNotNull("switch", agent.value, model).joinToString(" ")
+        calls += listOfNotNull("switch", agent.value, model, "summary".takeIf { summary }).joinToString(" ")
+        state.value[taskId]?.let { put(it.copy(task = it.task.copy(agent = agent))) }
     }
 
     override suspend fun setPermissionMode(

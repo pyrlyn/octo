@@ -60,6 +60,8 @@ data class Task(
     val machine: String? = null,
     /** The agent this task was switched away from; the next prompt carries the conversation over. */
     val handoffFrom: String? = null,
+    /** What the agent switched away from wrote for the next one; goes out with the handoff. */
+    val handoffSummary: String? = null,
     /** The task this one was forked from. */
     val parentId: TaskId? = null,
     /** What the user chose; the agent runs it only if its adapter has it. */

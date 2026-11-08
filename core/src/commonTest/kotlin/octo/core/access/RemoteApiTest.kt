@@ -1,6 +1,8 @@
 package octo.core.access
 
+import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.ExperimentalCoroutinesApi
+import kotlinx.coroutines.launch
 import kotlinx.coroutines.test.TestScope
 import kotlinx.coroutines.test.runTest
 import kotlinx.io.files.Path
@@ -10,6 +12,7 @@ import kotlinx.serialization.json.jsonObject
 import kotlinx.serialization.json.jsonPrimitive
 import octo.core.agent.AgentEvent
 import octo.core.agent.AgentId
+import octo.core.agent.MODEL_OPTION
 import octo.core.agent.PermissionKind
 import octo.core.agent.PermissionMode
 import octo.core.agent.PermissionOption
@@ -42,10 +45,14 @@ class RemoteApiTest {
         ) = api.handle(ApiRequest(method, "/api/v1$path", token?.let { "Bearer $it" }, body))
     }
 
-    private suspend fun TestScope.api(adapter: FakeAdapter = FakeAdapter()): Api {
-        val s = setup(adapter)
+    private suspend fun TestScope.api(
+        adapter: FakeAdapter = FakeAdapter(),
+        others: List<FakeAdapter> = emptyList(),
+        handoff: Boolean = false,
+    ): Api {
+        val s = setup(adapter, others = others)
         val devices = Devices.open(AtomicFile(Path(s.home, "devices.json")), FakeSecrets())
-        val api = RemoteApi(s.core, devices)
+        val api = RemoteApi(s.core, devices, handoff = handoff)
         val code = devices.startPairing().code
         val paired = api.handle(ApiRequest("POST", "/api/v1/pair", null, """{"code":"$code","name":"Phone"}"""))
         assertEquals(200, paired.status)
@@ -71,6 +78,77 @@ class RemoteApiTest {
             val wrong = t.api.handle(ApiRequest("POST", "/api/v1/pair", null, """{"code":"NOPE","name":"X"}"""))
             assertEquals(401, wrong.status)
             assertEquals(404, t.api.handle(ApiRequest("GET", "/other", null, null)).status)
+        }
+
+    private suspend fun TestScope.created(t: Api): String {
+        val id =
+            t
+                .call("POST", "/tasks", newTask)
+                .body!!
+                .jsonObject["id"]!!
+                .jsonPrimitive.content
+        testScheduler.runCurrent()
+        return id
+    }
+
+    @Test
+    fun aDeviceHandsATaskToAnotherAgent() =
+        runTest {
+            val other = FakeAdapter(id = AgentId("other"), displayName = "Other")
+            val t = api(others = listOf(other), handoff = true)
+            val id = created(t)
+
+            val switched = t.call("POST", "/tasks/$id/switch", """{"agent":"other","model":" big "}""")
+            testScheduler.runCurrent()
+            assertEquals(200, switched.status)
+            assertEquals(
+                "other",
+                switched.body!!
+                    .jsonObject["agent"]!!
+                    .jsonPrimitive.content,
+            )
+            assertTrue(
+                t.s.adapter.sessions
+                    .single()
+                    .closed,
+                "the old agent stopped",
+            )
+            assertEquals("big", other.specs.single().options[MODEL_OPTION])
+
+            val unknown = t.call("POST", "/tasks/$id/switch", """{"agent":"ghost"}""")
+            assertEquals(400, unknown.status)
+            assertEquals("Agent 'ghost' is not available", unknown.body!!.jsonObject.error)
+            assertEquals(405, t.call("GET", "/tasks/$id/switch").status)
+            assertEquals(404, t.call("POST", "/tasks/nope/switch", """{"agent":"other"}""").status)
+        }
+
+    @Test
+    fun aSecondHandoffUnderWayIsAConflict() =
+        runTest {
+            val other = FakeAdapter(id = AgentId("other"), displayName = "Other")
+            val t = api(others = listOf(other), handoff = true)
+            val id = created(t)
+            val gate = CompletableDeferred<Unit>()
+            t.s.adapter.sessions
+                .single()
+                .closeGate = gate
+            launch { t.call("POST", "/tasks/$id/switch", """{"agent":"other"}""") }
+            testScheduler.runCurrent()
+
+            assertEquals(409, t.call("POST", "/tasks/$id/switch", """{"agent":"fake"}""").status)
+            gate.complete(Unit)
+            testScheduler.runCurrent()
+            assertEquals(1, other.sessions.size)
+        }
+
+    @Test
+    fun withoutTheHandoffFlagThereIsNoSwitch() =
+        runTest {
+            val other = FakeAdapter(id = AgentId("other"), displayName = "Other")
+            val t = api(others = listOf(other))
+            val id = created(t)
+            assertEquals(404, t.call("POST", "/tasks/$id/switch", """{"agent":"other"}""").status)
+            assertTrue(other.sessions.isEmpty())
         }
 
     @Test

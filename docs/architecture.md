@@ -369,12 +369,19 @@ agent and writes the state. `close()` belongs to `app`, so it is not on the inte
   the task remembers whom it came from, and the next prompt is wrapped in a handoff that
   `Handoff.build` makes from Octo's transcript: the original request, then the newest messages
   and command outcomes (each output's tail) that fit a token budget. The new request is never
-  cut. The handoff goes out once.
+  cut. The handoff goes out once. With `summary`, a running idle agent first gets one more turn
+  with a fixed prompt, not recorded as a user message; its last message in that turn becomes
+  `Task.handoffSummary`, which `Handoff.build` puts under its own heading after the original
+  request (at most a third of the budget) and leaves out of the recent lines. A busy, blocked,
+  failed or rate-limited agent, an empty reply or two minutes without an answer (the turn is
+  cancelled) leave a notice, and the handoff goes on from the transcript alone.
 - **One agent per task.** A task never has two live agents, so two agents never edit one
   worktree. Every start goes through `launchAgent`, which throws `AgentAlreadyRunningException`
   while the task still has a live one; every path that changes the agent stops the old one first,
   under the task's lock. A `switchAgent` asked for while another is under way for the same task
-  throws `HandoffInProgressException` at once instead of waiting for the lock.
+  throws `HandoffInProgressException` at once instead of waiting for the lock. With `handoff`
+  on, a paired device switches through `POST tasks/{id}/switch` (`SwitchBody`), and the `octo`
+  command through `octo task switch`; the refusal answers 409.
 - **Forks.** `forkTask` cuts a new branch from the parent's HEAD and copies its uncommitted and
   untracked files over through a separate git index, so the parent's index and files stay as they
   are. The fork keeps the parent's agent, options and transcript, and `Task.parentId` puts it under

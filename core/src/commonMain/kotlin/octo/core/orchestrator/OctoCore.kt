@@ -86,12 +86,14 @@ interface OctoCore {
      * agent switches its model in place when it can. Otherwise a fresh session starts and the
      * next prompt goes out with a handoff built from the transcript. The old agent is stopped
      * before the new one starts; a second switch while one is under way throws
-     * [HandoffInProgressException].
+     * [HandoffInProgressException]. With [summary], a running idle agent first writes a summary
+     * that goes out with the handoff; when it cannot, the transcript goes alone.
      */
     suspend fun switchAgent(
         taskId: TaskId,
         agent: AgentId,
         model: String?,
+        summary: Boolean = false,
     )
 
     /**

@@ -20,6 +20,26 @@ class HandoffTest {
     }
 
     @Test
+    fun theLeavingAgentsSummaryComesAfterTheRequestAndIsNotRepeated() {
+        val entries = listOf(user("Fix the login bug"), agent("Looked at auth"), agent("Done: auth; left: tests"))
+        val handoff = Handoff.build(entries, "Go on", "Claude", summary = "Done: auth; left: tests")
+        assertTrue(
+            "Original request:\nFix the login bug\n\nThe previous agent's summary:\nDone: auth; left: tests" in handoff,
+        )
+        assertTrue("Agent: Looked at auth" in handoff)
+        assertFalse("Agent: Done: auth" in handoff)
+        assertTrue(handoff.endsWith("Go on"))
+    }
+
+    @Test
+    fun aLongSummaryLeavesRoomForRecentMessages() {
+        val entries = listOf(user("Fix it"), agent("Recent finding"))
+        val handoff = Handoff.build(entries, "Go on", "Claude", budgetTokens = 300, summary = "x".repeat(4_000))
+        assertTrue("[…]" in handoff, "the summary is clipped")
+        assertTrue("Agent: Recent finding" in handoff)
+    }
+
+    @Test
     fun aShortConversationCarriesOverWhole() {
         val entries =
             listOf(

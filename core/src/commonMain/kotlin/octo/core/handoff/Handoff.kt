@@ -22,18 +22,27 @@ object Handoff {
 
     /**
      * The handoff from [from] followed by [request]. The original request comes first, then the
-     * most recent messages and command outcomes that fit in [budgetTokens]; [request] is never cut,
-     * even when it alone is over the budget. Without a transcript, [request] goes out as it is.
+     * leaving agent's [summary] when it wrote one, then the most recent messages and command
+     * outcomes that fit in [budgetTokens]; [request] is never cut, even when it alone is over the
+     * budget. Without a transcript, [request] goes out as it is.
      */
     fun build(
         entries: List<TranscriptEntry>,
         request: String,
         from: String,
         budgetTokens: Int = DEFAULT_BUDGET_TOKENS,
+        summary: String? = null,
     ): String {
         val first = entries.indexOfFirst { it is TranscriptEntry.Text && it.role == Role.User && !it.partial }
         val original = (entries.getOrNull(first) as? TranscriptEntry.Text)?.text ?: return request
-        val later = entries.drop(first + 1).mapNotNull(::line)
+        // The summary sits under its own heading, so the same message is not repeated as a recent one.
+        val later =
+            entries
+                .drop(first + 1)
+                .filterNot {
+                    summary != null && it is TranscriptEntry.Text && it.role == Role.Assistant &&
+                        it.text == summary
+                }.mapNotNull(::line)
         val head =
             "You are taking over this task from $from. The conversation so far, from Octo's transcript:" +
                 "\n\nOriginal request:\n"
@@ -41,6 +50,9 @@ object Handoff {
         // The heading is reserved at its longest, so the count of left-out entries never tips the budget.
         var left = budgetTokens - tokens(head) - tokens(tail) - tokens(recentHeading(later.size))
         val kept = clip(original, left).also { left -= tokens(it) }
+        val summarized =
+            summary?.let { "\n\n$SUMMARY_HEADING\n" + clip(it, (left / SUMMARY_SHARE - tokens(SUMMARY_HEADING))) }
+        summarized?.let { left -= tokens(it) }
         val recent = ArrayDeque<String>()
         for (line in later.asReversed()) {
             val cost = tokens(line) + 1
@@ -51,6 +63,7 @@ object Handoff {
         val omitted = later.size - recent.size
         return buildString {
             append(head).append(kept)
+            summarized?.let(::append)
             if (later.isNotEmpty()) append(recentHeading(omitted)).append(recent.joinToString("\n"))
             append(tail)
         }
@@ -58,6 +71,11 @@ object Handoff {
 
     private fun recentHeading(omitted: Int) =
         "\n\nMost recent conversation" + (if (omitted > 0) " ($omitted earlier entries left out)" else "") + ":\n"
+
+    private const val SUMMARY_HEADING = "The previous agent's summary:"
+
+    /** The summary takes at most a third of what is left, so recent messages still fit. */
+    private const val SUMMARY_SHARE = 3
 
     private const val FOOTER =
         "The worktree and branch are the same; carry on from their current state. The new request:"

@@ -35,6 +35,7 @@ class Octo(
                 TaskStartCommand(this),
                 TaskSendCommand(this),
                 TaskReadCommand(this),
+                TaskSwitchCommand(this),
                 TaskWaitCommand(this),
             ),
         )

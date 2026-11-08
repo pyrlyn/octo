@@ -30,6 +30,9 @@ in the Octo home. If that file cannot be read, Octo shows a warning and never ov
 worktree and branch. A model change stays in the running session when the agent can switch live;
 otherwise a fresh session starts, and your next prompt carries the conversation over from Octo's
 transcript (the original request and as many recent messages and command outcomes as fit).
+With "Ask for a summary first", on by default while the agent is idle, the agent you leave first
+writes a short summary for the next one; if it is busy, asks for permission or takes over two
+minutes, the handoff goes on with the transcript alone.
 
 ## Forking a task
 
