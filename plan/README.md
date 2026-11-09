@@ -18,6 +18,10 @@ Taken by the creator after the Phase 1 research (`docs/research.md`):
   Claude Code uses its native stream-json control protocol, Codex its `app-server` protocol and
   ZCode one stream-json `--prompt` run per turn, so Node is not
   a runtime dependency.
+- **Storage (T66).** Everything Octo keeps between runs, except the configuration (`config.json`,
+  the CLI's `cli.json`), lives in one SQLite database, `octo.db`, through Room 2.8.5 (the stable
+  line) and the bundled SQLite driver. Room has no `mingwX64` build, so it sits in its own
+  `storage` module behind the core's interfaces; the earlier JSON files are imported once.
 - **Workflow.** The agent merges its own PR once tests and linters are green, then takes the next
   task.
 - **macOS design (T63).** On macOS Octo draws with MacOS-Pyrlyn-UI, a native-looking macOS design, from the shared
