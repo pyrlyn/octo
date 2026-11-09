@@ -33,6 +33,8 @@ object CoreFlags {
         FeatureFlag("previews", "Preview images, notebooks, archives, SQLite and Mermaid files in the diff view")
     val NOTIFICATIONS =
         FeatureFlag("notifications", "Show an OS notification when a task blocks, fails or finishes out of sight")
+    val OPEN_IN =
+        FeatureFlag("open-in", "Open the selected task's worktree in Finder, a terminal or an editor from the toolbar")
 
     /** Every core flag, in the order the settings screen lists them. */
     val all: List<FeatureFlag> =
@@ -45,6 +47,7 @@ object CoreFlags {
             CHECKPOINTS,
             SECTIONS,
             PALETTE,
+            OPEN_IN,
             USAGE,
             PREVIEWS,
             NOTIFICATIONS,

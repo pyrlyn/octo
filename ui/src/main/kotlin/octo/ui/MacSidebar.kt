@@ -12,6 +12,7 @@ import androidx.compose.foundation.lazy.items
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import octo.design.Glyph
 import octo.design.Text
 import octo.feature.common.label
 import octo.feature.common.tone
@@ -23,6 +24,7 @@ import pyrlyn.macos.IconTile
 import pyrlyn.macos.Label
 import pyrlyn.macos.Mac
 import pyrlyn.macos.MacIcon
+import pyrlyn.macos.MacSize
 import pyrlyn.macos.MacSpace
 import pyrlyn.macos.SectionLabel
 import pyrlyn.macos.SettingsItem
@@ -106,6 +108,7 @@ private fun MacTaskList(
                         selected = row.id == state.selected,
                         onClick = { vm.select(row.id) },
                         meta = row.age(now),
+                        trailing = { Glyph(row.icon?.svg, row.agent.value, MacSize.icon) },
                     )
                 }
             }

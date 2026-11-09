@@ -5,6 +5,7 @@ import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.update
+import octo.core.agent.AgentIcon
 import octo.core.agent.AgentId
 import octo.core.orchestrator.OctoCore
 import octo.core.task.OctoState
@@ -36,6 +37,8 @@ data class TaskRow(
     val limited: Boolean = false,
     /** When the agent's status last changed (epoch milliseconds); null when it is not known. */
     val activeAtMs: Long? = null,
+    /** The agent's glyph; null draws its monogram. */
+    val icon: AgentIcon? = null,
 )
 
 /** Sidebar sections, in the order they are listed. */
@@ -108,12 +111,19 @@ class MainViewModel(
     private val now: () -> Long = System::currentTimeMillis,
     /** False while the `usage` flag is off: no task shows as limited. */
     private val limits: Boolean = false,
+    /** Each agent's glyph, from its adapter; the default draws every agent as a monogram. */
+    private val icon: (AgentId) -> AgentIcon? = { null },
 ) : TaskPlaces {
-    private val mutable = MutableStateFlow(MainUiState().withCore(core.state.value, startupWarnings, sections, limits))
+    private val mutable =
+        MutableStateFlow(MainUiState().withCore(core.state.value, startupWarnings, sections, limits, icon))
     val state: StateFlow<MainUiState> = mutable.asStateFlow()
 
     init {
-        act { core.state.collect { octo -> mutable.update { it.withCore(octo, startupWarnings, sections, limits) } } }
+        act {
+            core.state.collect { octo ->
+                mutable.update { it.withCore(octo, startupWarnings, sections, limits, icon) }
+            }
+        }
     }
 
     fun select(id: TaskId) {
@@ -243,6 +253,7 @@ private fun MainUiState.withCore(
     startupWarnings: List<String>,
     sections: Boolean,
     limits: Boolean,
+    icon: (AgentId) -> AgentIcon?,
 ): MainUiState {
     val groups =
         state.tasks
@@ -266,6 +277,7 @@ private fun MainUiState.withCore(
                                     it.task.place,
                                     limited = limits && it.limit != null,
                                     activeAtMs = it.task.activeAtMs,
+                                    icon = icon(it.task.agent),
                                 )
                             }.let { if (sections) sectioned(it) else it },
                 )

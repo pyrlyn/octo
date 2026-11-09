@@ -24,6 +24,7 @@ class ConfigFileTest {
             file.update(ConfigEdit.defaultPermissionMode(PermissionMode.AutoAcceptEdits))
             file.update(ConfigEdit.worktreeSetup("/src/rtok", "cargo fetch"))
             file.update(ConfigEdit.remotePort(47471))
+            file.update(ConfigEdit.openIn("zed"))
             val last = file.update(ConfigEdit.appearance(AppearanceConfig(theme = AppearanceTheme.Dark)))
 
             val config = last.config
@@ -32,6 +33,7 @@ class ConfigFileTest {
             assertEquals(mapOf("/src/rtok" to "cargo fetch"), config.worktreeSetup)
             assertEquals(47471, config.remoteAccess.port)
             assertEquals(AppearanceTheme.Dark, config.appearance.theme)
+            assertEquals("zed", config.openIn)
             assertTrue("\"future\"" in last.text.orEmpty(), "an unknown key survives")
             assertNull(last.warning)
 

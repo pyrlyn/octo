@@ -80,6 +80,7 @@ import octo.feature.task.TaskScreen
 import octo.feature.usage.UsageScreen
 import octo.ui.vm.MainUiState
 import octo.ui.vm.MainViewModel
+import octo.ui.vm.OpenInViewModel
 import octo.ui.vm.TaskDialog
 import octo.ui.vm.ViewModels
 import octo.ui.window.Chrome
@@ -204,14 +205,15 @@ private fun RowScope.Workspace(
             .then(if (flush && !Pyrlyn.mac) Modifier.padding(end = Gap, bottom = Gap) else Modifier),
     ) {
         // Linux keeps search in its header bar and has no toolbar.
-        if (frame.chrome != Chrome.HeaderBar && (search != null || summary != null)) {
+        val hasToolbar = search != null || summary != null || models.openIn != null
+        if (frame.chrome != Chrome.HeaderBar && hasToolbar) {
             frame.dragArea(Modifier.fillMaxWidth()) {
-                Toolbar(summary, search, if (flush) CaptionToolbarHeight else ToolbarHeight)
+                Toolbar(summary, search, models.openIn, if (flush) CaptionToolbarHeight else ToolbarHeight)
             }
         }
         val panel = if (Pyrlyn.mac) RectangleShape else Pyrlyn.surfaceShape
         Column(Modifier.fillMaxSize().glass(panel, GlassLevel.Content, Elevation.E3)) {
-            Banners(state, models.main)
+            Banners(state, models)
             Box(Modifier.weight(1f).fillMaxWidth()) { Content(state, models) }
         }
     }
@@ -285,21 +287,29 @@ private fun Overlays(
 @Composable
 private fun Banners(
     state: MainUiState,
-    main: MainViewModel,
+    models: ViewModels,
 ) {
-    if (state.warnings.isEmpty() && state.error == null) return
+    val main = models.main
+    val openIn = models.openIn
+    val openInError = openIn?.let { it.error.collectAsState().value }
+    if (state.warnings.isEmpty() && state.error == null && openInError == null) return
     val inset = if (Pyrlyn.mac) 0.dp else 12.dp
     Column(Modifier.padding(start = inset, end = inset, top = inset), verticalArrangement = Arrangement.spacedBy(Gap)) {
         state.warnings.forEach { Banner(it, error = false, onDismiss = main::dismissWarnings) }
         state.error?.let { Banner(it, error = true, onDismiss = main::dismissError) }
+        openInError?.let { Banner(it, error = true, onDismiss = { openIn.dismissError() }) }
     }
 }
 
-/** The bar over the content panel: today's summary and a search field that opens the command palette. */
+/**
+ * The bar over the content panel: today's summary, a search field that opens the command palette and the button that
+ * opens the selected task's worktree in another app.
+ */
 @Composable
 private fun Toolbar(
     summary: String?,
     onSearch: (() -> Unit)?,
+    openIn: OpenInViewModel?,
     height: Dp,
 ) {
     if (Pyrlyn.mac) {
@@ -316,6 +326,7 @@ private fun Toolbar(
             ) {
                 SearchButton(onSearch, Modifier.width(SearchWidth), "Search tasks, agents, commands", "⌘K")
             }
+            openIn?.let { OpenInButton(it) }
         }
         return
     }
@@ -323,9 +334,11 @@ private fun Toolbar(
     Row(
         Modifier.fillMaxWidth().height(height).padding(horizontal = Gap),
         verticalAlignment = Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.spacedBy(Gap),
     ) {
         Text(summary.orEmpty(), Modifier.weight(1f), style = Pyrlyn.type.small, color = c.fgMuted, maxLines = 1)
         if (onSearch != null) SearchField(onSearch, SearchWidth, "Search tasks, agents, commands")
+        openIn?.let { OpenInButton(it) }
     }
 }
 

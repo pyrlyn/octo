@@ -216,6 +216,7 @@ private fun TaskRowItem(
                 maxLines = 1,
             )
         }
+        Glyph(row.icon?.svg, row.agent.value, AgentIconSize)
     }
 }
 
