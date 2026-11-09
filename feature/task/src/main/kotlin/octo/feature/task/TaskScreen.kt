@@ -45,7 +45,6 @@ import octo.core.task.TranscriptEntry
 import octo.design.Banner
 import octo.design.DangerButton
 import octo.design.Elevation
-import octo.design.FiguresFont
 import octo.design.Gap
 import octo.design.GhostButton
 import octo.design.GlassDialog
@@ -55,6 +54,7 @@ import octo.design.GlassMenu
 import octo.design.GlassMenuItem
 import octo.design.Hairline
 import octo.design.LargeGap
+import octo.design.MonoFont
 import octo.design.Notice
 import octo.design.PanePadding
 import octo.design.PrimaryButton
@@ -155,7 +155,7 @@ private fun Footer(
         } else {
             PromptBox(state, vm)
             state.tokens?.let {
-                Text(it.line, color = Pyrlyn.colors.fgMuted, style = Pyrlyn.type.small.copy(fontFamily = FiguresFont))
+                Text(it.line, color = Pyrlyn.colors.fgMuted, style = Pyrlyn.type.small.copy(fontFamily = MonoFont))
             }
         }
     }

@@ -29,7 +29,7 @@ import octo.core.agent.Role
 import octo.core.agent.ToolStatus
 import octo.core.task.Task
 import octo.core.task.TranscriptEntry
-import octo.design.FiguresFont
+import octo.design.MonoFont
 import octo.feature.common.AttachedFiles
 import octo.feature.common.AttachmentInput
 import octo.feature.common.PermissionPicker
@@ -196,7 +196,7 @@ internal fun MacPromptBox(
                     it.joinToString("  ·  "),
                     Modifier.padding(horizontal = MacSpace.lg),
                     color = Mac.colors.textTertiary,
-                    style = Mac.type.caption.copy(fontFamily = FiguresFont),
+                    style = Mac.type.caption.copy(fontFamily = MonoFont),
                 )
             }
     }
