@@ -138,6 +138,7 @@ class Orchestrator private constructor(
                 permissionMode = parent?.let { mode.atMost(it.permissionMode) } ?: mode,
                 parentId = parent?.id,
                 group = request.group,
+                activeAtMs = nowMs(),
             )
         mutableState.update { it.copy(tasks = it.tasks + TaskView(task, AgentStatus.Starting)) }
         withTask(id) {
@@ -182,6 +183,7 @@ class Orchestrator private constructor(
                 handoffFrom = if (native) parent.handoffFrom else parent.handoffFrom ?: adapter.displayName,
                 handoffSummary = parent.handoffSummary,
                 parentId = parent.id,
+                activeAtMs = nowMs(),
             )
         mutableState.update { it.copy(tasks = it.tasks + TaskView(task, AgentStatus.Starting)) }
         transcripts.update { it + (id to it[taskId].orEmpty()) }
@@ -810,7 +812,15 @@ class Orchestrator private constructor(
     private fun updateView(
         id: TaskId,
         change: (TaskView) -> TaskView,
-    ) = mutableState.update { it.change(id, change) }
+    ) = mutableState.update { state ->
+        state.change(id) { before ->
+            val after = change(before)
+            // Every status change goes through here, so this is the one place the sidebar's age is kept.
+            if (after.status == before.status) after else after.copy(task = after.task.copy(activeAtMs = nowMs()))
+        }
+    }
+
+    private fun nowMs() = clock.now().toEpochMilliseconds()
 
     private fun note(
         id: TaskId,

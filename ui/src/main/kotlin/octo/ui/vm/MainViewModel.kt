@@ -37,6 +37,8 @@ data class TaskRow(
     val limited: Boolean = false,
     /** The agent's glyph; null draws its monogram. */
     val icon: AgentIcon? = null,
+    /** When the agent's status last changed (epoch milliseconds); null when it is not known. */
+    val activeAtMs: Long? = null,
 )
 
 /** Sidebar sections, in the order they are listed. */
@@ -275,6 +277,7 @@ private fun MainUiState.withCore(
                                     it.task.place,
                                     limited = limits && it.limit != null,
                                     icon = icon(it.task.agent),
+                                    activeAtMs = it.task.activeAtMs,
                                 )
                             }.let { if (sections) sectioned(it) else it },
                 )
