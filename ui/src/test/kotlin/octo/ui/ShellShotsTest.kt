@@ -20,6 +20,7 @@ import octo.core.task.TaskView
 import octo.core.task.TranscriptEntry
 import octo.core.usage.UsageLog
 import octo.core.usage.UsageReport
+import octo.feature.common.AppOpener
 import octo.testing.FakeCatalog
 import octo.testing.FakeOctoCore
 import octo.ui.vm.ViewModels
@@ -47,7 +48,17 @@ class ShellShotsTest {
                     AtomicFile(Path(Files.createTempDirectory("octo-shots").toString(), "usage.json")),
                 )
             }
-        val models = ViewModels(core, FakeCatalog(core), scope, usage = UsageReport(log, emptyMap()))
+        // The open-in flag on, with a made-up set of apps, so the toolbar shows "Open location".
+        val opener =
+            AppOpener(
+                HostOs.MacOs,
+                home = "/home/me",
+                env = emptyMap(),
+                exists = { it.startsWith("/Applications/") },
+                start = { _, _ -> },
+            )
+        val models =
+            ViewModels(core, FakeCatalog(core), scope, usage = UsageReport(log, emptyMap()), opener = opener)
         models.main.select(TaskId("b"))
         for (os in HostOs.entries) shoot(models, os, File(out, "shell-${os.name.lowercase()}.png"))
         // The panes and dialogs are drawn for macOS alone, the one OS with its own design for them.

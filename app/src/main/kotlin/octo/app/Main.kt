@@ -11,6 +11,7 @@ import octo.core.io.AtomicFile
 import octo.core.paths.OctoPaths
 import octo.core.paths.currentHostOs
 import octo.core.process.JvmProcessLauncher
+import octo.feature.common.AppOpener
 import octo.feature.diff.FilePreviewer
 import octo.feature.palette.isPaletteShortcut
 import octo.ui.NotificationTray
@@ -50,6 +51,7 @@ fun main() {
             ConfigFile(AtomicFile(paths.config)),
             CoreFlags.all + builtInAdapters(launcher, currentHostOs()).mapNotNull { it.featureFlag },
             paths.home.toString(),
+            if (octo.openIn) AppOpener(currentHostOs(), System.getProperty("user.home"), System.getenv()) else null,
         )
     application {
         OctoWindow(
