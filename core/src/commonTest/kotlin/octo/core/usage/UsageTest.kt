@@ -13,7 +13,7 @@ import octo.core.task.OctoState
 import octo.core.task.Task
 import octo.core.task.TaskId
 import octo.core.task.TaskView
-import octo.core.tempDir
+import octo.testing.tempDir
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertNotNull

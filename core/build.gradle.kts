@@ -16,6 +16,7 @@ kotlin {
             implementation(libs.krontab)
         }
         commonTest.dependencies {
+            implementation(project(":testing"))
             implementation(libs.wasm.chasm)
         }
     }
