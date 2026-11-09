@@ -8,6 +8,7 @@ import kotlinx.coroutines.sync.withLock
 import kotlinx.serialization.Serializable
 import octo.core.io.AtomicFile
 import octo.core.io.JsonListFile
+import octo.core.io.ListStore
 import octo.core.io.ReadOnlyFileException
 import kotlin.time.Duration
 import kotlin.time.Duration.Companion.minutes
@@ -44,9 +45,9 @@ class PairingException(
     message: String,
 ) : Exception(message)
 
-/** Paired devices in `devices.json`, and the one pairing code that may be open at a time. */
+/** Paired devices, and the one pairing code that may be open at a time. */
 class Devices private constructor(
-    private val file: JsonListFile<Device>,
+    private val file: ListStore<Device>,
     private val secrets: Secrets,
     private val time: TimeSource,
 ) {
@@ -132,6 +133,7 @@ class Devices private constructor(
 
     companion object {
         const val CODE_LENGTH = 8
+        const val DEVICES_KEY = "devices"
         const val MAX_TRIES = 5
         const val MAX_NAME = 60
         val CODE_LIFETIME = 5.minutes
@@ -139,11 +141,18 @@ class Devices private constructor(
         private const val TOKEN_BYTES = 32
         private const val ID_BYTES = 8
 
+        fun open(
+            store: ListStore<Device>,
+            secrets: Secrets,
+            time: TimeSource = TimeSource.Monotonic,
+        ) = Devices(store, secrets, time)
+
+        /** Devices kept in `devices.json`, the format Octo used before SQLite. */
         suspend fun open(
             file: AtomicFile,
             secrets: Secrets,
             time: TimeSource = TimeSource.Monotonic,
-        ) = Devices(JsonListFile.open(file, Device.serializer(), "devices"), secrets, time)
+        ) = open(JsonListFile.open(file, Device.serializer(), DEVICES_KEY), secrets, time)
 
         private fun hex(bytes: ByteArray) = bytes.toHexString()
     }

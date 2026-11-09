@@ -3,6 +3,7 @@ package octo.core.preset
 import kotlinx.coroutines.flow.StateFlow
 import octo.core.io.AtomicFile
 import octo.core.io.JsonListFile
+import octo.core.io.ListStore
 
 /** The saved presets; the UI's only way to read or change them. */
 interface PresetLibrary {
@@ -21,13 +22,13 @@ class PresetException(
     message: String,
 ) : Exception(message)
 
-/** Presets in `presets.json` in the Octo home; see [JsonListFile] for how a broken file is kept. */
-class FilePresetLibrary private constructor(
-    private val file: JsonListFile<Preset>,
+/** Presets kept in a [ListStore]; one that could not be read refuses every change. */
+class StoredPresetLibrary private constructor(
+    private val file: ListStore<Preset>,
 ) : PresetLibrary {
     override val presets: StateFlow<List<Preset>> = file.items
 
-    /** Set when the file could not be read; every change is refused until it is fixed. */
+    /** Set when the presets could not be read; every change is refused until it is fixed. */
     val warning: String? get() = file.warning
 
     override suspend fun put(
@@ -49,6 +50,11 @@ class FilePresetLibrary private constructor(
     override suspend fun remove(name: String) = file.change { all -> all.filter { it.name != name } }
 
     companion object {
-        suspend fun open(file: AtomicFile) = FilePresetLibrary(JsonListFile.open(file, Preset.serializer(), "presets"))
+        const val PRESETS_KEY = "presets"
+
+        fun open(store: ListStore<Preset>) = StoredPresetLibrary(store)
+
+        /** Presets kept in `presets.json`, the format Octo used before SQLite. */
+        suspend fun open(file: AtomicFile) = open(JsonListFile.open(file, Preset.serializer(), PRESETS_KEY))
     }
 }

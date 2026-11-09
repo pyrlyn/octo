@@ -7,4 +7,6 @@ dependencies {
     implementation(libs.compose.compiler.plugin)
     implementation(libs.compose.gradle.plugin)
     implementation(libs.compose.hot.reload.plugin)
+    implementation(libs.ksp.plugin)
+    implementation(libs.room.plugin)
 }

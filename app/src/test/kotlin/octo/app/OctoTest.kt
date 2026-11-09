@@ -84,14 +84,22 @@ class OctoTest {
 
     @Test
     fun presetsNeedTheirFlag() {
-        File(home, "presets.json").writeText("{broken")
+        // The import moves every earlier file into the database, flag or not, so nothing is lost.
+        File(home, "presets.json")
+            .writeText(
+                """{"version": 1, "presets": [{"name": "Solo", "members": [{"role": "lead", "agent": "claude"}]}]}""",
+            )
         val off = open(null)
         assertNull(off.presets)
-        assertEquals(emptyList(), off.warnings, "the presets file is not read while the feature is off")
+        assertEquals(emptyList(), off.warnings)
 
         val on = open("""{"flags": {"${CoreFlags.PRESETS.id}": true}}""")
-        assertNotNull(on.presets)
-        assertTrue(on.warnings.single().contains("presets.json"), on.warnings.toString())
+        assertEquals(
+            listOf("Solo"),
+            on.presets!!
+                .presets.value
+                .map { it.name },
+        )
     }
 
     @Test

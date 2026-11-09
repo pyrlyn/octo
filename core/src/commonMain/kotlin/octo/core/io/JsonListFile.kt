@@ -32,14 +32,13 @@ class JsonListFile<T> private constructor(
     private val key: String,
     initial: List<T>,
     /** Set when the file could not be read; every change is refused with it. */
-    val warning: String?,
-) {
+    override val warning: String?,
+) : ListStore<T> {
     private val lock = Mutex()
     private val mutable = MutableStateFlow(initial)
-    val items: StateFlow<List<T>> = mutable.asStateFlow()
+    override val items: StateFlow<List<T>> = mutable.asStateFlow()
 
-    /** Applies [update] and writes the result; [update] may throw to refuse the change. */
-    suspend fun change(update: (List<T>) -> List<T>) =
+    override suspend fun change(update: (List<T>) -> List<T>) =
         lock.withLock {
             warning?.let { throw ReadOnlyFileException(it) }
             val next = update(mutable.value)

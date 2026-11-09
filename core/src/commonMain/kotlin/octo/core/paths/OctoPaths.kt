@@ -13,20 +13,22 @@ data class OctoPaths(
      */
     val sockets: Path? = null,
 ) {
-    val state: Path get() = Path(home, "state.json")
+    /** The SQLite database with everything Octo keeps except the configuration. */
+    val database: Path get() = Path(home, "octo.db")
     val config: Path get() = Path(home, "config.json")
     val worktrees: Path get() = Path(home, "worktrees")
-    val acknowledgements: Path get() = Path(home, "acknowledgements.json")
-    val presets: Path get() = Path(home, "presets.json")
-    val devices: Path get() = Path(home, "devices.json")
-    val shares: Path get() = Path(home, "shares.json")
     val plugins: Path get() = Path(home, "plugins")
-    val usage: Path get() = Path(home, "usage.json")
 
     /** The `octo` command's paired URL and token. */
     val cli: Path get() = Path(home, "cli.json")
 
-    /** When each trigger last ran and the webhook deliveries it already handled. */
+    // The files Octo kept before the database; they are read once, to import them into it.
+    val state: Path get() = Path(home, "state.json")
+    val acknowledgements: Path get() = Path(home, "acknowledgements.json")
+    val presets: Path get() = Path(home, "presets.json")
+    val devices: Path get() = Path(home, "devices.json")
+    val shares: Path get() = Path(home, "shares.json")
+    val usage: Path get() = Path(home, "usage.json")
     val triggers: Path get() = Path(home, "triggers.json")
 
     companion object {

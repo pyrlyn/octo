@@ -35,10 +35,10 @@ data class TaskRow(
     val sectionTitle: String? = null,
     /** The agent hit its usage limit; never set while the `usage` flag is off. */
     val limited: Boolean = false,
-    /** The agent's glyph; null draws its monogram. */
-    val icon: AgentIcon? = null,
     /** When the agent's status last changed (epoch milliseconds); null when it is not known. */
     val activeAtMs: Long? = null,
+    /** The agent's glyph; null draws its monogram. */
+    val icon: AgentIcon? = null,
 )
 
 /** Sidebar sections, in the order they are listed. */
@@ -276,8 +276,8 @@ private fun MainUiState.withCore(
                                     groupTitle,
                                     it.task.place,
                                     limited = limits && it.limit != null,
-                                    icon = icon(it.task.agent),
                                     activeAtMs = it.task.activeAtMs,
+                                    icon = icon(it.task.agent),
                                 )
                             }.let { if (sections) sectioned(it) else it },
                 )

@@ -9,6 +9,7 @@ import kotlinx.coroutines.sync.withLock
 import kotlinx.serialization.Serializable
 import octo.core.io.AtomicFile
 import octo.core.io.JsonListFile
+import octo.core.io.ListStore
 import octo.core.io.ReadOnlyFileException
 import octo.core.orchestrator.OctoCore
 import octo.core.task.TaskId
@@ -34,11 +35,11 @@ data class Proposal(
 )
 
 /**
- * Shared tasks in `shares.json`, one link per task, and their guests' proposals. Proposals live
+ * Shared tasks, one link per task, and their guests' proposals. Proposals live
  * in memory: they wait for the owner, who is at the window now, and a restart clears them.
  */
 class Shares private constructor(
-    private val file: JsonListFile<Share>,
+    private val file: ListStore<Share>,
     private val secrets: Secrets,
     private val core: OctoCore,
 ) {
@@ -137,6 +138,7 @@ class Shares private constructor(
 
     companion object {
         /** Where a guest link points; the token follows in the fragment, e.g. `/share#<token>`. */
+        const val SHARES_KEY = "shares"
         const val SHARE_PATH = "/share"
         const val MAX_TEXT = 4000
         const val MAX_PENDING = 10
@@ -146,11 +148,18 @@ class Shares private constructor(
         private const val TOKEN_BYTES = 32
         private const val ID_BYTES = 8
 
+        fun open(
+            store: ListStore<Share>,
+            secrets: Secrets,
+            core: OctoCore,
+        ) = Shares(store, secrets, core)
+
+        /** Shares kept in `shares.json`, the format Octo used before SQLite. */
         suspend fun open(
             file: AtomicFile,
             secrets: Secrets,
             core: OctoCore,
-        ) = Shares(JsonListFile.open(file, Share.serializer(), "shares"), secrets, core)
+        ) = open(JsonListFile.open(file, Share.serializer(), SHARES_KEY), secrets, core)
 
         private fun hex(bytes: ByteArray) = bytes.toHexString()
     }

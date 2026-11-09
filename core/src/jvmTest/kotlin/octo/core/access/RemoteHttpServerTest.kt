@@ -12,11 +12,12 @@ import octo.core.io.AtomicFile
 import octo.core.orchestrator.FakeAdapter
 import octo.core.orchestrator.FakeWorkspace
 import octo.core.orchestrator.Orchestrator
+import octo.core.persist.JsonStateStore
 import octo.core.persist.StateStore
-import octo.core.tempDir
 import octo.core.terms.TermsGate
 import octo.core.triggers.Delivery
 import octo.core.triggers.Webhooks
+import octo.testing.tempDir
 import java.net.BindException
 import java.net.URI
 import java.net.http.HttpClient
@@ -39,7 +40,7 @@ class RemoteHttpServerTest {
             Orchestrator.open(
                 AdapterRegistry(listOf(FakeAdapter()), FeatureFlags()),
                 FakeWorkspace(),
-                StateStore(Path(home, "state.json")),
+                JsonStateStore(Path(home, "state.json")),
                 TermsGate(AtomicFile(Path(home, "acknowledgements.json"))),
                 Path(home, "worktrees"),
                 scope,
