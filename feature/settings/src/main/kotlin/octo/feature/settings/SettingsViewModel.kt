@@ -22,8 +22,8 @@ import octo.core.orchestrator.AgentCatalog
 import octo.core.orchestrator.AgentInfo
 import octo.feature.common.action
 import octo.feature.common.childScope
+import octo.feature.common.openWithSystem
 import octo.feature.common.userMessage
-import java.awt.Desktop
 import java.io.File
 
 enum class SettingsSection(
@@ -205,11 +205,4 @@ class SettingsViewModel(
             listOf(CoreFlags.REMOTE_ACCESS, CoreFlags.GUEST_SHARE, CoreFlags.REMOTE_SSH, CoreFlags.MOVE_TASK)
         val ADVANCED_FLAGS = listOf(CoreFlags.PLUGINS, CoreFlags.AGENT_MESSAGING)
     }
-}
-
-/** Opens a file or folder in whatever the OS picks for it. */
-internal fun openWithSystem(path: String) {
-    val supported = Desktop.isDesktopSupported() && Desktop.getDesktop().isSupported(Desktop.Action.OPEN)
-    if (!supported) throw UnsupportedOperationException("This system cannot open $path from Octo")
-    Desktop.getDesktop().open(File(path))
 }
