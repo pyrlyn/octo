@@ -60,6 +60,14 @@ import androidx.compose.ui.window.DialogProperties
 import androidx.compose.ui.window.Popup
 import androidx.compose.ui.window.PopupPositionProvider
 import androidx.compose.ui.window.PopupProperties
+import pyrlyn.macos.ButtonStyle
+import pyrlyn.macos.LocalMacContentColor
+import pyrlyn.macos.LocalMacTextStyle
+import pyrlyn.macos.MacRadius
+import pyrlyn.macos.MacSpace
+import pyrlyn.macos.Banner as MacBanner
+import pyrlyn.macos.MenuItem as MacMenuItem
+import pyrlyn.macos.SectionLabel as MacSectionLabel
 
 private val DialogPadding = 22.dp
 private val DialogMinWidth = 440.dp
@@ -89,6 +97,7 @@ fun PrimaryButton(
     enabled: Boolean = true,
     content: @Composable RowScope.() -> Unit,
 ) {
+    if (Pyrlyn.mac) return MacKitButton(onClick, modifier, enabled, ButtonStyle.Primary, null, content)
     val c = Pyrlyn.colors
     val pressed =
         c.accentSolid.copy(
@@ -116,6 +125,7 @@ fun SecondaryButton(
     enabled: Boolean = true,
     content: @Composable RowScope.() -> Unit,
 ) {
+    if (Pyrlyn.mac) return MacKitButton(onClick, modifier, enabled, ButtonStyle.Secondary, null, content)
     val c = Pyrlyn.colors
     ButtonBase(onClick, modifier, enabled, ButtonFills(c.bgRaised, c.bgHover, c.bgActive), c.fg, raised = true, content)
 }
@@ -128,6 +138,7 @@ fun DangerButton(
     enabled: Boolean = true,
     content: @Composable RowScope.() -> Unit,
 ) {
+    if (Pyrlyn.mac) return MacKitButton(onClick, modifier, enabled, ButtonStyle.DestructiveOutline, null, content)
     val danger = Pyrlyn.colors.danger
     ButtonBase(
         onClick,
@@ -152,6 +163,17 @@ fun GhostButton(
     content: @Composable RowScope.() -> Unit,
 ) {
     val c = Pyrlyn.colors
+    if (Pyrlyn.mac) {
+        val ink = contentColor.takeIf { it != c.fg }
+        return MacKitButton(
+            onClick,
+            modifier,
+            enabled,
+            if (selected) ButtonStyle.Secondary else ButtonStyle.Ghost,
+            ink,
+            content,
+        )
+    }
     val fills =
         if (selected) {
             ButtonFills(c.stateSelected, c.stateSelected, c.stateSelected)
@@ -167,6 +189,18 @@ fun GhostButton(
         raised = false,
         content,
     )
+}
+
+/** A button that shows a current value and opens its menu, such as "Permissions: Auto". */
+@Composable
+fun ValueButton(
+    onClick: () -> Unit,
+    modifier: Modifier = Modifier,
+    selected: Boolean = false,
+    content: @Composable RowScope.() -> Unit,
+) {
+    if (Pyrlyn.mac) return MacKitButton(onClick, modifier, true, ButtonStyle.Outline, null, content)
+    GhostButton(onClick, modifier, selected = selected, content = content)
 }
 
 private class ButtonFills(
@@ -264,6 +298,7 @@ fun GlassDialog(
     text: (@Composable () -> Unit)? = null,
 ) {
     val c = Pyrlyn.colors
+    if (Pyrlyn.mac) return MacDialog(onDismissRequest, confirmButton, modifier, dismissButton, title, text)
     // The platform's default width would cap a form dialog below its own width.
     Dialog(onDismissRequest = onDismissRequest, DialogProperties(usePlatformDefaultWidth = false)) {
         Column(
@@ -312,7 +347,9 @@ fun GlassMenu(
             modifier
                 .widthIn(min = MenuMinWidth)
                 .glass(
-                    RoundedCornerShape(minOf(Pyrlyn.platform.radiusSurface, MenuRadius)),
+                    RoundedCornerShape(
+                        if (Pyrlyn.mac) MacRadius.md else minOf(Pyrlyn.platform.radiusSurface, MenuRadius),
+                    ),
                     GlassLevel.Floating,
                     Elevation.E2,
                 ).background(veil())
@@ -324,7 +361,7 @@ fun GlassMenu(
                         it.key == Key.DirectionUp -> focus.moveFocus(FocusDirection.Previous)
                         else -> false
                     }
-                }.padding(MenuPadding)
+                }.padding(if (Pyrlyn.mac) MacSpace.xs else MenuPadding)
                 .width(IntrinsicSize.Max)
                 .verticalScroll(rememberScrollState()),
             content = content,
@@ -345,6 +382,12 @@ fun GlassMenuItem(
     content: @Composable RowScope.() -> Unit,
 ) {
     val c = Pyrlyn.colors
+    if (Pyrlyn.mac) {
+        MacMenuItem(onClick, modifier, checked == true, danger, enabled) {
+            ProvideContent(LocalMacTextStyle.current, LocalMacContentColor.current) { content() }
+        }
+        return
+    }
     val interaction = remember { MutableInteractionSource() }
     val hovered by interaction.collectIsHoveredAsState()
     val focused by interaction.collectIsFocusedAsState()
@@ -445,6 +488,10 @@ fun Notice(
     modifier: Modifier = Modifier,
     action: (@Composable RowScope.() -> Unit)? = null,
 ) {
+    if (Pyrlyn.mac) {
+        MacBanner(text, modifier.clip(RoundedCornerShape(MacRadius.md)), tone.mac(), tone.icon(), action)
+        return
+    }
     val c = Pyrlyn.colors
     val color = tone.color()
     val shape = RoundedCornerShape(NoticeRadius)
@@ -533,6 +580,7 @@ fun SectionLabel(
     text: String,
     modifier: Modifier = Modifier,
 ) {
+    if (Pyrlyn.mac) return MacSectionLabel(text, modifier)
     Text(text.uppercase(), modifier, style = tableLabel(), color = Pyrlyn.colors.fgSubtle)
 }
 

@@ -16,6 +16,11 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import pyrlyn.macos.MacColors
+import pyrlyn.macos.MacTheme
+import pyrlyn.macos.MacType
+import pyrlyn.macos.bundledFonts
+import pyrlyn.macos.vibrant
 
 /** Pyrlyn's desktop recipes: each OS keeps its own radii, control height and body size. */
 @Immutable
@@ -30,9 +35,11 @@ class GlassPlatform private constructor(
     /** Scales the glass shadows. */
     val depth: Float,
     val bodySize: Int,
+    /** Draws with MacOS-Pyrlyn-UI (`pyrlyn.macos`) instead of Pyrlyn Glass. */
+    val mac: Boolean = false,
 ) {
     companion object {
-        val MacOS = GlassPlatform(8.dp, 14.dp, 18.dp, 28.dp, 28.dp, 0.75f, 1.5f, 13)
+        val MacOS = GlassPlatform(8.dp, 14.dp, 26.dp, 24.dp, 30.dp, 0.75f, 1.5f, 13, mac = true)
         val Windows = GlassPlatform(4.dp, 8.dp, 8.dp, 32.dp, 32.dp, 0.30f, 1.0f, 14)
         val Linux = GlassPlatform(6.dp, 12.dp, 12.dp, 34.dp, 34.dp, 0.30f, 1.1f, 14)
     }
@@ -48,6 +55,7 @@ class GlassPlatform private constructor(
             highlight,
             depth,
             bodySize,
+            mac,
         )
 }
 
@@ -124,6 +132,10 @@ object Pyrlyn {
     /** The OS asks for less motion: jump instead of animating. */
     val reducedMotion: Boolean
         @Composable get() = LocalReducedMotion.current
+
+    /** The macOS design is in force: components draw with `pyrlyn.macos`. */
+    val mac: Boolean
+        @Composable get() = LocalGlassPlatform.current.mac
     val controlShape: RoundedCornerShape
         @Composable get() = RoundedCornerShape(platform.radiusControl)
     val surfaceShape: RoundedCornerShape
@@ -139,9 +151,31 @@ fun PyrlynTheme(
     reducedMotion: Boolean = false,
     content: @Composable () -> Unit,
 ) {
-    val colors = if (dark) PyrlynDark else PyrlynLight
     val scale = LocalDensity.current.density
+    if (platform.mac) {
+        val plain = if (dark) MacColors.Dark else MacColors.Light
+        // Over the window's vibrancy the grounds turn see-through; the opaque material keeps them solid.
+        val mac = if (opaque) plain else plain.vibrant()
+        val fonts = remember(scale) { bundledFonts(HostCrisp.text(scale)) }
+        val type = remember(fonts) { macPyrlynType(MacType(fonts)) }
+        MacTheme(mac, fonts) {
+            ProvidePyrlyn(remember(mac) { macPyrlynColors(mac) }, platform, type, opaque, reducedMotion, content)
+        }
+        return
+    }
     val type = remember(platform, scale) { typeFor(platform, HostCrisp.text(scale)) }
+    ProvidePyrlyn(if (dark) PyrlynDark else PyrlynLight, platform, type, opaque, reducedMotion, content)
+}
+
+@Composable
+private fun ProvidePyrlyn(
+    colors: PyrlynColors,
+    platform: GlassPlatform,
+    type: PyrlynType,
+    opaque: Boolean,
+    reducedMotion: Boolean,
+    content: @Composable () -> Unit,
+) {
     val selection =
         remember(colors) {
             TextSelectionColors(colors.accentSolid, colors.accentSolid.copy(alpha = SELECTION_ALPHA))
