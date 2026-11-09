@@ -9,6 +9,7 @@ import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.onStart
 import kotlinx.coroutines.flow.update
 import octo.core.agent.PermissionMode
+import octo.core.agent.PlanEntry
 import octo.core.agent.RequestResponse
 import octo.core.orchestrator.OctoCore
 import octo.core.orchestrator.TaskNotRunningException
@@ -83,6 +84,13 @@ data class TaskUiState(
 
     /** Waiting for a free slot, which the user may skip. */
     val canStartNow: Boolean get() = status == AgentStatus.Queued
+
+    /** The agent's latest plan; each update replaces the whole list, so only the last one counts. */
+    val plan: List<PlanEntry>?
+        get() =
+            (transcript.lastOrNull { it is TranscriptEntry.Plan } as TranscriptEntry.Plan?)
+                ?.entries
+                ?.takeIf { it.isNotEmpty() }
 
     private companion object {
         val LIVE =
