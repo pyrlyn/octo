@@ -70,7 +70,8 @@ internal object MacWindow : NativeWindow {
                 )
             ObjC.send(effect, "setAutoresizingMask:", FILL_SUPERVIEW)
             ObjC.send(effect, "setBlendingMode:", BEHIND_WINDOW)
-            ObjC.send(effect, "setMaterial:", UNDER_WINDOW_BACKGROUND)
+            // The sidebar material lets more of the blurred desktop through than the window background does.
+            ObjC.send(effect, "setMaterial:", SIDEBAR)
             ObjC.send(effect, "setState:", ALWAYS_ACTIVE)
             ObjC.send(ObjC.send(content, "superview"), "addSubview:positioned:relativeTo:", effect, BELOW, content)
             // The superview holds it now.
@@ -100,7 +101,7 @@ internal object MacWindow : NativeWindow {
     private const val TOOLBAR_UNIFIED = 3L
     private const val FILL_SUPERVIEW = 2L or 16L
     private const val BEHIND_WINDOW = 0L
-    private const val UNDER_WINDOW_BACKGROUND = 21L
+    private const val SIDEBAR = 7L
     private const val ALWAYS_ACTIVE = 1L
     private const val BELOW = -1L
 }
