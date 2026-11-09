@@ -24,11 +24,11 @@ private fun compact(
     suffix: String,
 ): String = String.format(Locale.ROOT, "%.1f", value).removeSuffix(".0") + suffix
 
-/** How long ago, for a list row: now, 3 m, 2 h, 1 d. A time ahead of the clock reads as now. */
+/** How long ago, for a list row: now, 3m, 2h, 1d. A time ahead of the clock reads as now. */
 fun compactAge(age: Duration): String =
     when {
         age < 1.minutes -> "now"
-        age < 1.hours -> "${age.inWholeMinutes} m"
-        age < 1.days -> "${age.inWholeHours} h"
-        else -> "${age.inWholeDays} d"
+        age < 1.hours -> "${age.inWholeMinutes}m"
+        age < 1.days -> "${age.inWholeHours}h"
+        else -> "${age.inWholeDays}d"
     }

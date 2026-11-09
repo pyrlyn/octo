@@ -9,7 +9,7 @@ agent: Claude / claude-opus-5-5
 # T65. Time since last activity in the sidebar
 
 A sidebar row says what a task's agent is doing, not when it last did anything. Each row shows
-how long ago the agent's status last changed, as a compact age (`now`, `3 m`, `2 h`, `1 d`),
+how long ago the agent's status last changed, as a compact age (`now`, `3m`, `2h`, `1d`),
 right-aligned in the row.
 
 Done: the age shows on every task row of the macOS sidebar and the classic sidebar, ticks
