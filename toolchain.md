@@ -35,6 +35,11 @@
 | pyrlyn.wasm:wasm | local (included build) | https://github.com/pyrlyn/packages/tree/main/kotlin-wasm | The engine-neutral WebAssembly interface the plugin loader uses |
 | pyrlyn.macos:macos | local (included build) | https://github.com/pyrlyn/packages/tree/main/kotlin-macos | The macOS look `:design` draws with on macOS |
 | pyrlyn.wasm:wasm-chasm (Chasm 2.3.0, `io.github.charlietap.chasm:chasm`) | local (included build) | https://github.com/CharlieTap/chasm | Runs plugins in a WebAssembly interpreter |
+| androidx.room:room-runtime 2.8.5 | local (`storage`) | https://developer.android.com/jetpack/androidx/releases/room | The ORM over `octo.db` |
+| androidx.room:room-compiler 2.8.5 | local (`storage`, KSP) | https://developer.android.com/jetpack/androidx/releases/room | Generates the database and DAO code for each target |
+| androidx.room:room-gradle-plugin 2.8.5 | local (buildSrc) | https://developer.android.com/jetpack/androidx/releases/room | Exports the schemas to `storage/schemas/` |
+| androidx.sqlite:sqlite-bundled 2.7.1 | local (`storage`) | https://developer.android.com/jetpack/androidx/releases/sqlite | SQLite compiled into the app, the same on every OS |
+| com.google.devtools.ksp:symbol-processing-gradle-plugin 2.3.13 | local (buildSrc) | https://github.com/google/ksp | Runs Room's processor |
 | com.github.burrunan.s3-build-cache 1.9.10 | local (settings) | https://github.com/burrunan/gradle-s3-build-cache | Optional S3/R2 remote build cache (`shared.settings`); off without its keys |
 
 ## Kotlin scripts (`@file:DependsOn`)

@@ -41,6 +41,7 @@ includeBuild(extra["kotlinMacosDir"] as String)
 
 include(
     ":core",
+    ":storage",
     ":testing",
     ":adapters:antigravity",
     ":adapters:base",
