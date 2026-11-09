@@ -21,7 +21,7 @@ class KimiAdapter(
     override val displayName = "Kimi Code"
     override val icon =
         AgentIcon(
-            """<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><rect width="24" height="24" rx="6" fill="#7C3AED"/><path d="M15 5a7 7 0 1 0 4 12.5A6 6 0 0 1 15 5z" fill="#fff"/></svg>""",
+            """<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><rect width="24" height="24" rx="6" fill="#0B0B0F"/><path d="M7.2 5.8v12.4M16.2 5.8l-7.6 6.9M11.4 10.4l5.6 7.8" stroke="#F2F2F2" stroke-width="2.6"/><circle cx="18.7" cy="5.4" r="1.7" fill="#2F6BFF"/></svg>""",
         )
     override val binary = "kimi"
     override val verifiedVersion = "0.39.1"

@@ -24,7 +24,7 @@ class AntigravityAdapter(
     override val displayName = "Antigravity"
     override val icon =
         AgentIcon(
-            """<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><rect width="24" height="24" rx="6" fill="#F59E0B"/><path d="M12 5l7 12H5z" fill="#fff"/></svg>""",
+            """<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><defs><linearGradient id="g" x1="3.5" y1="8" x2="20.5" y2="16" gradientUnits="userSpaceOnUse"><stop offset="0" stop-color="#F0552E"/><stop offset=".3" stop-color="#F6B21B"/><stop offset=".65" stop-color="#2FB36B"/><stop offset=".9" stop-color="#3B7BF6"/></linearGradient></defs><rect width="24" height="24" rx="6" fill="#1E1A3A"/><path d="M12 3.5C12.9 8.1 15.9 11.1 20.5 12C15.9 12.9 12.9 15.9 12 20.5C11.1 15.9 8.1 12.9 3.5 12C8.1 11.1 11.1 8.1 12 3.5Z" fill="url(#g)"/></svg>""",
         )
     override val featureFlag = FLAG
     override val terms = TERMS

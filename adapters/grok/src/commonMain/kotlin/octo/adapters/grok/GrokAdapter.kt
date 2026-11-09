@@ -21,7 +21,7 @@ class GrokAdapter(
     override val displayName = "Grok"
     override val icon =
         AgentIcon(
-            """<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><rect width="24" height="24" rx="6" fill="#111827"/><path d="M8 18L16 6" stroke="#fff" stroke-width="2.6" stroke-linecap="round"/></svg>""",
+            """<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><rect width="24" height="24" rx="6" fill="#0B0B0F"/><path d="M6 17.2L18.2 6.8" stroke="#F2F2F2" stroke-width="1.6" stroke-linecap="round"/></svg>""",
         )
     override val binary = "grok"
     override val verifiedVersion = "1.0.67"
