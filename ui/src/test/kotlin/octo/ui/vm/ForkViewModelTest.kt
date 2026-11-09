@@ -65,4 +65,12 @@ class ForkViewModelTest {
             assertFalse(ViewModels(core, catalog, backgroundScope).canFork)
             assertTrue(ViewModels(core, catalog, backgroundScope, fork = true).canFork)
         }
+
+    @Test
+    fun theMessageMapShowsOnlyWithItsFlag() =
+        runTest {
+            val catalog = FakeCatalog(core)
+            assertFalse(ViewModels(core, catalog, backgroundScope).canMapMessages)
+            assertTrue(ViewModels(core, catalog, backgroundScope, messageMap = true).canMapMessages)
+        }
 }

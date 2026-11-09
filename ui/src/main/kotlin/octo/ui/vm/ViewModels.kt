@@ -81,6 +81,8 @@ class ViewModels(
     private val home: String = "",
     /** Null while the `open-in` flag is off, which hides the toolbar's "Open location" button. */
     private val opener: AppOpener? = null,
+    /** False while the `message-map` flag is off, which leaves the transcript without its map. */
+    private val messageMap: Boolean = false,
 ) {
     val main = MainViewModel(core, scope, startupWarnings, sections, limits = usage != null)
 
@@ -98,6 +100,8 @@ class ViewModels(
     val canFork: Boolean get() = fork
 
     val canMove: Boolean get() = moveTask
+
+    val canMapMessages: Boolean get() = messageMap
 
     val canOpenPalette: Boolean get() = palette
 

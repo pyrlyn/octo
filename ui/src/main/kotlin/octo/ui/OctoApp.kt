@@ -446,6 +446,7 @@ private fun TaskPane(
         onMove = if (models.canMove) ({ main.openTaskDialog(TaskDialog.Move) }) else null,
         places = models.main.takeIf { it.sections },
         share = share,
+        messageMap = models.canMapMessages,
     )
     if (dialog == TaskDialog.SwitchAgent) {
         val switch = remember(id) { models.switchAgent(id) } ?: return

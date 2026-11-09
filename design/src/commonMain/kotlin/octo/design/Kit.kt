@@ -467,7 +467,7 @@ fun GlassMenuItem(
 
 /** A floating panel's own fill under its glass, so text behind a menu or dialog does not read through it. */
 @Composable
-private fun veil(): Color {
+internal fun veil(): Color {
     val c = Pyrlyn.colors
     return if (Pyrlyn.opaque) {
         Color.Transparent

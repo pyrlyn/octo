@@ -9,10 +9,12 @@ import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.ColumnScope
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.LazyListState
 import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -91,6 +93,8 @@ fun TaskScreen(
     places: TaskPlaces? = null,
     /** Null while the `guest-share` flag is off, which hides sharing. */
     share: ShareViewModel? = null,
+    /** False while the `message-map` flag is off, which leaves the transcript without its map. */
+    messageMap: Boolean = false,
 ) {
     val state by vm.state.collectAsState()
     val task = state.task ?: return
@@ -123,7 +127,7 @@ fun TaskScreen(
             state.failure?.let { Notice(it, Tone.Error) }
             state.limit?.let { LimitBanner(it, onResume = vm::resume) }
             state.error?.let { Banner(it, error = true, onDismiss = vm::dismissError) }
-            Transcript(state, vm, Modifier.weight(1f).fillMaxWidth())
+            Transcript(state, vm, messageMap, Modifier.weight(1f).fillMaxWidth())
         }
         Footer(state, vm, share, onSwitchAgent)
     }
@@ -256,6 +260,29 @@ private fun PermissionMenu(
 private fun Transcript(
     state: TaskUiState,
     vm: TaskViewModel,
+    mapped: Boolean,
+    modifier: Modifier,
+) {
+    val entries = state.transcript
+    val list = rememberLazyListState()
+    // Follow the live output like a terminal does; tool updates and streamed text change the last
+    // entry in place, so its content is a key too.
+    LaunchedEffect(entries.size, entries.lastOrNull()) {
+        if (entries.isNotEmpty()) list.scrollToItem(entries.lastIndex)
+    }
+    val marks = remember(entries, mapped) { if (mapped) messageMarks(entries) else emptyList() }
+    Row(modifier, horizontalArrangement = Arrangement.spacedBy(SmallGap)) {
+        TranscriptList(state, vm, list, Modifier.weight(1f).fillMaxHeight())
+        // One message needs no map to find it.
+        if (marks.size > 1) MessageMap(marks, list)
+    }
+}
+
+@Composable
+private fun TranscriptList(
+    state: TaskUiState,
+    vm: TaskViewModel,
+    list: LazyListState,
     modifier: Modifier,
 ) {
     val entries = state.transcript
@@ -265,12 +292,6 @@ private fun Transcript(
             ?.agent
             ?.value
             .orEmpty()
-    val list = rememberLazyListState()
-    // Follow the live output like a terminal does; tool updates and streamed text change the last
-    // entry in place, so its content is a key too.
-    LaunchedEffect(entries.size, entries.lastOrNull()) {
-        if (entries.isNotEmpty()) list.scrollToItem(entries.lastIndex)
-    }
     SelectionContainer(modifier) {
         LazyColumn(state = list, verticalArrangement = Arrangement.spacedBy(if (mac) MacSpace.xxxl else Gap)) {
             itemsIndexed(entries) { _, entry ->

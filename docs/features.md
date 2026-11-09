@@ -61,6 +61,13 @@ and by the text of their messages, and runs actions: new task, diff, publish, sw
 stop, and the agents and devices screens. An action whose flag is off is not listed. Arrow keys
 move, Enter runs, Escape closes.
 
+## Message map
+
+`"message-map": true` puts a column of marks beside a task's transcript, one per message: a long
+mark for each of your prompts, a short one for each of the agent's replies. The marks of the
+messages on screen are brighter. Hovering a mark shows the start of that message; a click scrolls
+the transcript to it. Tool calls, thoughts and other entries get no mark.
+
 ## Usage and context
 
 `"usage": true` adds a Usage screen with token use per agent and model for today, 7 days, 30

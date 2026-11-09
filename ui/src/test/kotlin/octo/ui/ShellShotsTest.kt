@@ -57,8 +57,16 @@ class ShellShotsTest {
                 exists = { it.startsWith("/Applications/") },
                 start = { _, _ -> },
             )
+        // The message-map flag on, so the task screen shows the marks beside its transcript.
         val models =
-            ViewModels(core, FakeCatalog(core), scope, usage = UsageReport(log, emptyMap()), opener = opener)
+            ViewModels(
+                core,
+                FakeCatalog(core),
+                scope,
+                usage = UsageReport(log, emptyMap()),
+                opener = opener,
+                messageMap = true,
+            )
         models.main.select(TaskId("b"))
         for (os in HostOs.entries) shoot(models, os, File(out, "shell-${os.name.lowercase()}.png"))
         // The panes and dialogs are drawn for macOS alone, the one OS with its own design for them.
