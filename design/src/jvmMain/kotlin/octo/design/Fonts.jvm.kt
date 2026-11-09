@@ -18,3 +18,9 @@ internal actual val MonoFont: FontFamily =
         Font("fonts/JetBrainsMono-Medium.ttf", FontWeight.Medium),
         Font("fonts/JetBrainsMono-Bold.ttf", FontWeight.Bold),
     )
+
+actual val FiguresFont: FontFamily =
+    FontFamily(
+        Font("fonts/IBMPlexMono-Regular.ttf", FontWeight.Normal),
+        Font("fonts/IBMPlexMono-Medium.ttf", FontWeight.Medium),
+    )

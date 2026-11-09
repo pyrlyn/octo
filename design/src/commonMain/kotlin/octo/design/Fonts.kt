@@ -7,3 +7,6 @@ internal expect val UiFont: FontFamily
 
 /** JetBrains Mono (SIL OFL 1.1), for code, paths and key caps. */
 internal expect val MonoFont: FontFamily
+
+/** IBM Plex Mono (SIL OFL 1.1), for live counters: equal-width figures keep the line still as they tick. */
+expect val FiguresFont: FontFamily

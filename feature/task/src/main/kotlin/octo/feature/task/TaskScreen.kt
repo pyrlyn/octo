@@ -45,6 +45,7 @@ import octo.core.task.TranscriptEntry
 import octo.design.Banner
 import octo.design.DangerButton
 import octo.design.Elevation
+import octo.design.FiguresFont
 import octo.design.Gap
 import octo.design.GhostButton
 import octo.design.GlassDialog
@@ -153,7 +154,9 @@ private fun Footer(
             MacPromptBox(state, vm, onSwitchAgent)
         } else {
             PromptBox(state, vm)
-            state.tokens?.let { Text(it.line, color = Pyrlyn.colors.fgMuted, style = Pyrlyn.type.small) }
+            state.tokens?.let {
+                Text(it.line, color = Pyrlyn.colors.fgMuted, style = Pyrlyn.type.small.copy(fontFamily = FiguresFont))
+            }
         }
     }
 }
