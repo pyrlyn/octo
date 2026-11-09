@@ -30,7 +30,9 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -47,6 +49,8 @@ import androidx.compose.ui.input.key.type
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.LocalFocusManager
 import androidx.compose.ui.semantics.Role
+import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.Dp
@@ -63,11 +67,14 @@ import androidx.compose.ui.window.PopupProperties
 import pyrlyn.macos.ButtonStyle
 import pyrlyn.macos.LocalMacContentColor
 import pyrlyn.macos.LocalMacTextStyle
+import pyrlyn.macos.MacIcon
 import pyrlyn.macos.MacRadius
 import pyrlyn.macos.MacSpace
 import pyrlyn.macos.Banner as MacBanner
+import pyrlyn.macos.Icon as MacKitIcon
 import pyrlyn.macos.MenuItem as MacMenuItem
 import pyrlyn.macos.SectionLabel as MacSectionLabel
+import pyrlyn.macos.SplitButton as MacSplitButton
 
 private val DialogPadding = 22.dp
 private val DialogMinWidth = 440.dp
@@ -79,6 +86,8 @@ private val MenuItemRadius = 6.dp
 private val MenuMinWidth = 240.dp
 private val MenuCheckWidth = 16.dp
 private val MenuPadding = 5.dp
+private val SplitGap = 2.dp
+private val SplitChevron = 12.dp
 private const val TINT_DARK = 0.16f
 private const val TINT_LIGHT = 0.12f
 private const val TINT_BORDER = 0.45f
@@ -201,6 +210,39 @@ fun ValueButton(
 ) {
     if (Pyrlyn.mac) return MacKitButton(onClick, modifier, true, ButtonStyle.Outline, null, content)
     GhostButton(onClick, modifier, selected = selected, content = content)
+}
+
+/**
+ * A button that runs its action, joined to a chevron that opens [menu], such as "Open location ⌄". The menu gets a
+ * `close` to call once an item runs.
+ */
+@Composable
+fun SplitButton(
+    onClick: () -> Unit,
+    modifier: Modifier = Modifier,
+    menuDescription: String = "More",
+    menu: @Composable ColumnScope.(close: () -> Unit) -> Unit,
+    content: @Composable RowScope.() -> Unit,
+) {
+    if (Pyrlyn.mac) {
+        return MacSplitButton(
+            onClick,
+            modifier,
+            menuDescription = menuDescription,
+            menu = menu,
+            content = content,
+        )
+    }
+    var open by remember { mutableStateOf(false) }
+    Box(modifier) {
+        Row(horizontalArrangement = Arrangement.spacedBy(SplitGap)) {
+            SecondaryButton(onClick, content = content)
+            SecondaryButton({ open = true }, Modifier.semantics { contentDescription = menuDescription }) {
+                MacKitIcon(MacIcon.ChevronDown, tint = Pyrlyn.colors.fgMuted, size = SplitChevron)
+            }
+        }
+        GlassMenu(open, onDismissRequest = { open = false }) { menu { open = false } }
+    }
 }
 
 private class ButtonFills(

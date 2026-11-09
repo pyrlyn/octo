@@ -127,6 +127,8 @@ fun interface ConfigEdit {
             tree.with("machines", JsonArray(updated))
         }
 
+        fun openIn(app: String) = ConfigEdit { it.with("openIn", JsonPrimitive(app)) }
+
         fun appearance(appearance: AppearanceConfig) =
             ConfigEdit {
                 it.with(

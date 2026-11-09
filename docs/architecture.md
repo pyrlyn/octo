@@ -172,6 +172,13 @@ a snippet. Commands whose label matches come after the tasks. A command only ope
 `MainUiState`, so the palette and the buttons open the same dialogs. The window binds the
 shortcut.
 
+The "Open location" button (`OpenInViewModel`) shows only for a selected task on this computer. `AppOpener`
+(`feature/common`) keeps a list of known apps per OS and lists the ones installed: macOS app bundles in the
+Applications folders, opened with `open -a`; Windows and Linux programs on `PATH` or at known install paths, started
+in the worktree. The file manager goes through `Desktop.open`. The app opened last is kept as `openIn` in
+`config.json` and becomes the button's main action. Icons come from each app's `.icns` on macOS and from the shell
+elsewhere, with a glyph when none can be read.
+
 The usage screen (`UsageViewModel`) asks `UsageReport.totals` for a period. An agent whose
 adapter has a `UsageHistory` (Claude's `projects/*.jsonl`, Codex's rollout files) is counted only
 from it, so nothing is counted twice; every other agent is counted from `UsageLog`
@@ -325,6 +332,7 @@ class FeatureFlags(config: Map<String, Boolean>) {
 | `previews` (preview images, notebooks, archives, SQLite and Mermaid files in the diff view) | T36 |
 | `guest-share` (a guest watches a task by link and proposes messages; needs `remote-access`) | T37 |
 | `notifications` (an OS notification when a task out of sight blocks, fails or finishes a turn) | T40 |
+| `open-in` (an "Open location" button opens the selected local task's worktree in a file manager, terminal or editor) | T64 |
 | `pty-terminal` | Reserved |
 
 ## 7. Core API and orchestration
