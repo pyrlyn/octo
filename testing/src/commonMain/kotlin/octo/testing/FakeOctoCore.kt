@@ -5,6 +5,7 @@ import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.update
+import octo.core.agent.AgentIcon
 import octo.core.agent.AgentId
 import octo.core.agent.AgentProbe
 import octo.core.agent.AuthState
@@ -257,6 +258,7 @@ class FakeOctoCore : OctoCore {
 
 class FakeCatalog(
     private val core: FakeOctoCore,
+    private val icons: Map<AgentId, AgentIcon> = emptyMap(),
 ) : AgentCatalog {
     val acknowledged = mutableListOf<AgentId>()
     override val machines = listOf("box")
@@ -283,6 +285,8 @@ class FakeCatalog(
                 ),
             )
         }
+
+    override fun icon(id: AgentId) = icons[id]
 
     override suspend fun pendingTerms(id: AgentId) = core.termsPending
 

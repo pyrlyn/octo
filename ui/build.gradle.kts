@@ -14,6 +14,9 @@ dependencies {
     api(project(":feature:task"))
     api(project(":feature:usage"))
     testImplementation(project(":testing"))
+    // Real agent glyphs for the shell renders; the shell itself knows no adapter.
+    testImplementation(project(":adapters:claude"))
+    testImplementation(project(":adapters:codex"))
     // Skia's native library, so the tests can decode pictures.
     testImplementation(compose.desktop.currentOs)
     testImplementation(libs.wasm.chasm)

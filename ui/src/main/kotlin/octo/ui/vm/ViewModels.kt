@@ -79,7 +79,7 @@ class ViewModels(
     /** The Octo home folder, shown in settings. */
     private val home: String = "",
 ) {
-    val main = MainViewModel(core, scope, startupWarnings, sections, limits = usage != null)
+    val main = MainViewModel(core, scope, startupWarnings, sections, limits = usage != null, icon = catalog::icon)
 
     /** Lives as long as the window, since alerts come whatever screen is open. */
     val notifications = notificationConfig?.let { NotificationsViewModel(core, main, scope, it) }
