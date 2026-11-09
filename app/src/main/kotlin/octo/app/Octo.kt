@@ -93,6 +93,9 @@ class Octo private constructor(
     /** Whether the `palette` flag binds Cmd+K to the command palette. */
     val palette: Boolean get() = flags.isEnabled(CoreFlags.PALETTE)
 
+    /** Whether the `open-in` flag shows the toolbar's "Open location" button. */
+    val openIn: Boolean get() = flags.isEnabled(CoreFlags.OPEN_IN)
+
     /** Whether the `checkpoints` flag lets a task be reverted to an earlier turn. */
     val checkpoints: Boolean get() = flags.isEnabled(CoreFlags.CHECKPOINTS)
 

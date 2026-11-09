@@ -82,6 +82,7 @@ internal fun HeaderBar(
                 verticalAlignment = Alignment.CenterVertically,
                 horizontalArrangement = Arrangement.spacedBy(Gap),
             ) {
+                models.openIn?.let { OpenInButton(it) }
                 if (onSearch != null) SearchField(onSearch, HeaderSearchWidth, "Search")
                 AppMenu(models)
                 CloseCircle(frame.onClose)

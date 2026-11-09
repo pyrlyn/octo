@@ -15,6 +15,7 @@ import octo.core.publish.TaskPublisher
 import octo.core.task.TaskId
 import octo.core.usage.UsageReport
 import octo.feature.agents.AgentsViewModel
+import octo.feature.common.AppOpener
 import octo.feature.devices.DevicesViewModel
 import octo.feature.diff.DiffViewModel
 import octo.feature.diff.FilePreviewer
@@ -78,6 +79,8 @@ class ViewModels(
     private val flags: List<FeatureFlag> = CoreFlags.all,
     /** The Octo home folder, shown in settings. */
     private val home: String = "",
+    /** Null while the `open-in` flag is off, which hides the toolbar's "Open location" button. */
+    private val opener: AppOpener? = null,
 ) {
     val main = MainViewModel(core, scope, startupWarnings, sections, limits = usage != null, icon = catalog::icon)
 
@@ -145,6 +148,9 @@ class ViewModels(
 
     /** Today's tokens and the running agents, for the toolbar. */
     val summary by lazy { SummaryViewModel(agents.state, usage, scope) }
+
+    /** Lives as long as the window: the toolbar follows whichever task is selected. */
+    val openIn: OpenInViewModel? by lazy { opener?.let { OpenInViewModel(it, core, main, config, scope) } }
 
     /** Lives as long as the window, since its appearance styles the whole window. */
     val settings: SettingsViewModel? by lazy { config?.let { SettingsViewModel(it, catalog, flags, home, scope) } }

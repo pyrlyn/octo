@@ -41,6 +41,8 @@ data class OctoConfig(
     /** Used only with the `notifications` flag on. */
     val notifications: NotificationConfig = NotificationConfig(),
     val appearance: AppearanceConfig = AppearanceConfig(),
+    /** The app a worktree was last opened in, which the toolbar's button opens; used only with the `open-in` flag on. */
+    val openIn: String? = null,
 ) {
     fun featureFlags(): FeatureFlags = FeatureFlags(flags)
 
