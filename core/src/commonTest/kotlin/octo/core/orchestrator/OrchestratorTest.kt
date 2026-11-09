@@ -2,6 +2,7 @@ package octo.core.orchestrator
 
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.flow.first
+import kotlinx.coroutines.test.advanceTimeBy
 import kotlinx.coroutines.test.runTest
 import kotlinx.io.files.Path
 import octo.core.agent.AdapterRegistry
@@ -33,6 +34,7 @@ import kotlin.test.assertEquals
 import kotlin.test.assertFailsWith
 import kotlin.test.assertNull
 import kotlin.test.assertTrue
+import kotlin.time.Duration.Companion.minutes
 
 @OptIn(ExperimentalCoroutinesApi::class)
 class OrchestratorTest {
@@ -74,6 +76,30 @@ class OrchestratorTest {
             s.core.removeTask(id, deleteWorktree = true, force = false)
             assertEquals(listOf(task.worktree), remoteWorkspace.removed)
             assertFailsWith<UnknownMachineException> { s.core.createTask(newTask.copy(machine = "gone")) }
+        }
+
+    @Test
+    fun aStatusChangeStampsTheTaskAndAnotherEventDoesNot() =
+        runTest {
+            val s = setup()
+            val id = s.core.createTask(newTask.copy(prompt = null))
+            testScheduler.runCurrent()
+
+            fun activeAt() =
+                s.core.state.value[id]!!
+                    .task.activeAtMs
+
+            advanceTimeBy(3.minutes)
+            val session = s.adapter.sessions.single()
+            session.emit(AgentEvent.TurnStarted)
+            testScheduler.runCurrent()
+            val started = testScheduler.currentTime
+            assertEquals(started, activeAt())
+
+            advanceTimeBy(2.minutes)
+            session.emit(AgentEvent.TurnStarted)
+            testScheduler.runCurrent()
+            assertEquals(started, activeAt())
         }
 
     @Test
