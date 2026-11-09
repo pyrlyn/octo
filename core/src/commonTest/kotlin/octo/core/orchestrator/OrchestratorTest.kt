@@ -25,9 +25,9 @@ import octo.core.task.QueuedPrompt
 import octo.core.task.SidebarStatus
 import octo.core.task.TaskId
 import octo.core.task.TranscriptEntry
-import octo.core.tempDir
 import octo.core.terms.TermsGate
 import octo.core.terms.TermsNotAcknowledgedException
+import octo.testing.tempDir
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertFailsWith

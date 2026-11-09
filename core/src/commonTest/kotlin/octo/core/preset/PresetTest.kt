@@ -7,7 +7,7 @@ import octo.core.agent.AgentId
 import octo.core.io.AtomicFile
 import octo.core.io.ReadOnlyFileException
 import octo.core.orchestrator.setup
-import octo.core.tempDir
+import octo.testing.tempDir
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertFailsWith
@@ -31,7 +31,7 @@ class PresetTest {
     fun presetsRoundTripThroughTheFile() =
         runTest {
             val file = file()
-            val library = FilePresetLibrary.open(file)
+            val library = StoredPresetLibrary.open(file)
             assertNull(library.warning)
             assertEquals(emptyList(), library.presets.value)
 
@@ -40,14 +40,14 @@ class PresetTest {
             library.put(pair.copy(name = "Duo"), replacing = "Pair")
             assertFailsWith<PresetException> { library.put(pair.copy(name = "Solo"), replacing = "Duo") }
 
-            val again = FilePresetLibrary.open(file)
+            val again = StoredPresetLibrary.open(file)
             assertEquals(listOf("Duo", "Solo"), again.presets.value.map { it.name })
             assertEquals(pair.members, again.presets.value[0].members)
 
             again.remove("Duo")
             assertEquals(
                 listOf("Solo"),
-                FilePresetLibrary
+                StoredPresetLibrary
                     .open(file)
                     .presets.value
                     .map { it.name },
@@ -59,7 +59,7 @@ class PresetTest {
         runTest {
             val file = file()
             file.write("{not json")
-            val library = FilePresetLibrary.open(file)
+            val library = StoredPresetLibrary.open(file)
             assertNotNull(library.warning)
             assertEquals(emptyList(), library.presets.value)
             assertFailsWith<ReadOnlyFileException> { library.put(pair) }
@@ -69,7 +69,7 @@ class PresetTest {
     @Test
     fun invalidPresetsAreRefused() =
         runTest {
-            val library = FilePresetLibrary.open(file())
+            val library = StoredPresetLibrary.open(file())
             val member = PresetMember("Lead", AgentId("claude"))
             listOf(
                 Preset(" ", listOf(member)),

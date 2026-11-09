@@ -11,12 +11,16 @@ val catalog = versionCatalogs.named("libs")
 val allNativeTargets = providers.gradleProperty("octo.allNativeTargets").map { it.toBoolean() }.getOrElse(false)
 val os = System.getProperty("os.name").lowercase()
 
+// A module whose libraries have no mingwX64 build sets `octo.windowsNative=false` in its own
+// gradle.properties; Windows still runs it on the JVM.
+val windowsNative = (findProperty("octo.windowsNative") as String?)?.toBoolean() ?: true
+
 kotlin {
     jvmToolchain(25)
     jvm()
     if (allNativeTargets || os.contains("mac")) macosArm64()
     if (allNativeTargets || os.contains("linux")) linuxX64()
-    if (allNativeTargets || os.contains("windows")) mingwX64()
+    if (windowsNative && (allNativeTargets || os.contains("windows"))) mingwX64()
 
     compilerOptions {
         allWarningsAsErrors.set(true)

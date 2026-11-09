@@ -9,7 +9,7 @@ import kotlinx.io.writeString
 import octo.core.flags.CoreFlags
 import octo.core.flags.FeatureFlags
 import octo.core.status.AgentStatus
-import octo.core.tempDir
+import octo.testing.tempDir
 import wasm.HostFunction
 import wasm.WasmInstance
 import wasm.WasmRuntime

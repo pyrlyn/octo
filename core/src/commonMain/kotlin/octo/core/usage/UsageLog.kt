@@ -8,23 +8,38 @@ import kotlinx.io.IOException
 import octo.core.agent.SessionStats
 import octo.core.io.AtomicFile
 import octo.core.io.JsonListFile
+import octo.core.io.ListStore
 import octo.core.io.ReadOnlyFileException
 import octo.core.status.AgentStatus
 import octo.core.task.OctoState
 import octo.core.task.TaskId
 import kotlin.time.Clock
 
-/** The tokens Octo saw each task's agent use, kept in `usage.json` so totals outlive the session. */
-class UsageLog private constructor(
-    private val file: JsonListFile<UsageRecord>,
-) {
-    /** Set when `usage.json` could not be read; nothing is recorded until it is fixed or removed. */
-    val warning: String? get() = file.warning
+/** Where usage records are kept between runs, oldest first. */
+interface UsageStore {
+    val records: StateFlow<List<UsageRecord>>
 
-    val records: StateFlow<List<UsageRecord>> get() = file.items
+    /** Set when the stored records could not be read; every append is then refused with it. */
+    val warning: String?
+
+    /** Adds [records] at the end and drops the oldest past [keep]. */
+    suspend fun append(
+        records: List<UsageRecord>,
+        keep: Int,
+    )
+}
+
+/** The tokens Octo saw each task's agent use, kept so totals outlive the session. */
+class UsageLog private constructor(
+    private val store: UsageStore,
+) {
+    /** Set when the records could not be read; nothing is recorded until that is fixed. */
+    val warning: String? get() = store.warning
+
+    val records: StateFlow<List<UsageRecord>> get() = store.records
 
     suspend fun add(records: List<UsageRecord>) {
-        if (records.isNotEmpty()) file.change { (it + records).takeLast(MAX_RECORDS) }
+        if (records.isNotEmpty()) store.append(records, MAX_RECORDS)
     }
 
     /** Records how far each task's token totals grew whenever its agent is not mid-turn. */
@@ -48,10 +63,26 @@ class UsageLog private constructor(
     }
 
     companion object {
-        /** The oldest records go first, so the file stays small enough to rewrite on every turn. */
+        /** The oldest records go first, so the log never grows without bound. */
         const val MAX_RECORDS = 10_000
+        const val RECORDS_KEY = "records"
 
-        suspend fun open(file: AtomicFile) = UsageLog(JsonListFile.open(file, UsageRecord.serializer(), "records"))
+        fun open(store: UsageStore) = UsageLog(store)
+
+        /** Records kept in `usage.json`, the format Octo used before SQLite. */
+        suspend fun open(file: AtomicFile) =
+            open(JsonListFile.open(file, UsageRecord.serializer(), RECORDS_KEY).asUsageStore())
+
+        private fun ListStore<UsageRecord>.asUsageStore() =
+            object : UsageStore {
+                override val records = items
+                override val warning = this@asUsageStore.warning
+
+                override suspend fun append(
+                    records: List<UsageRecord>,
+                    keep: Int,
+                ) = change { (it + records).takeLast(keep) }
+            }
     }
 }
 

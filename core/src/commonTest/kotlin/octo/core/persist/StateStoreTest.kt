@@ -12,7 +12,7 @@ import octo.core.task.Layout
 import octo.core.task.Task
 import octo.core.task.TaskId
 import octo.core.task.TranscriptEntry
-import octo.core.tempDir
+import octo.testing.tempDir
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertTrue
@@ -44,11 +44,11 @@ class StateStoreTest {
     fun roundTripsAndKeepsThreeBackups() =
         runTest {
             val path = Path(tempDir("octo-state"), "state.json")
-            val store = StateStore(path)
+            val store = JsonStateStore(path)
             assertEquals(LoadedState(PersistedState(), emptyList()), store.load())
 
             (1..5).forEach { store.save(state("v$it")) }
-            assertEquals(LoadedState(state("v5"), emptyList()), StateStore(path).load())
+            assertEquals(LoadedState(state("v5"), emptyList()), JsonStateStore(path).load())
             (1..3).forEach { n -> assertTrue(SystemFileSystem.exists(Path("$path.$n"))) }
             assertTrue(!SystemFileSystem.exists(Path("$path.4")))
         }
@@ -57,7 +57,7 @@ class StateStoreTest {
     fun corruptFileFallsBackToTheNewestBackup() =
         runTest {
             val path = Path(tempDir("octo-state"), "state.json")
-            val store = StateStore(path)
+            val store = JsonStateStore(path)
             store.save(state("old"))
             store.save(state("new"))
             AtomicFile(path).write("{ not json")
@@ -73,6 +73,6 @@ class StateStoreTest {
         runTest {
             val path = Path(tempDir("octo-state"), "state.json")
             AtomicFile(path).write("""{"version":1,"future":true,"tasks":[],"layout":{"diffOpen":true}}""")
-            assertEquals(PersistedState(layout = Layout(diffOpen = true)), StateStore(path).load().state)
+            assertEquals(PersistedState(layout = Layout(diffOpen = true)), JsonStateStore(path).load().state)
         }
 }

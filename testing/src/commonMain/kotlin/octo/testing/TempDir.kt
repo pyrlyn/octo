@@ -1,4 +1,4 @@
-package octo.core
+package octo.testing
 
 import kotlinx.io.files.Path
 import kotlinx.io.files.SystemFileSystem

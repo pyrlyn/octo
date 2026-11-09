@@ -22,14 +22,14 @@ a file; a message may be files alone.
   the task on its new agent. A second switch while one is under way answers 409.
 
 Vendor terms are accepted only in the Octo window; until then creating a task answers 409.
-`devices.json` keeps only a SHA-256 of each token, and Revoke locks a device out at once.
+Octo keeps only a SHA-256 of each token, and Revoke locks a device out at once.
 
 ## Guest links
 
 `"guest-share": true` (with `remote-access`) adds Share to a task: it makes a link a guest opens
 in a browser to watch the task and propose messages. A proposal reaches the agent only when you
 press Send under it. The link is shown once; a new link or Revoke ends the old one, and only a hash
-of its token is kept in `shares.json`. Set `"remoteAccess": { "publicUrl": "https://box.tailnet.ts.net" }`
+of its token is kept. Set `"remoteAccess": { "publicUrl": "https://box.tailnet.ts.net" }`
 to your tunnel's address so links point there and its pages may call the API; without it links
 point at `127.0.0.1`, for a guest on `ssh -L`. The token sits after `#`, so the browser never
 sends it in the address and no log along the tunnel holds it.
