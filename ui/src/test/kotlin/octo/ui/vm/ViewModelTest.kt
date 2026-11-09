@@ -5,6 +5,7 @@ import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.test.TestScope
 import kotlinx.coroutines.test.runCurrent
 import kotlinx.coroutines.test.runTest
+import octo.core.agent.AgentIcon
 import octo.core.agent.AgentId
 import octo.core.agent.PermissionKind
 import octo.core.agent.PermissionMode
@@ -58,6 +59,22 @@ class ViewModelTest {
         testScheduler.advanceTimeBy(NewTaskUiState.BRANCH_LOOKUP_DELAY_MS)
         settle()
     }
+
+    @Test
+    fun everyTaskRowCarriesItsAgentsIcon() =
+        runTest {
+            val glyph = AgentIcon("<svg/>")
+            core.put(view("a", AgentStatus.Idle))
+            core.put(TaskView(FakeOctoCore.task(TaskId("b")).copy(agent = AgentId("plain")), AgentStatus.Idle))
+            val main = ViewModels(core, FakeCatalog(core, mapOf(AgentId("demo") to glyph)), backgroundScope).main
+            settle()
+
+            val icons =
+                main.state.value.groups
+                    .flatMap { it.tasks }
+                    .associate { it.id.value to it.icon }
+            assertEquals(mapOf("a" to glyph, "b" to null), icons)
+        }
 
     @Test
     fun mainGroupsByRepositoryAndPersistsTheLayout() =

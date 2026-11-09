@@ -84,7 +84,7 @@ class ViewModels(
     /** False while the `message-map` flag is off, which leaves the transcript without its map. */
     private val messageMap: Boolean = false,
 ) {
-    val main = MainViewModel(core, scope, startupWarnings, sections, limits = usage != null)
+    val main = MainViewModel(core, scope, startupWarnings, sections, limits = usage != null, icon = catalog::icon)
 
     /** Lives as long as the window, since alerts come whatever screen is open. */
     val notifications = notificationConfig?.let { NotificationsViewModel(core, main, scope, it) }

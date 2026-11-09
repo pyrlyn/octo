@@ -29,6 +29,9 @@ interface AgentCatalog {
     /** Every agent registered for [machine] (null for this computer), probed in parallel there. */
     suspend fun agents(machine: String? = null): List<AgentInfo>
 
+    /** The adapter's glyph, read without probing the binary; null for an agent with none or one not registered. */
+    fun icon(id: AgentId): AgentIcon?
+
     suspend fun pendingTerms(id: AgentId): VendorTerms?
 
     suspend fun acknowledgeTerms(id: AgentId)
@@ -59,11 +62,14 @@ class RegistryAgentCatalog(
                 }.awaitAll()
         }
 
+    override fun icon(id: AgentId): AgentIcon? = find(id)?.icon
+
     override suspend fun pendingTerms(id: AgentId): VendorTerms? = terms.pending(adapter(id))
 
     override suspend fun acknowledgeTerms(id: AgentId) = terms.acknowledge(adapter(id))
 
     // Terms belong to the vendor, not the machine, so any registry that has the agent will do.
-    private fun adapter(id: AgentId) =
-        registry[id] ?: remote.values.firstNotNullOfOrNull { it[id] } ?: throw UnknownAgentException(id)
+    private fun find(id: AgentId) = registry[id] ?: remote.values.firstNotNullOfOrNull { it[id] }
+
+    private fun adapter(id: AgentId) = find(id) ?: throw UnknownAgentException(id)
 }

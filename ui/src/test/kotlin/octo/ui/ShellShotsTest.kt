@@ -8,6 +8,9 @@ import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.cancel
 import kotlinx.coroutines.runBlocking
 import kotlinx.io.files.Path
+import octo.adapters.claude.ClaudeAdapter
+import octo.adapters.codex.CodexAdapter
+import octo.core.agent.AgentId
 import octo.core.agent.ContextParts
 import octo.core.agent.Role
 import octo.core.agent.SessionStats
@@ -15,6 +18,7 @@ import octo.core.agent.ToolStatus
 import octo.core.io.AtomicFile
 import octo.core.paths.HostOs
 import octo.core.status.AgentStatus
+import octo.core.task.Task
 import octo.core.task.TaskId
 import octo.core.task.TaskView
 import octo.core.task.TranscriptEntry
@@ -23,6 +27,7 @@ import octo.core.usage.UsageReport
 import octo.feature.common.AppOpener
 import octo.testing.FakeCatalog
 import octo.testing.FakeOctoCore
+import octo.testing.FakeProcessLauncher
 import octo.ui.vm.ViewModels
 import octo.ui.window.Chrome
 import octo.ui.window.WindowFrame
@@ -48,6 +53,9 @@ class ShellShotsTest {
                     AtomicFile(Path(Files.createTempDirectory("octo-shots").toString(), "usage.json")),
                 )
             }
+        // The adapters are only asked for their glyphs; nothing is launched.
+        val launcher = FakeProcessLauncher(scope) {}
+        val icons = listOf(ClaudeAdapter(launcher), CodexAdapter(launcher)).associate { it.id to it.icon!! }
         // The open-in flag on, with a made-up set of apps, so the toolbar shows "Open location".
         val opener =
             AppOpener(
@@ -61,7 +69,7 @@ class ShellShotsTest {
         val models =
             ViewModels(
                 core,
-                FakeCatalog(core),
+                FakeCatalog(core, icons),
                 scope,
                 usage = UsageReport(log, emptyMap()),
                 opener = opener,
@@ -100,10 +108,15 @@ class ShellShotsTest {
 
     private fun sampleCore() =
         FakeOctoCore().apply {
-            put(TaskView(FakeOctoCore.task(TaskId("a"), title = "Fix flaky worktree cleanup"), AgentStatus.Idle))
             put(
                 TaskView(
-                    FakeOctoCore.task(TaskId("b"), title = "Add OAuth login"),
+                    FakeOctoCore.task(TaskId("a"), title = "Fix flaky worktree cleanup").by("codex"),
+                    AgentStatus.Idle,
+                ),
+            )
+            put(
+                TaskView(
+                    FakeOctoCore.task(TaskId("b"), title = "Add OAuth login").by("claude"),
                     AgentStatus.Working,
                     stats =
                         SessionStats(
@@ -123,7 +136,7 @@ class ShellShotsTest {
                         ),
                 ),
             )
-            put(TaskView(FakeOctoCore.task(TaskId("c"), title = "Bump Compose"), AgentStatus.Blocked))
+            put(TaskView(FakeOctoCore.task(TaskId("c"), title = "Bump Compose").by("claude"), AgentStatus.Blocked))
             put(TaskView(FakeOctoCore.task(TaskId("d"), "/src/site", "Landing page copy"), AgentStatus.Stopped))
             transcripts.value =
                 mapOf(
@@ -145,6 +158,9 @@ class ShellShotsTest {
                         ),
                 )
         }
+
+    // Task "d" stays on the demo agent, which has no glyph here, so the renders show the monogram too.
+    private fun Task.by(agent: String) = copy(agent = AgentId(agent))
 
     private companion object {
         const val WIDTH = 1280
