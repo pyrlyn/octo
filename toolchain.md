@@ -10,6 +10,7 @@
 | gh | brew | Repository and PRs | https://github.com/cli/cli |
 | shared-settings | `packages/shared-settings` above the build (or `SHARED_SETTINGS_DIR`), local included build | Shared ktlint, detekt and settings conventions | https://github.com/pyrlyn/packages/tree/main/shared-settings |
 | kotlin-wasm | `packages/kotlin-wasm` above the build (or `KOTLIN_WASM_DIR`), local included build | The `wasm` interface and its Chasm adapter, shared with rtok | https://github.com/pyrlyn/packages/tree/main/kotlin-wasm |
+| kotlin-macos | `packages/kotlin-macos` above the build (or `KOTLIN_MACOS_DIR`), local included build | The macOS design's tokens and components (MacOS-Pyrlyn-UI) | https://github.com/pyrlyn/packages/tree/main/kotlin-macos |
 | Rust (cargo, `wasm32-unknown-unknown` target) | rustup | Builds the demo plugin test fixtures (`core/src/commonTest/fixtures/plugins/build.sh`); not needed to build Octo | https://github.com/rust-lang/rust |
 | sqlite3 | system (optional) | Reads SQLite databases for the `previews` flag; without it they are not previewed | https://sqlite.org |
 | mermaid-cli (`mmdc`) | npm (optional) | Draws Mermaid diagrams for the `previews` flag; without it the source shows | https://github.com/mermaid-js/mermaid-cli |
@@ -32,6 +33,7 @@
 | org.jlleitschuh.gradle.ktlint 14.2.0 (ktlint 1.8.0) | via shared-settings | https://github.com/JLLeitschuh/ktlint-gradle | Formatting lint (`shared.settings.ktlint`) |
 | dev.detekt 2.0.0-alpha.6 | via shared-settings | https://github.com/detekt/detekt | Static analysis (`shared.settings.detekt`) |
 | pyrlyn.wasm:wasm | local (included build) | https://github.com/pyrlyn/packages/tree/main/kotlin-wasm | The engine-neutral WebAssembly interface the plugin loader uses |
+| pyrlyn.macos:macos | local (included build) | https://github.com/pyrlyn/packages/tree/main/kotlin-macos | The macOS look `:design` draws with on macOS |
 | pyrlyn.wasm:wasm-chasm (Chasm 2.3.0, `io.github.charlietap.chasm:chasm`) | local (included build) | https://github.com/CharlieTap/chasm | Runs plugins in a WebAssembly interpreter |
 | com.github.burrunan.s3-build-cache 1.9.10 | local (settings) | https://github.com/burrunan/gradle-s3-build-cache | Optional S3/R2 remote build cache (`shared.settings`); off without its keys |
 
@@ -48,3 +50,4 @@
 | --- | --- | --- | --- |
 | IBM Plex Sans 6.4.0 (Regular, Medium, SemiBold, Bold; OFL 1.1) | `design/src/jvmMain/resources/fonts` | https://github.com/IBM/plex | UI face of the Pyrlyn Glass design |
 | JetBrains Mono 2.304 (Regular, Medium, Bold; OFL 1.1) | `design/src/jvmMain/resources/fonts` | https://github.com/JetBrains/JetBrainsMono | Code, paths and commands |
+| Inter and Roboto Mono (OFL 1.1) | via kotlin-macos | https://github.com/rsms/inter, https://github.com/googlefonts/RobotoMono | Text and code faces of the macOS design |

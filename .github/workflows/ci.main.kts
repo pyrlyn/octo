@@ -31,6 +31,7 @@ val sharedBuilds =
     mapOf(
         "SHARED_SETTINGS_DIR" to "\${{ github.workspace }}/packages/shared-settings",
         "KOTLIN_WASM_DIR" to "\${{ github.workspace }}/packages/kotlin-wasm",
+        "KOTLIN_MACOS_DIR" to "\${{ github.workspace }}/packages/kotlin-macos",
     )
 
 fun JobBuilder<*>.setUp() {
