@@ -12,6 +12,7 @@ import octo.adapters.claude.ClaudeAdapter
 import octo.adapters.codex.CodexAdapter
 import octo.core.agent.AgentId
 import octo.core.agent.ContextParts
+import octo.core.agent.PlanEntry
 import octo.core.agent.Role
 import octo.core.agent.SessionStats
 import octo.core.agent.ToolStatus
@@ -139,6 +140,14 @@ class ShellShotsTest {
                                 "Add OAuth login with GitHub and keep the session in a cookie.",
                             ),
                             TranscriptEntry.Thought("Looking at the auth module first."),
+                            TranscriptEntry.Plan(
+                                listOf(
+                                    PlanEntry("Read the auth module", done = true),
+                                    PlanEntry("Add the login route", done = true),
+                                    PlanEntry("Run the tests", done = false),
+                                    PlanEntry("Write the session cookie", done = false),
+                                ),
+                            ),
                             TranscriptEntry.Tool(
                                 "t1",
                                 "./gradlew test",
