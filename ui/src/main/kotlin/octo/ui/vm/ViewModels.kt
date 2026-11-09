@@ -82,7 +82,7 @@ class ViewModels(
     /** Null while the `open-in` flag is off, which hides the toolbar's "Open location" button. */
     private val opener: AppOpener? = null,
 ) {
-    val main = MainViewModel(core, scope, startupWarnings, sections, limits = usage != null)
+    val main = MainViewModel(core, scope, startupWarnings, sections, limits = usage != null, icon = catalog::icon)
 
     /** Lives as long as the window, since alerts come whatever screen is open. */
     val notifications = notificationConfig?.let { NotificationsViewModel(core, main, scope, it) }
