@@ -60,6 +60,8 @@ data class TaskUiState(
     val limit: UsageLimit? = null,
     /** How full the agent's context is; always null while the `usage` flag is off. */
     val context: ContextSummary? = null,
+    /** Tokens sent and received, and the writing speed; always null while the `usage` flag is off. */
+    val tokens: TokenSummary? = null,
     /** Refs of the checkpoints the task can go back to; always empty while the `checkpoints` flag is off. */
     val revertable: Set<String> = emptySet(),
     /** A revert waiting for the user to confirm it. */
@@ -100,10 +102,12 @@ class TaskViewModel(
     private val limits: Boolean = false,
     /** False while the `checkpoints` flag is off, which hides reverting. */
     private val checkpoints: Boolean = false,
+    clock: () -> Long = System::currentTimeMillis,
 ) {
     private val flags = Shown(limits, checkpoints)
     private val scope = parent.childScope()
-    private val mutable = MutableStateFlow(TaskUiState().withCore(core.state.value[taskId], emptyList(), flags))
+    private val rate = TokenRate(clock)
+    private val mutable = MutableStateFlow(TaskUiState().withCore(core.state.value[taskId], emptyList(), flags, null))
     val state: StateFlow<TaskUiState> = mutable.asStateFlow()
 
     init {
@@ -111,7 +115,8 @@ class TaskViewModel(
             val transcript = core.transcript(taskId).onStart { emit(emptyList()) }
             combine(core.state, transcript, ::Pair).collect { (octo, entries) ->
                 val view = octo[taskId]
-                mutable.update { it.withCore(view, entries, flags) }
+                val perSecond = rate.update(view?.status == AgentStatus.Working, view?.stats?.outputTokens)
+                mutable.update { it.withCore(view, entries, flags, perSecond) }
                 // The screen is open, so a finished turn is seen as soon as it lands.
                 if (view?.unseen == true) core.markSeen(taskId)
             }
@@ -295,6 +300,7 @@ private fun TaskUiState.withCore(
     view: TaskView?,
     transcript: List<TranscriptEntry>,
     shown: Shown,
+    perSecond: Double?,
 ) = copy(
     task = view?.task,
     status = view?.status ?: AgentStatus.Stopped,
@@ -304,6 +310,7 @@ private fun TaskUiState.withCore(
     queue = view?.task?.queue.orEmpty(),
     limit = view?.limit?.takeIf { shown.limits },
     context = view?.stats?.takeIf { shown.limits }?.let(::contextSummary),
+    tokens = view?.stats?.takeIf { shown.limits }?.let { tokenSummary(it, perSecond) },
     revertable =
         view
             ?.task

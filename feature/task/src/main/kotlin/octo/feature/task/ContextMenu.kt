@@ -24,12 +24,14 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import octo.design.DotSize
 import octo.design.Gap
-import octo.design.GhostButton
 import octo.design.GlassMenu
 import octo.design.LargeGap
 import octo.design.Pyrlyn
 import octo.design.Text
+import octo.design.ValueButton
+import octo.feature.common.NONE
 import octo.feature.common.label
+import octo.feature.common.tokenCount
 
 private val PopupWidth = 300.dp
 private val BarHeight = 8.dp
@@ -37,37 +39,69 @@ private val NumberWidth = 64.dp
 
 /** The context button and its popup: how full the window is and what fills it. */
 @Composable
-internal fun ContextMenu(summary: ContextSummary) {
+internal fun ContextMenu(
+    summary: ContextSummary,
+    tokens: TokenSummary?,
+) {
     var open by remember { mutableStateOf(false) }
     Box {
-        GhostButton(onClick = { open = true }) { Text("Context: ${summary.label} ▾") }
-        GlassMenu(open, onDismissRequest = { open = false }) {
-            Column(
-                Modifier.width(PopupWidth).padding(horizontal = LargeGap, vertical = Gap),
-                verticalArrangement = Arrangement.spacedBy(Gap),
-            ) {
-                Text("Context", style = Pyrlyn.type.strong)
-                Row(verticalAlignment = Alignment.CenterVertically) {
-                    Text(
-                        summary.percent?.let { "$it% used" } ?: "Used",
-                        Modifier.weight(1f),
-                        style = Pyrlyn.type.strong,
-                    )
-                    Text(summary.usedLabel, color = Pyrlyn.colors.fgMuted)
-                }
-                Bar(summary)
-                summary.rows.forEach { row ->
-                    Row(
-                        verticalAlignment = Alignment.CenterVertically,
-                        horizontalArrangement = Arrangement.spacedBy(Gap),
-                    ) {
-                        Box(Modifier.size(DotSize).background(color(row.kind), RoundedCornerShape(2.dp)))
-                        Text(row.kind.label, Modifier.weight(1f))
-                        Text(row.tokensLabel, Modifier.width(NumberWidth), textAlign = TextAlign.End)
-                        Text(row.percentLabel, Modifier.width(NumberWidth), textAlign = TextAlign.End)
-                    }
+        // The macOS design marks a menu by the button's outline rather than an arrow.
+        val arrow = if (Pyrlyn.mac) "" else " ▾"
+        ValueButton(onClick = { open = true }) { Text("Context: ${summary.label}$arrow") }
+        GlassMenu(open, onDismissRequest = { open = false }) { SessionDetails(summary, tokens) }
+    }
+}
+
+/** The context window and what fills it, then the tokens the session has moved and how fast. */
+@Composable
+internal fun SessionDetails(
+    context: ContextSummary?,
+    tokens: TokenSummary?,
+) {
+    Column(
+        Modifier.width(PopupWidth).padding(horizontal = LargeGap, vertical = Gap),
+        verticalArrangement = Arrangement.spacedBy(Gap),
+    ) {
+        context?.let { summary ->
+            Text("Context", style = Pyrlyn.type.strong)
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Text(
+                    summary.percent?.let { "$it% used" } ?: "Used",
+                    Modifier.weight(1f),
+                    style = Pyrlyn.type.strong,
+                )
+                Text(summary.usedLabel, color = Pyrlyn.colors.fgMuted)
+            }
+            Bar(summary)
+            summary.rows.forEach { row ->
+                Row(
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(Gap),
+                ) {
+                    Box(Modifier.size(DotSize).background(color(row.kind), RoundedCornerShape(2.dp)))
+                    Text(row.kind.label, Modifier.weight(1f))
+                    Text(row.tokensLabel, Modifier.width(NumberWidth), textAlign = TextAlign.End)
+                    Text(row.percentLabel, Modifier.width(NumberWidth), textAlign = TextAlign.End)
                 }
             }
+        }
+        tokens?.let { TokenRows(it) }
+    }
+}
+
+@Composable
+private fun TokenRows(tokens: TokenSummary) {
+    Text("Tokens this session", Modifier.padding(top = Gap), style = Pyrlyn.type.strong)
+    listOfNotNull(
+        "Sent" to tokens.sentLabel,
+        "Received" to tokens.receivedLabel,
+        tokens.cacheRead?.let { "Cache read" to tokenCount(it) },
+        tokens.cacheWrite?.let { "Cache write" to tokenCount(it) },
+        "Speed, latest turn" to (tokens.speedLabel ?: NONE),
+    ).forEach { (name, value) ->
+        Row(verticalAlignment = Alignment.CenterVertically) {
+            Text(name, Modifier.weight(1f), color = Pyrlyn.colors.fgMuted)
+            Text(value, textAlign = TextAlign.End)
         }
     }
 }

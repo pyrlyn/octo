@@ -6,6 +6,8 @@ import androidx.compose.ui.graphics.Color
 import octo.core.task.SidebarStatus
 import octo.design.Dot
 import octo.design.Pyrlyn
+import pyrlyn.macos.Tone
+import pyrlyn.macos.ink
 
 val SidebarStatus.label: String
     get() =
@@ -20,8 +22,20 @@ val SidebarStatus.label: String
             SidebarStatus.Stopped -> "Stopped"
         }
 
+/** The macOS design's tone for [this]: busy while an agent works, a warning while it waits for you. */
+val SidebarStatus.tone: Tone
+    get() =
+        when (this) {
+            SidebarStatus.Working, SidebarStatus.Starting -> Tone.Busy
+            SidebarStatus.Blocked -> Tone.Warning
+            SidebarStatus.Failed -> Tone.Error
+            SidebarStatus.Done -> Tone.Ok
+            SidebarStatus.Queued, SidebarStatus.Idle, SidebarStatus.Stopped -> Tone.Idle
+        }
+
 @Composable
 internal fun statusColor(status: SidebarStatus): Color {
+    if (Pyrlyn.mac) return status.tone.ink()
     val c = Pyrlyn.colors
     return when (status) {
         SidebarStatus.Blocked -> c.warning
