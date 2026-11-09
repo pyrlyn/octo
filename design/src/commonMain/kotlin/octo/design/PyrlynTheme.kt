@@ -17,9 +17,9 @@ import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import pyrlyn.macos.MacColors
+import pyrlyn.macos.MacFonts
 import pyrlyn.macos.MacTheme
 import pyrlyn.macos.MacType
-import pyrlyn.macos.bundledFonts
 import pyrlyn.macos.vibrant
 
 /** Pyrlyn's desktop recipes: each OS keeps its own radii, control height and body size. */
@@ -75,7 +75,7 @@ private fun typeFor(
     raster: PlatformTextStyle? = null,
 ): PyrlynType {
     val body = platform.bodySize
-    val ui = UiFont
+    val ui = MonoFont
     return PyrlynType(
         body = TextStyle(fontFamily = ui, fontSize = body.sp, lineHeight = (body + 5).sp),
         strong =
@@ -156,7 +156,8 @@ fun PyrlynTheme(
         val plain = if (dark) MacColors.Dark else MacColors.Light
         // Over the window's vibrancy the grounds turn see-through; the opaque material keeps them solid.
         val mac = if (opaque) plain else plain.vibrant()
-        val fonts = remember(scale) { bundledFonts(HostCrisp.text(scale)) }
+        // Octo's own face replaces the library's Inter and Roboto Mono: one monospace face everywhere.
+        val fonts = remember(scale) { MacFonts(MonoFont, MonoFont, HostCrisp.text(scale)) }
         val type = remember(fonts) { macPyrlynType(MacType(fonts)) }
         MacTheme(mac, fonts) {
             ProvidePyrlyn(remember(mac) { macPyrlynColors(mac) }, platform, type, opaque, reducedMotion, content)

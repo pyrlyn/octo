@@ -20,7 +20,6 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.ImageBitmap
 import androidx.compose.ui.layout.ContentScale
-import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
@@ -70,7 +69,7 @@ private fun Ready(preview: Preview) {
         is Preview.Source -> {
             Column(Modifier.verticalScroll(rememberScrollState())) {
                 Text(preview.note, style = Pyrlyn.type.small)
-                SelectionContainer { Text(preview.text, fontFamily = FontFamily.Monospace) }
+                SelectionContainer { Text(preview.text) }
             }
         }
     }
@@ -95,7 +94,6 @@ private fun NotebookCell(cell: Cell) {
                 .fillMaxWidth()
                 .background(if (code) Pyrlyn.colors.bgSunken else Pyrlyn.colors.bgRaised)
                 .padding(Gap),
-            fontFamily = if (code) FontFamily.Monospace else FontFamily.Default,
         )
         cell.outputs.forEach { output ->
             when (output) {
@@ -104,7 +102,6 @@ private fun NotebookCell(cell: Cell) {
                     Text(
                         output.text,
                         color = if (output.error) colors.danger else colors.fg,
-                        fontFamily = FontFamily.Monospace,
                     )
                 }
 
@@ -123,7 +120,7 @@ private fun Archive(archive: Preview.Archive) {
         LazyColumn(Modifier.weight(1f, fill = false)) {
             items(archive.entries) { entry ->
                 Row(horizontalArrangement = Arrangement.spacedBy(Gap)) {
-                    Text(entry.name, Modifier.weight(1f), fontFamily = FontFamily.Monospace)
+                    Text(entry.name, Modifier.weight(1f))
                     if (entry.size >= 0) Text("${entry.size} B", style = Pyrlyn.type.small)
                 }
             }
@@ -158,7 +155,6 @@ private fun TableRow(
             Text(
                 it,
                 Modifier.width(ColumnWidth),
-                fontFamily = FontFamily.Monospace,
                 fontWeight = weight,
                 maxLines = 1,
                 overflow = TextOverflow.Ellipsis,

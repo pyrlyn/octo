@@ -12,7 +12,6 @@ import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.text.font.FontFamily
 import octo.design.DialogWidth
 import octo.design.Gap
 import octo.design.GhostButton
@@ -59,7 +58,6 @@ private fun Address(state: DevicesUiState) {
     SelectionContainer {
         Text(
             "ssh -L $port:127.0.0.1:$port <this computer>\ntailscale serve $port",
-            fontFamily = FontFamily.Monospace,
         )
     }
 }
@@ -73,7 +71,7 @@ private fun Pairing(
     Text("Enter this code on the device. It works once, for ${state.validMinutes} minutes.")
     Row(verticalAlignment = Alignment.CenterVertically) {
         SelectionContainer(Modifier.weight(1f)) {
-            Text(code, style = Pyrlyn.type.title, fontFamily = FontFamily.Monospace)
+            Text(code, style = Pyrlyn.type.title)
         }
         GhostButton(onClick = vm::stopPairing) { Text("Cancel") }
     }
