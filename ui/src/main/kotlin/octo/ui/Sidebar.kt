@@ -196,13 +196,19 @@ private fun TaskRowItem(
     ) {
         StatusDot(row.status)
         Column(Modifier.weight(1f)) {
-            Text(
-                row.title,
-                color = if (selected) c.stateSelectedFg else c.fg,
-                fontWeight = FontWeight.Medium,
-                maxLines = 1,
-                overflow = TextOverflow.Ellipsis,
-            )
+            Row(horizontalArrangement = Arrangement.spacedBy(SmallGap)) {
+                Text(
+                    row.title,
+                    Modifier.weight(1f).alignByBaseline(),
+                    color = if (selected) c.stateSelectedFg else c.fg,
+                    fontWeight = FontWeight.Medium,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis,
+                )
+                row.age(rememberNowMs())?.let {
+                    Text(it, Modifier.alignByBaseline(), style = Pyrlyn.type.small, color = c.fgMuted, maxLines = 1)
+                }
+            }
             Text(
                 "${row.agent.value} · ${if (row.limited) "Limited" else row.status.label}",
                 style = Pyrlyn.type.small,
@@ -210,7 +216,6 @@ private fun TaskRowItem(
                 maxLines = 1,
             )
         }
-        row.age(rememberNowMs())?.let { Text(it, style = Pyrlyn.type.small, color = c.fgMuted, maxLines = 1) }
     }
 }
 

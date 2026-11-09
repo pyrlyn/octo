@@ -105,10 +105,7 @@ private fun MacTaskList(
                         tone = row.status.tone,
                         selected = row.id == state.selected,
                         onClick = { vm.select(row.id) },
-                        trailing =
-                            row.age(now)?.let {
-                                { Label(it, color = Mac.colors.textSecondary, style = Mac.type.caption, maxLines = 1) }
-                            },
+                        meta = row.age(now),
                     )
                 }
             }
