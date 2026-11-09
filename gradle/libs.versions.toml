@@ -8,6 +8,9 @@ serialization = "1.12.0"
 kotlinx-io = "0.9.1"
 clikt = "5.1.0"
 krontab = "3.1.0"
+room = "2.8.5"
+sqlite = "2.7.1"
+ksp = "2.3.13"
 
 [libraries]
 kotlinx-coroutines-core = { module = "org.jetbrains.kotlinx:kotlinx-coroutines-core", version.ref = "coroutines" }
@@ -17,6 +20,9 @@ kotlinx-serialization-json = { module = "org.jetbrains.kotlinx:kotlinx-serializa
 kotlinx-io-core = { module = "org.jetbrains.kotlinx:kotlinx-io-core", version.ref = "kotlinx-io" }
 clikt = { module = "com.github.ajalt.clikt:clikt", version.ref = "clikt" }
 krontab = { module = "dev.inmo:krontab", version.ref = "krontab" }
+room-runtime = { module = "androidx.room:room-runtime", version.ref = "room" }
+room-compiler = { module = "androidx.room:room-compiler", version.ref = "room" }
+sqlite-bundled = { module = "androidx.sqlite:sqlite-bundled", version.ref = "sqlite" }
 # From the included kotlin-wasm build, so they carry no version.
 wasm = { module = "pyrlyn.wasm:wasm" }
 wasm-chasm = { module = "pyrlyn.wasm:wasm-chasm" }
@@ -29,3 +35,5 @@ kotlin-serialization-plugin = { module = "org.jetbrains.kotlin:kotlin-serializat
 compose-compiler-plugin = { module = "org.jetbrains.kotlin:compose-compiler-gradle-plugin", version.ref = "kotlin" }
 compose-gradle-plugin = { module = "org.jetbrains.compose:compose-gradle-plugin", version.ref = "compose" }
 compose-hot-reload-plugin = { module = "org.jetbrains.compose.hot-reload:hot-reload-gradle-plugin", version.ref = "hot-reload" }
+ksp-plugin = { module = "com.google.devtools.ksp:symbol-processing-gradle-plugin", version.ref = "ksp" }
+room-plugin = { module = "androidx.room:room-gradle-plugin", version.ref = "room" }

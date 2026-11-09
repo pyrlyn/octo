@@ -36,17 +36,32 @@ data class LoadedState(
     val warnings: List<String>,
 )
 
+/** Where the tasks, their transcript tails and the layout are kept between runs. */
+interface StateStore {
+    /** Never fails: what cannot be read is reported in [LoadedState.warnings] and left out. */
+    suspend fun load(): LoadedState
+
+    /** Throws an [IOException] when the state could not be written. */
+    suspend fun save(state: PersistedState)
+
+    companion object {
+        const val VERSION = 1
+        const val TRANSCRIPT_TAIL = 200
+    }
+}
+
 /**
- * `state.json` with the last [BACKUPS] good files kept as `state.json.1..3`. Loading never fails:
- * a corrupt file is moved aside and the newest readable backup is used instead.
+ * `state.json`, the format Octo used before SQLite, with the last [BACKUPS] good files kept as
+ * `state.json.1..3`. Loading never fails: a corrupt file is moved aside and the newest readable
+ * backup is used instead.
  */
-class StateStore(
+class JsonStateStore(
     private val path: Path,
     private val fs: FileSystem = SystemFileSystem,
-) {
+) : StateStore {
     private val lock = Mutex()
 
-    suspend fun load(): LoadedState =
+    override suspend fun load(): LoadedState =
         lock.withLock {
             val warnings = mutableListOf<String>()
             for (candidate in candidates()) {
@@ -59,7 +74,7 @@ class StateStore(
             LoadedState(PersistedState(), warnings)
         }
 
-    suspend fun save(state: PersistedState) {
+    override suspend fun save(state: PersistedState) {
         lock.withLock {
             val text = json.encodeToString(PersistedState.serializer(), state)
             withContext(Dispatchers.IO) { rotate() }
@@ -119,9 +134,7 @@ class StateStore(
     }
 
     companion object {
-        const val VERSION = 1
         const val BACKUPS = 3
-        const val TRANSCRIPT_TAIL = 200
 
         private val json =
             Json {

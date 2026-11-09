@@ -31,8 +31,8 @@ the agent CLI the user installed, run under the user's own login; ACP plus nativ
 | ktlint | 1.8.0 via `org.jlleitschuh.gradle.ktlint` 14.2.0 | Required by the brief |
 | detekt | 2.0.0-alpha.6 (`dev.detekt`) | The only line built against Kotlin 2.4 (1.23.8 predates it); falls back to 1.23.8 if the alpha breaks |
 
-**Runtime libraries.** All are first-party JetBrains libraries, so the brief's approval rule for
-new third-party dependencies does not apply:
+**Runtime libraries.** All but Room are first-party JetBrains libraries; Room was approved by the
+creator for T66:
 
 | Library | Version | Use |
 | --- | --- | --- |
@@ -40,6 +40,8 @@ new third-party dependencies does not apply:
 | kotlinx-serialization-json | 1.12.0 | Agent protocols, persisted state |
 | kotlinx-io | 0.9.1 | Files, atomic moves |
 | Compose Multiplatform | 1.12.2 | UI only |
+| Room (`androidx.room`), KSP | 2.8.5, 2.3.13 | The `storage` module's database (§8) |
+| sqlite-bundled (`androidx.sqlite`) | 2.7.1 | The SQLite Room runs on, compiled into the app |
 
 Tests use `kotlin-test` and `kotlinx-coroutines-test`.
 
@@ -49,8 +51,11 @@ Tests use `kotlin-test` and `kotlinx-coroutines-test`.
   also serves Codex `app-server`, which omits the `jsonrpc` field.
 - **No git library.** JGit lacks worktree support, and libgit2 has no KMP wrapper. We run the
   `git` CLI through the core's process API.
-- **No database.** State is one JSON document written atomically (§8), so the workspace "no raw
-  SQL" rule does not come into play.
+- **Room for the database.** Room is the KMP ORM with a native build for macOS and Linux; its
+  annotations map entities and derive the inserts, upserts and deletes. Its `@Query` strings cover
+  only what it cannot derive (ordered reads, bulk deletes) and live in the `storage` module's DAOs,
+  as the workspace "no raw SQL" rule asks. SQLDelight was the alternative, but every statement is
+  hand-written SQL there.
 - **No DI framework.** Constructor injection, wired by hand in `app`.
 
 ## 3. Modules
@@ -58,6 +63,7 @@ Tests use `kotlin-test` and `kotlinx-coroutines-test`.
 ```
 octo/
 ├── core/                 KMP: jvm, macosArm64, linuxX64, mingwX64
+├── storage/              KMP: jvm, macosArm64, linuxX64 (Room has no mingwX64 build); depends on core
 ├── adapters/
 │   ├── base/             KMP: same targets; depends on core
 │   ├── claude/           KMP; depends on adapters:base
@@ -86,7 +92,7 @@ octo/
 ```
 
 Dependencies point down only: `app → ui → feature:* → feature:common → core, design` and
-`app → adapters:* → adapters:base → core`. Neither the UI modules nor `core` depend on any
+`app → adapters:* → adapters:base → core` and `app → storage → core`. Neither the UI modules nor `core` depend on any
 adapter, `design` depends on nothing of Octo's, and a feature depends on no other feature except
 `onboarding` on `newtask`.
 
@@ -182,7 +188,7 @@ elsewhere, with a glyph when none can be read.
 The usage screen (`UsageViewModel`) asks `UsageReport.totals` for a period. An agent whose
 adapter has a `UsageHistory` (Claude's `projects/*.jsonl`, Codex's rollout files) is counted only
 from it, so nothing is counted twice; every other agent is counted from `UsageLog`
-(`usage.json`), which records the growth of each task's `SessionStats` when a turn ends. A history
+(kept in `octo.db`, §8), which records the growth of each task's `SessionStats` when a turn ends. A history
 that cannot be read becomes a warning on the screen.
 
 The task screen's context popup (`ContextSummary`) reads the task's `SessionStats`:
@@ -315,7 +321,7 @@ class FeatureFlags(config: Map<String, Boolean>) {
 | `git-publish` (commit, push, PR) | T11 |
 | `remote-ssh` (tasks on machines from `config.json`, through the user's `ssh`; one shared connection per machine since T18) | T12 |
 | `agent-messaging` (an MCP server on loopback: `list_tasks`, `send_message`, `wait_for_idle`, `create_task`) | T13, T42 |
-| `presets` (teams of agents with roles and prompts, kept in `presets.json`) | T14 |
+| `presets` (teams of agents with roles and prompts, kept in `octo.db`) | T14 |
 | `remote-access` (a token-paired JSON API on `127.0.0.1`, reached through the user's tunnel) | T15 |
 | `plugins` (WebAssembly plugins that add ACP agents and task actions; see `docs/plugins.md`) | T16 |
 | `handoff` (switch a task's agent or model; a fresh session gets the conversation from the transcript) | T23 |
@@ -364,7 +370,7 @@ interface OctoCore {
 }
 ```
 
-`Orchestrator` implements it. `Orchestrator.open(...)` loads `state.json`; `close()` stops every
+`Orchestrator` implements it. `Orchestrator.open(...)` loads the saved state (§8); `close()` stops every
 agent and writes the state. `close()` belongs to `app`, so it is not on the interface the UI sees.
 - **Terms.** Before every start, `TermsGate.requireAcknowledged` runs; `createTask` throws
   `TermsNotAcknowledgedException` before it touches the repository.
@@ -484,7 +490,7 @@ agent and writes the state. `close()` belongs to `app`, so it is not on the inte
   the tray icon) opens the alerted task. macOS only activates the app, so the window gaining focus
   after an alert posted in the background opens that task once.
 - **Guest links.** With `guest-share` and `remote-access` on, `Shares` (`core/access`) keeps one
-  link per task in `shares.json` as a SHA-256 of its 256-bit token, and the guests' proposals in
+  link per task in `octo.db` as a SHA-256 of its 256-bit token, and the guests' proposals in
   memory: at most 10 waiting and 50 kept per link, 4000 characters each. `RemoteApi` serves
   `/api/v1/guest` to a share token only, never a device token, and the guest reads one task and
   proposes; approving settles the proposal before `sendPrompt`, so it is sent once.
@@ -500,8 +506,8 @@ agent and writes the state. `close()` belongs to `app`, so it is not on the inte
   schedule is a `Cron` from a `CronParser`; the JVM one, `KrontabCronParser`, expands standard
   cron into a krontab template, because krontab has no macOS arm64 build and counts days and
   months from 0. Each schedule is one coroutine that naps at most a minute at a time against the
-  wall clock, so a computer that slept catches up; `lastRun` in `triggers.json` (a
-  `JsonListFile`) turns every missed run into one. A webhook is `Webhooks.deliver`, reached
+  wall clock, so a computer that slept catches up; `lastRun` in `octo.db` turns
+  every missed run into one. A webhook is `Webhooks.deliver`, reached
   through `RemoteApi`'s `hooks/{id}` route before the device-token check: the HMAC-SHA256 of the
   body or a bearer secret, both compared through SHA-256 so timing says nothing, then the event
   and filters, then the delivery id (`X-GitHub-Delivery`, else the body's hash), of which the last
@@ -514,14 +520,29 @@ agent and writes the state. `close()` belongs to `app`, so it is not on the inte
   `~/Library/Application Support/Octo`, Linux `$XDG_STATE_HOME/octo` (falling back to
   `~/.local/state/octo`), Windows `%APPDATA%\Octo`. Paths are resolved once in `app` and passed
   down as `OctoPaths`; the core never reads the environment itself.
-- **`state.json`.** Tasks (id, title, repo, worktree, branch, base ref, agent id, the agent's
-  session ref, and the last status), the transcript tail for each task (bounded), and the layout.
-  Writes go to a temp file followed by an atomic move. The last 3 good files are kept as
-  `state.json.1..3`, and a corrupt file is moved aside and logged. A load failure never blocks
-  start-up (fail open).
+- **`octo.db` (T66).** One SQLite database, kept by the `storage` module through Room, holds
+  everything Octo keeps between runs except its configuration: tasks with their transcript tails
+  (bounded) and the layout, usage records, paired devices, guest links, presets, trigger records
+  and acknowledged vendor terms. The core sees it only through its own interfaces (`StateStore`,
+  `ListStore`, `UsageStore`, `AcknowledgementStore`), so `core` keeps its `mingwX64` target.
+  Flat records get a column per field; a task, a transcript entry and a preset's members keep
+  their kotlinx-serialization form in a JSON column, so a new field needs no migration. Every
+  change is one transaction; a state save writes only the tasks and transcripts that changed, and
+  usage appends its rows and drops the oldest past 10 000. Schemas are exported to
+  `storage/schemas/` for later migrations.
+- **Fail open.** A database that cannot be opened is moved aside as `octo.db.corrupt` and a new
+  one started; if that fails too, Octo runs on one in memory. A row that no longer decodes is left
+  out of the load with a warning and kept in the database; a list that cannot be read opens empty
+  and refuses changes. Every case shows as a warning.
+- **Import.** The first start with `octo.db` imports the JSON files of earlier versions
+  (`state.json` and its backups, `usage.json`, `devices.json`, `shares.json`, `presets.json`,
+  `triggers.json`, `acknowledgements.json`) in one transaction and renames each to
+  `<name>.imported`. A file that cannot be read stays in place with a warning. The JSON readers
+  (`JsonStateStore`, `JsonListFile`, `JsonAcknowledgements`) stay in `core` for this and for tests.
 - **Cold start.** Every task is restored as `Stopped`. Restart resumes the agent session through
   its ref (AionUi's "cold start = idle + resume anchor").
-- **`config.json`.** Flags and user preferences, read at start-up.
+- **`config.json`.** Flags and user preferences, read at start-up. It stays a JSON file the user
+  edits by hand, as does the CLI's `cli.json`.
 
 ## 9. Security and trust
 
@@ -542,6 +563,8 @@ agent and writes the state. `close()` belongs to `app`, so it is not on the inte
 
 ## 10. Testing
 
+- **Storage.** Round trips of every store, the usage cap, the JSON import and a corrupt database,
+  against a database in a temp dir, on the JVM and the native host target.
 - **Core.** The reducer, flags, persistence round-trip (temp dir), the diff parser, and worktree
   lifecycle against a temp git repo with a temp `HOME` and `GIT_CONFIG_GLOBAL`.
 - **Adapters.** A `FakeProcessLauncher` replays fixture NDJSON or JSON-RPC lines and records what

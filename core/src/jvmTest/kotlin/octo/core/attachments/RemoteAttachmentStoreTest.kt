@@ -5,7 +5,7 @@ import kotlinx.io.files.Path
 import kotlinx.io.files.SystemFileSystem
 import octo.core.process.JvmProcessLauncher
 import octo.core.task.TaskId
-import octo.core.tempDir
+import octo.testing.tempDir
 import kotlin.random.Random
 import kotlin.test.Test
 import kotlin.test.assertContentEquals

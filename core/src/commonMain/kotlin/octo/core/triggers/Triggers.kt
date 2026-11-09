@@ -20,6 +20,7 @@ import octo.core.access.Secrets
 import octo.core.http.bearerToken
 import octo.core.io.AtomicFile
 import octo.core.io.JsonListFile
+import octo.core.io.ListStore
 import octo.core.io.ReadOnlyFileException
 import octo.core.orchestrator.OctoCore
 import kotlin.time.Clock
@@ -48,7 +49,7 @@ fun interface Webhooks {
     ): Delivery
 }
 
-/** What `triggers.json` keeps of one trigger. */
+/** What Octo keeps of one trigger between runs. */
 @Serializable
 data class TriggerRecord(
     val id: String,
@@ -66,11 +67,11 @@ class Triggers private constructor(
     private val schedules: List<Pair<TriggerConfig, Cron>>,
     private val hooks: Map<String, Pair<TriggerConfig, WebhookConfig>>,
     private val core: OctoCore,
-    private val file: JsonListFile<TriggerRecord>,
+    private val file: ListStore<TriggerRecord>,
     private val secrets: Secrets,
     private val clock: Clock,
     private val scope: CoroutineScope,
-    /** Problems with the config or `triggers.json`; the triggers concerned are skipped. */
+    /** Problems with the config or the stored records; the triggers concerned are skipped. */
     val warnings: List<String>,
 ) : Webhooks {
     // Kept here as well as on disk, so a read-only file still suppresses duplicates until Octo exits.
@@ -227,24 +228,46 @@ class Triggers private constructor(
         } catch (e: ReadOnlyFileException) {
             // Already among the start-up warnings; the records live on in memory.
         } catch (e: IOException) {
-            core.warn("Could not save triggers.json: ${e.message}")
+            core.warn("Could not save the trigger records: ${e.message}")
         }
     }
 
     companion object {
         /** Long enough to cost nothing, short enough that a woken computer catches up soon. */
+        const val TRIGGERS_KEY = "triggers"
         private val NAP = 1.minutes
         private const val KEPT = 100
         private const val SIGNATURE = "x-hub-signature-256"
         private const val DELIVERY = "x-github-delivery"
         private const val EVENT = "x-github-event"
 
-        /** Checks [configs], loads `triggers.json` from [file] and starts the schedules in [scope]. */
+        /** Like the other [open], with the records kept in `triggers.json` as before SQLite. */
         @Suppress("LongParameterList")
         suspend fun open(
             configs: List<TriggerConfig>,
             core: OctoCore,
             file: AtomicFile,
+            cron: CronParser,
+            secrets: Secrets,
+            scope: CoroutineScope,
+            clock: Clock = Clock.System,
+        ): Triggers =
+            open(
+                configs,
+                core,
+                JsonListFile.open(file, TriggerRecord.serializer(), TRIGGERS_KEY),
+                cron,
+                secrets,
+                scope,
+                clock,
+            )
+
+        /** Checks [configs], reads the run records from [records] and starts the schedules in [scope]. */
+        @Suppress("LongParameterList")
+        fun open(
+            configs: List<TriggerConfig>,
+            core: OctoCore,
+            records: ListStore<TriggerRecord>,
             cron: CronParser,
             secrets: Secrets,
             scope: CoroutineScope,
@@ -271,7 +294,6 @@ class Triggers private constructor(
                     }
                 }
             val hooks = valid.mapNotNull { config -> config.webhook?.let { config.id to (config to it) } }.toMap()
-            val records = JsonListFile.open(file, TriggerRecord.serializer(), "triggers")
             records.warning?.let(warnings::add)
             // Its own child scope, so close() stops the triggers and nothing else.
             val own = CoroutineScope(scope.coroutineContext + SupervisorJob(scope.coroutineContext[Job]))

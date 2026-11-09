@@ -28,14 +28,15 @@ import octo.core.git.TaskDiff
 import octo.core.git.Workspace
 import octo.core.io.AtomicFile
 import octo.core.messaging.McpProvider
+import octo.core.persist.JsonStateStore
 import octo.core.persist.StateStore
 import octo.core.process.ProcessLauncher
 import octo.core.process.ProcessMonitor
 import octo.core.process.ProcessResult
 import octo.core.process.ProcessSpec
 import octo.core.process.RunningProcess
-import octo.core.tempDir
 import octo.core.terms.TermsGate
+import octo.testing.tempDir
 import kotlin.time.Clock
 import kotlin.time.Instant
 
@@ -316,7 +317,7 @@ internal suspend fun TestScope.setup(
         Orchestrator.open(
             registry = AdapterRegistry(listOf(adapter) + others, FeatureFlags()),
             workspace = workspace,
-            store = StateStore(Path(home, "state.json")),
+            store = JsonStateStore(Path(home, "state.json")),
             terms = TermsGate(AtomicFile(Path(home, "acknowledgements.json"))),
             worktrees = Path(home, "worktrees"),
             scope = backgroundScope,

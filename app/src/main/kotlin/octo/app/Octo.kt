@@ -25,12 +25,11 @@ import octo.core.orchestrator.OctoCore
 import octo.core.orchestrator.Orchestrator
 import octo.core.orchestrator.RegistryAgentCatalog
 import octo.core.paths.OctoPaths
-import octo.core.persist.StateStore
 import octo.core.plugins.LoadedPlugins
 import octo.core.plugins.Plugin
 import octo.core.plugins.PluginLoader
-import octo.core.preset.FilePresetLibrary
 import octo.core.preset.PresetLibrary
+import octo.core.preset.StoredPresetLibrary
 import octo.core.process.JvmProcessMonitor
 import octo.core.process.ProcessLauncher
 import octo.core.publish.GitHubMergedBranches
@@ -43,6 +42,7 @@ import octo.core.triggers.Triggers
 import octo.core.triggers.Webhooks
 import octo.core.usage.UsageLog
 import octo.core.usage.UsageReport
+import octo.storage.Storage
 import wasm.chasm.ChasmRuntime
 
 /** Everything the window needs, built from one Octo home. */
@@ -75,6 +75,7 @@ class Octo private constructor(
     val shareBase: String?,
     /** Null unless the `notifications` flag is on. */
     val notifications: NotificationConfig?,
+    private val storage: Storage,
 ) {
     val core: OctoCore get() = orchestrator
 
@@ -118,9 +119,13 @@ class Octo private constructor(
         orchestrator.close()
         remote.close()
         mcpServer?.close()
+        // Last: closing the orchestrator writes the final state.
+        storage.close()
     }
 
     companion object {
+        // The one place every module is wired; splitting it would only scatter the wiring.
+        @Suppress("LongMethod")
         suspend fun open(
             paths: OctoPaths,
             launcher: ProcessLauncher,
@@ -129,10 +134,11 @@ class Octo private constructor(
             homes: AgentHomes = AgentHomes(),
         ): Octo {
             val (config, warning) = readConfig(AtomicFile(paths.config))
+            val storage = Storage.open(paths)
             val flags = config.featureFlags()
             val plugins = loadPlugins(flags, paths, launcher)
             val registry = adapterRegistry(launcher, flags, plugins.agents.adapters, homes)
-            val terms = TermsGate(AtomicFile(paths.acknowledgements))
+            val terms = TermsGate(storage.acknowledgements)
             val remote =
                 flags.ifOn(
                     CoreFlags.REMOTE_SSH,
@@ -145,7 +151,7 @@ class Octo private constructor(
                 Orchestrator.open(
                     registry,
                     GitWorkspace(Git(launcher)),
-                    StateStore(paths.state),
+                    storage.state,
                     terms,
                     paths.worktrees,
                     scope,
@@ -161,13 +167,14 @@ class Octo private constructor(
             messaging?.attach(orchestrator)
             val publisher = publishing(flags, orchestrator, launcher, scope)
             val catalog = RegistryAgentCatalog(registry, terms, remote.machines.mapValues { it.value.registry })
-            val presets = flags.ifOn(CoreFlags.PRESETS) { FilePresetLibrary.open(AtomicFile(paths.presets)) }
-            val usage = flags.ifOn(CoreFlags.USAGE) { usage(paths, orchestrator, registry, scope) }
-            val triggers = flags.ifOn(CoreFlags.TRIGGERS) { triggers(config, flags, paths, orchestrator, scope) }
-            val access = remoteAccess(config, flags, paths, orchestrator, triggers?.first)
+            val presets = flags.ifOn(CoreFlags.PRESETS) { StoredPresetLibrary.open(storage.presets()) }
+            val usage = flags.ifOn(CoreFlags.USAGE) { usage(storage, orchestrator, registry, scope) }
+            val triggers = flags.ifOn(CoreFlags.TRIGGERS) { triggers(config, flags, storage, orchestrator, scope) }
+            val access = remoteAccess(config, flags, storage, orchestrator, triggers?.first)
             val warnings =
-                listOfNotNull(warning, mcpWarning, presets?.warning, access.warning, usage?.second) + remote.warnings +
-                    plugins.loaded.warnings + plugins.agents.warnings + triggers?.second.orEmpty() + limits.warnings
+                listOfNotNull(warning, mcpWarning, presets?.warning, access.warning, usage?.second) + storage.warnings +
+                    remote.warnings + plugins.loaded.warnings + plugins.agents.warnings + triggers?.second.orEmpty() +
+                    limits.warnings
             return Octo(
                 orchestrator,
                 catalog,
@@ -185,6 +192,7 @@ class Octo private constructor(
                 access.shares,
                 access.shareBase,
                 flags.ifOn(CoreFlags.NOTIFICATIONS) { config.notifications },
+                storage,
             )
         }
 
@@ -192,7 +200,7 @@ class Octo private constructor(
         private suspend fun triggers(
             config: OctoConfig,
             flags: FeatureFlags,
-            paths: OctoPaths,
+            storage: Storage,
             orchestrator: Orchestrator,
             scope: CoroutineScope,
         ): Pair<Triggers, List<String>> {
@@ -200,7 +208,7 @@ class Octo private constructor(
                 Triggers.open(
                     config.triggers,
                     orchestrator,
-                    AtomicFile(paths.triggers),
+                    storage.triggerRecords(),
                     KrontabCronParser(),
                     JvmSecrets,
                     scope,
@@ -212,14 +220,14 @@ class Octo private constructor(
             return triggers to triggers.warnings + listOfNotNull(unreachable)
         }
 
-        /** The report and, when `usage.json` cannot be read, why nothing is recorded. */
+        /** The report and, when the usage records cannot be read, why nothing is recorded. */
         private suspend fun usage(
-            paths: OctoPaths,
+            storage: Storage,
             orchestrator: Orchestrator,
             registry: AdapterRegistry,
             scope: CoroutineScope,
         ): Pair<UsageReport, String?> {
-            val log = UsageLog.open(AtomicFile(paths.usage))
+            val log = UsageLog.open(storage.usage())
             log.watch(orchestrator.state, scope)
             val histories = registry.adapters.mapNotNull { adapter -> adapter.usageHistory?.let { adapter.id to it } }
             val names = registry.adapters.associate { it.id to it.displayName }
@@ -274,20 +282,20 @@ class Octo private constructor(
         private suspend fun remoteAccess(
             config: OctoConfig,
             flags: FeatureFlags,
-            paths: OctoPaths,
+            storage: Storage,
             core: OctoCore,
             hooks: Webhooks?,
         ): RemoteAccess {
             val guests = flags.isEnabled(CoreFlags.GUEST_SHARE)
-            if (flags.isEnabled(CoreFlags.REMOTE_ACCESS)) return startRemoteAccess(config, paths, core, hooks, flags)
+            if (flags.isEnabled(CoreFlags.REMOTE_ACCESS)) return startRemoteAccess(config, storage, core, hooks, flags)
             val unreachable = "Guest links need the ${CoreFlags.REMOTE_ACCESS.id} flag, which is off"
             return RemoteAccess(warning = unreachable.takeIf { guests })
         }
 
-        // A taken port or a broken devices.json turns remote access off; the window works as before.
+        // A taken port or unreadable devices turn remote access off; the window works as before.
         private suspend fun startRemoteAccess(
             config: OctoConfig,
-            paths: OctoPaths,
+            storage: Storage,
             core: OctoCore,
             hooks: Webhooks?,
             flags: FeatureFlags,
@@ -295,8 +303,8 @@ class Octo private constructor(
             val guests = flags.isEnabled(CoreFlags.GUEST_SHARE)
             val access = config.remoteAccess
             val port = access.port
-            val devices = Devices.open(AtomicFile(paths.devices), JvmSecrets)
-            val shares = if (guests) Shares.open(AtomicFile(paths.shares), JvmSecrets, core) else null
+            val devices = Devices.open(storage.devices(), JvmSecrets)
+            val shares = if (guests) Shares.open(storage.shares(), JvmSecrets, core) else null
             val problem = access.problem() ?: devices.warning ?: shares?.warning
             if (problem != null) return RemoteAccess(warning = "Remote access is off: $problem")
             return try {

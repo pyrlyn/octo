@@ -21,8 +21,8 @@ machines, Codex and ZCode get no tools yet.
 `"presets": true` adds team presets. A preset is a named set of members, each with a role, an
 agent and a first prompt. Create, edit and delete presets from the new-task form, under Team
 preset → Edit presets…, and start every member on one repository at once. In a team of several
-agents, each one is told its role and who its teammates are. Presets are kept in `presets.json`
-in the Octo home. If that file cannot be read, Octo shows a warning and never overwrites it.
+agents, each one is told its role and who its teammates are. Presets are kept in `octo.db`
+in the Octo home. If they cannot be read, Octo shows a warning and never overwrites them.
 
 ## Switching agents
 
@@ -113,7 +113,7 @@ trigger has an `id`, a `task` (`repo`, `baseRef`, `agent`, `title`, and optional
 ]
 ```
 
-`triggers.json` in the Octo home keeps each trigger's last run and recent delivery ids. A broken
+`octo.db` in the Octo home keeps each trigger's last run and recent delivery ids. A broken
 trigger, or a task one cannot start, shows as a warning.
 
 ## Agent queue

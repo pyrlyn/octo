@@ -12,6 +12,7 @@ plugins {
 
 dependencies {
     implementation(project(":ui"))
+    implementation(project(":storage"))
     implementation(project(":adapters:antigravity"))
     implementation(project(":adapters:claude"))
     implementation(project(":adapters:codex"))
