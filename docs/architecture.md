@@ -145,6 +145,12 @@ Linux recipes, the glass surface and the reusable components (buttons, field, sw
 control, dialog, menu, notice, table rows, meter, glyph, key cap). It knows no Octo type. Controls
 keep only their own UI state, such as an open menu; anything about tasks or agents comes in as
 parameters. Every screen draws from it, so a token or component change restyles the whole app.
+On macOS it draws with the MacOS-Pyrlyn-UI design from the shared `kotlin-macos` package instead
+of the glass: `PyrlynTheme` fills Pyrlyn's colour and type slots from the macOS tokens, `glass`
+paints the design's flat grounds, and the kit's controls delegate to the package's components. Over
+the window's vibrancy the sidebar, toolbar and editor grounds are see-through; the opaque material
+keeps them solid. Screens with a layout of their own in that design (shell, task screen, New task)
+keep it in `Mac*` files next to the generic one.
 
 **`feature:*`** and the **`ui`** shell follow MVVM, the creator's choice. Each screen has a view
 model that reads `OctoCore` flows and exposes one immutable UI state as a `StateFlow`, plus
@@ -176,6 +182,13 @@ The task screen's context popup (`ContextSummary`) reads the task's `SessionStat
 `contextUsed` and `contextWindow`, and `contextParts`, the latest request's split that adds up to
 `contextUsed`. Claude counts input, cache read and cache write; Codex counts cached input, the
 rest of the input and output. An ACP agent reports only the total.
+
+The same popup lists the session's token totals (`TokenSummary`): sent, received, cache read and cache write, kept
+apart because agents disagree on whether the input count holds the cached part. `TokenRate` in the task view model
+adds the writing speed, output tokens per second over the running or latest turn, measured from the totals the
+agent reports. On macOS the popup opens on hovering a gauge in the composer, and a line under the composer repeats
+the context share and the totals; elsewhere the line sits under the prompt box. All of it hides with the `usage`
+flag.
 
 **`app`** holds `main()`, the adapter list, platform paths and the Compose Desktop packaging.
 

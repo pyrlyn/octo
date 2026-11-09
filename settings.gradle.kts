@@ -20,6 +20,7 @@ pluginManagement {
     includeBuild(sharedSettings)
     includeBuild("$sharedSettings/settings-plugin")
     extra["kotlinWasmDir"] = sharedBuild("kotlin-wasm", "KOTLIN_WASM_DIR")
+    extra["kotlinMacosDir"] = sharedBuild("kotlin-macos", "KOTLIN_MACOS_DIR")
 }
 
 // Repositories and the optional S3/R2 remote build cache, which stays off without its keys.
@@ -33,6 +34,10 @@ rootProject.name = "octo"
 // The WebAssembly interface and its Chasm adapter, shared with rtok: a checkout of kotlin-wasm
 // (github.com/pyrlyn/packages, kotlin-wasm/).
 includeBuild(extra["kotlinWasmDir"] as String)
+
+// The macOS components and tokens (MacOS-Pyrlyn-UI): a checkout of kotlin-macos
+// (github.com/pyrlyn/packages, kotlin-macos/).
+includeBuild(extra["kotlinMacosDir"] as String)
 
 include(
     ":core",

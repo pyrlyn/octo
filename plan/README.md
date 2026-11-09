@@ -20,3 +20,7 @@ Taken by the creator after the Phase 1 research (`docs/research.md`):
   a runtime dependency.
 - **Workflow.** The agent merges its own PR once tests and linters are green, then takes the next
   task.
+- **macOS design (T63).** On macOS Octo draws with MacOS-Pyrlyn-UI, a native-looking macOS design, from the shared
+  `kotlin-macos` package in pyrlyn/packages; Windows and Linux keep Pyrlyn Glass. Inter and Roboto Mono are
+  bundled; the light palette is derived from the file's dark one. The composer and its pickers follow the
+  creator's reference screenshots, and the window keeps the system's vibrancy behind see-through grounds.

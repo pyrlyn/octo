@@ -62,6 +62,7 @@ internal fun Sidebar(
     /** Above the header: room for the window's own buttons where the OS draws them over the sidebar. */
     top: @Composable () -> Unit = {},
 ) {
+    if (Pyrlyn.mac) return MacSidebar(state, vm, modifier, onDevices, onUsage, onSettings, top)
     Column(modifier.padding(horizontal = Gap)) {
         top()
         Row(

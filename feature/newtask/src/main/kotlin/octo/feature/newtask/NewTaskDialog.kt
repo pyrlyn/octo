@@ -102,12 +102,22 @@ private fun FormDialog(
                 },
             )
         },
-        text = { Form(state, vm, onEditPresets) },
+        text = { if (Pyrlyn.mac) MacForm(state, vm, onEditPresets) else Form(state, vm, onEditPresets) },
         confirmButton = {
             PrimaryButton(
                 onClick = vm::create,
                 enabled = state.canCreate,
-            ) { Text(if (state.creating) "Starting…" else "Create") }
+            ) {
+                Text(
+                    if (state.creating) {
+                        "Starting…"
+                    } else if (Pyrlyn.mac) {
+                        "Start task"
+                    } else {
+                        "Create"
+                    },
+                )
+            }
         },
         dismissButton = { GhostButton(onClick = onDismiss) { Text("Cancel") } },
     )
@@ -206,7 +216,7 @@ private fun BranchChoice(
 }
 
 /** The hint under the branch field and whether it is an error. */
-private fun branchNote(
+internal fun branchNote(
     state: NewTaskUiState,
     noMatch: Boolean,
 ): Pair<String, Boolean>? =
@@ -230,7 +240,7 @@ private fun SingleAgent(
 }
 
 @Composable
-private fun CompareChoice(
+internal fun CompareChoice(
     state: NewTaskUiState,
     vm: NewTaskViewModel,
 ) {
@@ -306,7 +316,7 @@ private fun PermissionChoice(
 }
 
 @Composable
-private fun ModeChoice(
+internal fun ModeChoice(
     state: NewTaskUiState,
     vm: NewTaskViewModel,
 ) {
@@ -318,7 +328,7 @@ private fun ModeChoice(
 }
 
 @Composable
-private fun TeamChoice(
+internal fun TeamChoice(
     state: NewTaskUiState,
     vm: NewTaskViewModel,
     onEditPresets: () -> Unit,

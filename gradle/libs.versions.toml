@@ -20,6 +20,8 @@ krontab = { module = "dev.inmo:krontab", version.ref = "krontab" }
 # From the included kotlin-wasm build, so they carry no version.
 wasm = { module = "pyrlyn.wasm:wasm" }
 wasm-chasm = { module = "pyrlyn.wasm:wasm-chasm" }
+# From the included kotlin-macos build: the macOS look.
+macos = { module = "pyrlyn.macos:macos" }
 
 # Gradle plugins, put on the build classpath by buildSrc.
 kotlin-gradle-plugin = { module = "org.jetbrains.kotlin:kotlin-gradle-plugin", version.ref = "kotlin" }

@@ -19,6 +19,7 @@ kotlin {
             api(compose.runtime)
             api(compose.foundation)
             api(compose.ui)
+            api(libs.macos)
         }
         // Skia's native library, for the screenshot test.
         jvmTest.dependencies {

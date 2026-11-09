@@ -27,6 +27,7 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.RectangleShape
 import androidx.compose.ui.input.pointer.PointerIcon
 import androidx.compose.ui.input.pointer.pointerHoverIcon
 import androidx.compose.ui.platform.LocalDensity
@@ -84,7 +85,10 @@ import octo.ui.vm.ViewModels
 import octo.ui.window.Chrome
 import octo.ui.window.SystemLook
 import octo.ui.window.WindowFrame
+import pyrlyn.macos.SearchButton
+import pyrlyn.macos.VerticalRule
 import java.awt.Cursor
+import pyrlyn.macos.Toolbar as MacToolbar
 
 @Composable
 fun OctoApp(
@@ -105,8 +109,9 @@ fun OctoApp(
             // A native material already shows the desktop through the window.
             if (!look.material || Pyrlyn.opaque) GlassBackdrop(Modifier.matchParentSize())
             val search = if (models.canOpenPalette) main::togglePalette else null
-            // Windows and Linux draw their own bar across the top, and the sidebar runs flush under it.
-            val flush = frame.chrome == Chrome.Caption || frame.chrome == Chrome.HeaderBar
+            // Windows and Linux draw their own bar across the top, and the sidebar runs flush under it;
+            // the macOS design has no floating panels at all.
+            val flush = frame.chrome == Chrome.Caption || frame.chrome == Chrome.HeaderBar || Pyrlyn.mac
             Column(Modifier.fillMaxSize()) {
                 when (frame.chrome) {
                     Chrome.Caption -> CaptionBar(frame)
@@ -135,28 +140,51 @@ private fun RowScope.SidebarPane(
     val main = models.main
     var dragging by remember { mutableStateOf<Float?>(null) }
     val width = dragging ?: state.sidebarWidth
-    val surface = if (flush) Modifier.chromeVeil() else Modifier.glass(Pyrlyn.surfaceShape, GlassLevel.Chrome)
-    Sidebar(
-        state,
-        main,
-        agents,
-        Modifier.width(width.dp).fillMaxHeight().then(surface),
-        onDevices = if (models.canPair) main::openDevices else null,
-        onUsage = if (models.canShowUsage) main::openUsage else null,
-        onSettings = if (models.canEditSettings) ({ main.showSettings(true) }) else null,
-        top = {
-            // The traffic lights sit over this strip.
-            if (frame.chrome == Chrome.MacOs) frame.dragArea(Modifier.fillMaxWidth().height(LightsHeight)) {}
-        },
-    )
+    val surface =
+        when {
+            Pyrlyn.mac -> Modifier
+            flush -> Modifier.chromeVeil()
+            else -> Modifier.glass(Pyrlyn.surfaceShape, GlassLevel.Chrome)
+        }
+    val sidebar =
+        @Composable { modifier: Modifier ->
+            Sidebar(
+                state,
+                main,
+                agents,
+                modifier.then(surface),
+                onDevices = if (models.canPair) main::openDevices else null,
+                onUsage = if (models.canShowUsage) main::openUsage else null,
+                onSettings = if (models.canEditSettings) ({ main.showSettings(true) }) else null,
+                top = {
+                    // The traffic lights sit over this strip.
+                    if (frame.chrome == Chrome.MacOs) frame.dragArea(Modifier.fillMaxWidth().height(LightsHeight)) {}
+                },
+            )
+        }
     // Only the final width is persisted, not every frame of the drag.
-    SidebarHandle(
-        onDrag = { delta -> dragging = clampWidth((dragging ?: state.sidebarWidth) + delta) },
-        onDone = {
-            dragging?.let(main::resizeSidebar)
-            dragging = null
-        },
-    )
+    val handle =
+        @Composable { modifier: Modifier ->
+            SidebarHandle(
+                modifier,
+                onDrag = { delta -> dragging = clampWidth((dragging ?: state.sidebarWidth) + delta) },
+                onDone = {
+                    dragging?.let(main::resizeSidebar)
+                    dragging = null
+                },
+            )
+        }
+    if (Pyrlyn.mac) {
+        // The macOS panes meet at a hairline, so the handle lies over the sidebar's edge instead of beside it.
+        Box(Modifier.width(width.dp).fillMaxHeight()) {
+            sidebar(Modifier.fillMaxSize())
+            handle(Modifier.align(Alignment.CenterEnd))
+        }
+        VerticalRule()
+    } else {
+        sidebar(Modifier.width(width.dp).fillMaxHeight())
+        handle(Modifier)
+    }
 }
 
 /** The toolbar over the content panel, and the panel. */
@@ -173,7 +201,7 @@ private fun RowScope.Workspace(
         Modifier
             .weight(1f)
             .fillMaxHeight()
-            .then(if (flush) Modifier.padding(end = Gap, bottom = Gap) else Modifier),
+            .then(if (flush && !Pyrlyn.mac) Modifier.padding(end = Gap, bottom = Gap) else Modifier),
     ) {
         // Linux keeps search in its header bar and has no toolbar.
         if (frame.chrome != Chrome.HeaderBar && (search != null || summary != null)) {
@@ -181,7 +209,8 @@ private fun RowScope.Workspace(
                 Toolbar(summary, search, if (flush) CaptionToolbarHeight else ToolbarHeight)
             }
         }
-        Column(Modifier.fillMaxSize().glass(Pyrlyn.surfaceShape, GlassLevel.Content, Elevation.E3)) {
+        val panel = if (Pyrlyn.mac) RectangleShape else Pyrlyn.surfaceShape
+        Column(Modifier.fillMaxSize().glass(panel, GlassLevel.Content, Elevation.E3)) {
             Banners(state, models.main)
             Box(Modifier.weight(1f).fillMaxWidth()) { Content(state, models) }
         }
@@ -259,7 +288,8 @@ private fun Banners(
     main: MainViewModel,
 ) {
     if (state.warnings.isEmpty() && state.error == null) return
-    Column(Modifier.padding(start = 12.dp, end = 12.dp, top = 12.dp), verticalArrangement = Arrangement.spacedBy(Gap)) {
+    val inset = if (Pyrlyn.mac) 0.dp else 12.dp
+    Column(Modifier.padding(start = inset, end = inset, top = inset), verticalArrangement = Arrangement.spacedBy(Gap)) {
         state.warnings.forEach { Banner(it, error = false, onDismiss = main::dismissWarnings) }
         state.error?.let { Banner(it, error = true, onDismiss = main::dismissError) }
     }
@@ -272,6 +302,23 @@ private fun Toolbar(
     onSearch: (() -> Unit)?,
     height: Dp,
 ) {
+    if (Pyrlyn.mac) {
+        MacToolbar {
+            Text(
+                summary.orEmpty(),
+                Modifier.weight(1f),
+                style = Pyrlyn.type.small,
+                color = Pyrlyn.colors.fgMuted,
+                maxLines = 1,
+            )
+            if (onSearch !=
+                null
+            ) {
+                SearchButton(onSearch, Modifier.width(SearchWidth), "Search tasks, agents, commands", "⌘K")
+            }
+        }
+        return
+    }
     val c = Pyrlyn.colors
     Row(
         Modifier.fillMaxWidth().height(height).padding(horizontal = Gap),
@@ -312,13 +359,14 @@ private fun clampWidth(width: Float) = width.coerceIn(MainUiState.MIN_SIDEBAR_WI
 
 @Composable
 private fun SidebarHandle(
+    modifier: Modifier,
     onDrag: (Float) -> Unit,
     onDone: () -> Unit,
 ) {
     val density = LocalDensity.current.density
     Box(
-        Modifier
-            .width(DividerWidth)
+        modifier
+            .width(if (Pyrlyn.mac) MacHandleWidth else DividerWidth)
             .fillMaxHeight()
             .pointerHoverIcon(PointerIcon(Cursor(Cursor.E_RESIZE_CURSOR)))
             .draggable(
@@ -503,4 +551,7 @@ private val CaptionToolbarHeight = 48.dp
 // macOS's unified title bar is 52pt tall, and the sidebar starts a gap below the window's top.
 private val LightsHeight = 44.dp
 private val DividerWidth = 8.dp
+
+// Wide enough to grab, and drawn over the sidebar, so it shows no gap.
+private val MacHandleWidth = 6.dp
 private val SearchWidth = 340.dp

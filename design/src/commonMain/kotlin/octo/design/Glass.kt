@@ -14,6 +14,8 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.Shape
 import androidx.compose.ui.graphics.drawscope.DrawScope
 import androidx.compose.ui.unit.dp
+import pyrlyn.macos.Mac
+import pyrlyn.macos.elevatedSurface
 
 /** How much of what is behind a surface shows through it. */
 enum class GlassLevel { Chrome, Floating, Control, Content }
@@ -40,6 +42,7 @@ fun Modifier.glass(
     level: GlassLevel,
     elevation: Elevation = Elevation.E2,
 ): Modifier {
+    if (Pyrlyn.mac) return macSurface(shape, level)
     val c = Pyrlyn.colors
     val p = Pyrlyn.platform
     val solid = Pyrlyn.opaque
@@ -69,6 +72,21 @@ fun Modifier.glass(
             val inset = size.height.coerceAtMost(HIGHLIGHT_INSET)
             drawLine(highlight, Offset(inset, HAIRLINE), Offset(size.width - inset, HAIRLINE), 1.dp.toPx())
         }.border(1.dp.snapped, Brush.verticalGradient(listOf(c.glassRim, c.glassEdge)), shape)
+}
+
+/** The macOS design's flat surfaces: the window ground, the editor ground, a fill, or a floating panel. */
+@Composable
+private fun Modifier.macSurface(
+    shape: Shape,
+    level: GlassLevel,
+): Modifier {
+    val m = Mac.colors
+    return when (level) {
+        GlassLevel.Floating -> elevatedSurface(shape)
+        GlassLevel.Chrome -> clip(shape).background(m.bgWindow)
+        GlassLevel.Control -> clip(shape).background(m.bgFill)
+        GlassLevel.Content -> clip(shape).background(m.bgEditor)
+    }
 }
 
 /** The window's own chrome, flush with its edges: a header bar, a flush sidebar. */

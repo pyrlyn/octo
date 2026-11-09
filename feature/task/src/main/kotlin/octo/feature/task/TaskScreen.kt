@@ -71,6 +71,8 @@ import octo.feature.common.StatusDot
 import octo.feature.common.action
 import octo.feature.common.label
 import octo.feature.common.takesAttachments
+import pyrlyn.macos.MacIcon
+import pyrlyn.macos.MacSpace
 
 @Composable
 fun TaskScreen(
@@ -94,57 +96,91 @@ fun TaskScreen(
     val task = state.task ?: return
     Column(Modifier.fillMaxSize()) {
         // Publishing runs this computer's git and gh, which cannot reach a remote worktree.
-        Header(
-            state,
-            vm,
-            onDiff,
-            onPublish.takeIf { task.machine == null },
-            plugins,
-            listOfNotNull(
-                onSwitchAgent?.let { "Switch agent" to it },
-                onFork?.let { "Fork" to it },
-                onMove?.let { "Move to…" to it },
-            ),
-            places,
-            share,
-        )
-        Hairline()
+        val actions =
+            HeaderActions(
+                onDiff,
+                onPublish.takeIf { task.machine == null },
+                plugins,
+                listOfNotNull(
+                    onSwitchAgent?.let { TurnAction("Switch agent", MacIcon.Split, it) },
+                    onFork?.let { TurnAction("Fork", MacIcon.Clone, it) },
+                    onMove?.let { TurnAction("Move to…", null, it) },
+                ),
+                places,
+                share,
+            )
+        val mac = Pyrlyn.mac
+        if (mac) {
+            MacHeader(state, vm, actions)
+        } else {
+            Header(state, vm, actions)
+            Hairline()
+        }
         Column(
-            Modifier.weight(1f).fillMaxWidth().padding(start = PanePadding, end = PanePadding, top = 12.dp),
-            verticalArrangement = Arrangement.spacedBy(Gap),
+            Modifier.weight(1f).fillMaxWidth().then(if (mac) MacTranscriptInset else TranscriptInset),
+            verticalArrangement = Arrangement.spacedBy(if (mac) MacSpace.xxxl else Gap),
         ) {
             state.failure?.let { Notice(it, Tone.Error) }
             state.limit?.let { LimitBanner(it, onResume = vm::resume) }
             state.error?.let { Banner(it, error = true, onDismiss = vm::dismissError) }
             Transcript(state, vm, Modifier.weight(1f).fillMaxWidth())
         }
-        Column(
-            Modifier.fillMaxWidth().padding(horizontal = LargeGap, vertical = 12.dp),
-            verticalArrangement = Arrangement.spacedBy(Gap),
-        ) {
-            Queue(state, vm)
-            state.pending.forEach {
-                RequestPanel(it, state.answers[it.id].orEmpty(), state.answerFiles[it.id].orEmpty(), vm)
-            }
-            share?.let { GuestProposals(it) }
-            PromptBox(state, vm)
-        }
+        Footer(state, vm, share, onSwitchAgent)
     }
     RemoveDialog(state.remove, vm)
     state.reverting?.let { RevertDialog(it, vm) }
 }
 
+/** The queue, the open questions, the guests' proposals and the composer under the transcript. */
+@Composable
+private fun Footer(
+    state: TaskUiState,
+    vm: TaskViewModel,
+    share: ShareViewModel?,
+    onSwitchAgent: (() -> Unit)?,
+) {
+    val mac = Pyrlyn.mac
+    Column(
+        Modifier.fillMaxWidth().then(if (mac) MacFooterInset else FooterInset),
+        verticalArrangement = Arrangement.spacedBy(Gap),
+    ) {
+        Queue(state, vm)
+        state.pending.forEach {
+            RequestPanel(it, state.answers[it.id].orEmpty(), state.answerFiles[it.id].orEmpty(), vm)
+        }
+        share?.let { GuestProposals(it) }
+        if (mac) {
+            MacPromptBox(state, vm, onSwitchAgent)
+        } else {
+            PromptBox(state, vm)
+            state.tokens?.let { Text(it.line, color = Pyrlyn.colors.fgMuted, style = Pyrlyn.type.small) }
+        }
+    }
+}
+
+/** An action in the task header that ends or copies the running turn, with its icon in the macOS design. */
+internal class TurnAction(
+    val label: String,
+    val icon: MacIcon?,
+    val run: () -> Unit,
+)
+
+/** What the header offers besides the turn controls; each null or empty one is hidden. */
+internal class HeaderActions(
+    val onDiff: () -> Unit,
+    val onPublish: (() -> Unit)?,
+    val plugins: PluginActionsViewModel?,
+    /** Actions that end or copy the running turn's work, so they wait until the agent is done. */
+    val turn: List<TurnAction>,
+    val places: TaskPlaces?,
+    val share: ShareViewModel?,
+)
+
 @Composable
 private fun Header(
     state: TaskUiState,
     vm: TaskViewModel,
-    onDiff: () -> Unit,
-    onPublish: (() -> Unit)?,
-    plugins: PluginActionsViewModel?,
-    /** Actions that end or copy the running turn's work, so they wait until the agent is done. */
-    turnActions: List<Pair<String, () -> Unit>>,
-    places: TaskPlaces?,
-    share: ShareViewModel?,
+    actions: HeaderActions,
 ) {
     val task = state.task ?: return
     val status = state.sidebarStatus
@@ -177,18 +213,16 @@ private fun Header(
         }
         Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(SmallGap)) {
             PermissionMenu(task.permissionMode, vm::setPermissionMode)
-            state.context?.let { ContextMenu(it) }
-            share?.let { ShareButton(it) }
+            state.context?.let { ContextMenu(it, state.tokens) }
+            actions.share?.let { ShareButton(it) }
             Spacer(Modifier.weight(1f))
             // A switch or a move ends the running turn, and a fork taken mid-turn would copy half-written files.
-            turnActions.forEach { (label, action) ->
-                GhostButton(onClick = action, enabled = !state.canCancel) { Text(label) }
-            }
-            GhostButton(onClick = onDiff) { Text("±  Diff") }
+            actions.turn.forEach { GhostButton(onClick = it.run, enabled = !state.canCancel) { Text(it.label) } }
+            GhostButton(onClick = actions.onDiff) { Text("±  Diff") }
             // Publishing while the agent writes would push half a change.
-            onPublish?.let { PrimaryButton(onClick = it, enabled = !state.canCancel) { Text("↑  Publish") } }
-            plugins?.let { PluginMenu(it) }
-            places?.let { PlaceMenu(task.id, task.place, it) }
+            actions.onPublish?.let { PrimaryButton(onClick = it, enabled = !state.canCancel) { Text("↑  Publish") } }
+            actions.plugins?.let { PluginMenu(it) }
+            actions.places?.let { PlaceMenu(task.id, task.place, it) }
             GhostButton(onClick = vm::requestRemove) { Text("Remove") }
         }
     }
@@ -225,6 +259,12 @@ private fun Transcript(
     modifier: Modifier,
 ) {
     val entries = state.transcript
+    val mac = Pyrlyn.mac
+    val agent =
+        state.task
+            ?.agent
+            ?.value
+            .orEmpty()
     val list = rememberLazyListState()
     // Follow the live output like a terminal does; tool updates and streamed text change the last
     // entry in place, so its content is a key too.
@@ -232,13 +272,31 @@ private fun Transcript(
         if (entries.isNotEmpty()) list.scrollToItem(entries.lastIndex)
     }
     SelectionContainer(modifier) {
-        LazyColumn(state = list, verticalArrangement = Arrangement.spacedBy(Gap)) {
+        LazyColumn(state = list, verticalArrangement = Arrangement.spacedBy(if (mac) MacSpace.xxxl else Gap)) {
             itemsIndexed(entries) { _, entry ->
-                if (entry is TranscriptEntry.Checkpoint) {
+                val revertable = entry is TranscriptEntry.Checkpoint && entry.ref in state.revertable
+                when {
                     // Reverting under a running turn would fight the agent for the files.
-                    CheckpointRow(entry, entry.ref in state.revertable, enabled = !state.busy, vm::askRevert)
-                } else {
-                    Entry(entry)
+                    entry is TranscriptEntry.Checkpoint && mac -> {
+                        MacCheckpoint(
+                            entry,
+                            revertable,
+                            !state.busy,
+                            vm::askRevert,
+                        )
+                    }
+
+                    entry is TranscriptEntry.Checkpoint -> {
+                        CheckpointRow(entry, revertable, !state.busy, vm::askRevert)
+                    }
+
+                    mac -> {
+                        MacEntry(entry, agent)
+                    }
+
+                    else -> {
+                        Entry(entry)
+                    }
                 }
             }
         }
@@ -444,7 +502,7 @@ private fun Collapsible(
     }
 }
 
-private val ToolStatus.label: String
+internal val ToolStatus.label: String
     get() =
         when (this) {
             ToolStatus.Pending -> "pending"
@@ -559,6 +617,10 @@ private fun Card(
 }
 
 private val CardShape = RoundedCornerShape(10.dp)
+private val TranscriptInset = Modifier.padding(start = PanePadding, end = PanePadding, top = 12.dp)
+private val FooterInset = Modifier.padding(horizontal = LargeGap, vertical = 12.dp)
+private val MacTranscriptInset = Modifier.padding(horizontal = MacSpace.xxxxl, vertical = MacSpace.xxxl)
+private val MacFooterInset = Modifier.padding(MacSpace.xxxl)
 private const val USER_TINT = 0.55f
 
 private const val PARTIAL_ALPHA = 0.6f
