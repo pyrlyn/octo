@@ -76,6 +76,8 @@ data class Task(
     val checkpoints: List<Checkpoint> = emptyList(),
     /** Files were reverted but the agent's conversation was not; the next prompt tells it so. */
     val revertNote: String? = null,
+    /** When the agent's status last changed (epoch milliseconds); null in state files from before it. */
+    val activeAtMs: Long? = null,
 )
 
 /** The worktree's files at one moment, kept as a commit on [ref] in the task's repository. */

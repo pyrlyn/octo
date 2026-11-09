@@ -83,6 +83,7 @@ private fun MacTaskList(
     vm: MainViewModel,
     modifier: Modifier,
 ) {
+    val now = rememberNowMs()
     LazyColumn(modifier, verticalArrangement = Arrangement.spacedBy(MacSpace.xxs)) {
         state.groups.forEach { group ->
             item(key = "repo:${group.repo}") { SectionLabel(group.name) }
@@ -104,6 +105,10 @@ private fun MacTaskList(
                         tone = row.status.tone,
                         selected = row.id == state.selected,
                         onClick = { vm.select(row.id) },
+                        trailing =
+                            row.age(now)?.let {
+                                { Label(it, color = Mac.colors.textSecondary, style = Mac.type.caption, maxLines = 1) }
+                            },
                     )
                 }
             }

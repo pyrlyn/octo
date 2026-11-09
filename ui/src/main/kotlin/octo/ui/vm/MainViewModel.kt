@@ -34,6 +34,8 @@ data class TaskRow(
     val sectionTitle: String? = null,
     /** The agent hit its usage limit; never set while the `usage` flag is off. */
     val limited: Boolean = false,
+    /** When the agent's status last changed (epoch milliseconds); null when it is not known. */
+    val activeAtMs: Long? = null,
 )
 
 /** Sidebar sections, in the order they are listed. */
@@ -263,6 +265,7 @@ private fun MainUiState.withCore(
                                     groupTitle,
                                     it.task.place,
                                     limited = limits && it.limit != null,
+                                    activeAtMs = it.task.activeAtMs,
                                 )
                             }.let { if (sections) sectioned(it) else it },
                 )

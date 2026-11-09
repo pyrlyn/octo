@@ -210,6 +210,7 @@ private fun TaskRowItem(
                 maxLines = 1,
             )
         }
+        row.age(rememberNowMs())?.let { Text(it, style = Pyrlyn.type.small, color = c.fgMuted, maxLines = 1) }
     }
 }
 
