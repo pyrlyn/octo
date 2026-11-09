@@ -24,7 +24,6 @@ import pyrlyn.macos.IconTile
 import pyrlyn.macos.Label
 import pyrlyn.macos.Mac
 import pyrlyn.macos.MacIcon
-import pyrlyn.macos.MacSize
 import pyrlyn.macos.MacSpace
 import pyrlyn.macos.SectionLabel
 import pyrlyn.macos.SettingsItem
@@ -107,8 +106,8 @@ private fun MacTaskList(
                         tone = row.status.tone,
                         selected = row.id == state.selected,
                         onClick = { vm.select(row.id) },
-                        trailing = { Glyph(row.icon?.svg, row.agent.value, MacSize.icon) },
                         meta = row.age(now),
+                        icon = { Glyph(row.icon?.svg, row.agent.value, TaskLogoSize) },
                     )
                 }
             }

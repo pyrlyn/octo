@@ -7,14 +7,17 @@ import androidx.compose.foundation.hoverable
 import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.interaction.collectIsHoveredAsState
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.heightIn
+import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
@@ -194,7 +197,17 @@ private fun TaskRowItem(
         verticalAlignment = Alignment.CenterVertically,
         horizontalArrangement = Arrangement.spacedBy(10.dp),
     ) {
-        StatusDot(row.status)
+        Box {
+            Glyph(row.icon?.svg, row.agent.value, TaskLogoSize)
+            // Ringed in the app colour so the badge reads as a mark on the logo, not part of its art.
+            Box(
+                Modifier
+                    .align(Alignment.BottomEnd)
+                    .offset(BadgeOverhang, BadgeOverhang)
+                    .background(c.bgApp, CircleShape)
+                    .padding(BadgeRing),
+            ) { StatusDot(row.status) }
+        }
         Column(Modifier.weight(1f)) {
             Row(horizontalArrangement = Arrangement.spacedBy(SmallGap)) {
                 Text(
@@ -216,7 +229,6 @@ private fun TaskRowItem(
                 maxLines = 1,
             )
         }
-        Glyph(row.icon?.svg, row.agent.value, AgentIconSize)
     }
 }
 
@@ -232,4 +244,9 @@ private val RowRadius = 10.dp
 private val RowExtra = 14.dp
 private val MarkSize = 22.dp
 private val AgentIconSize = 18.dp
+
+/** The agent logo that leads a task row, in both sidebars. */
+internal val TaskLogoSize = 24.dp
+private val BadgeOverhang = 2.dp
+private val BadgeRing = 1.5.dp
 private const val MARK_TEXT = 0.85f
