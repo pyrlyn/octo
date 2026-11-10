@@ -97,8 +97,8 @@ class Octo private constructor(
     /** Whether the `open-in` flag shows the toolbar's "Open location" button. */
     val openIn: Boolean get() = flags.isEnabled(CoreFlags.OPEN_IN)
 
-    /** Whether the `message-map` flag shows the marks of a task's messages beside its transcript. */
-    val messageMap: Boolean get() = flags.isEnabled(CoreFlags.MESSAGE_MAP)
+    /** Whether the `history-rail` flag shows a tick per user turn beside a task's transcript. */
+    val historyRail: Boolean get() = flags.isEnabled(CoreFlags.HISTORY_RAIL)
 
     /** Whether the `checkpoints` flag lets a task be reverted to an earlier turn. */
     val checkpoints: Boolean get() = flags.isEnabled(CoreFlags.CHECKPOINTS)

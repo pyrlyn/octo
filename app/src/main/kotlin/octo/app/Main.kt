@@ -52,7 +52,7 @@ fun main() {
             CoreFlags.all + builtInAdapters(launcher, currentHostOs()).mapNotNull { it.featureFlag },
             paths.home.toString(),
             if (octo.openIn) AppOpener(currentHostOs(), System.getProperty("user.home"), System.getenv()) else null,
-            octo.messageMap,
+            octo.historyRail,
         )
     application {
         OctoWindow(

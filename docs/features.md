@@ -61,12 +61,13 @@ and by the text of their messages, and runs actions: new task, diff, publish, sw
 stop, and the agents and devices screens. An action whose flag is off is not listed. Arrow keys
 move, Enter runs, Escape closes.
 
-## Message map
+## History rail
 
-`"message-map": true` puts a column of marks beside a task's transcript, one per message: a long
-mark for each of your prompts, a short one for each of the agent's replies. The marks of the
-messages on screen are brighter. Hovering a mark shows the start of that message; a click scrolls
-the transcript to it. Tool calls, thoughts and other entries get no mark.
+`"history-rail": true` puts a short tick in a task's transcript gutter for each of your prompts.
+The tick of the turn in view is the longest and brightest, its neighbours a little less. Hovering a
+tick shows a card with how long ago you sent it, the start of your message and the start of the
+agent's reply; a click scrolls the transcript to that prompt. A transcript with one prompt has no
+rail.
 
 ## Usage and context
 

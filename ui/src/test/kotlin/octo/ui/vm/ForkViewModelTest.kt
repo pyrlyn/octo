@@ -67,10 +67,10 @@ class ForkViewModelTest {
         }
 
     @Test
-    fun theMessageMapShowsOnlyWithItsFlag() =
+    fun theHistoryRailShowsOnlyWithItsFlag() =
         runTest {
             val catalog = FakeCatalog(core)
-            assertFalse(ViewModels(core, catalog, backgroundScope).canMapMessages)
-            assertTrue(ViewModels(core, catalog, backgroundScope, messageMap = true).canMapMessages)
+            assertFalse(ViewModels(core, catalog, backgroundScope).showsHistoryRail)
+            assertTrue(ViewModels(core, catalog, backgroundScope, historyRail = true).showsHistoryRail)
         }
 }
