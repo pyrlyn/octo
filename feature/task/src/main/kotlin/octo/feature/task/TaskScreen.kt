@@ -54,6 +54,7 @@ import octo.design.GlassMenu
 import octo.design.GlassMenuItem
 import octo.design.Hairline
 import octo.design.LargeGap
+import octo.design.MonoFont
 import octo.design.Notice
 import octo.design.PanePadding
 import octo.design.PrimaryButton
@@ -153,7 +154,9 @@ private fun Footer(
             MacPromptBox(state, vm, onSwitchAgent)
         } else {
             PromptBox(state, vm)
-            state.tokens?.let { Text(it.line, color = Pyrlyn.colors.fgMuted, style = Pyrlyn.type.small) }
+            state.tokens?.let {
+                Text(it.line, color = Pyrlyn.colors.fgMuted, style = Pyrlyn.type.small.copy(fontFamily = MonoFont))
+            }
         }
     }
 }

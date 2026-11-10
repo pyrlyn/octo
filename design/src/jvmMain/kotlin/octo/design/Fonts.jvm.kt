@@ -12,9 +12,9 @@ internal actual val UiFont: FontFamily =
         Font("fonts/IBMPlexSans-Bold.ttf", FontWeight.Bold),
     )
 
-internal actual val MonoFont: FontFamily =
+actual val MonoFont: FontFamily =
     FontFamily(
-        Font("fonts/JetBrainsMono-Regular.ttf", FontWeight.Normal),
-        Font("fonts/JetBrainsMono-Medium.ttf", FontWeight.Medium),
-        Font("fonts/JetBrainsMono-Bold.ttf", FontWeight.Bold),
+        Font("fonts/IBMPlexMono-Regular.ttf", FontWeight.Normal),
+        Font("fonts/IBMPlexMono-Medium.ttf", FontWeight.Medium),
+        Font("fonts/IBMPlexMono-Bold.ttf", FontWeight.Bold),
     )
