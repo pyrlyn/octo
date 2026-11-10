@@ -259,7 +259,7 @@ class Orchestrator private constructor(
         val images = if (Capability.Images in runtime.capabilities) attached.images(task, files) else emptyList()
         // The first turn gets a starting point too, so it can be undone like any other.
         if (task.checkpoints.isEmpty()) checkpoints.record(id, runtime.run)
-        note(id, TranscriptEntry.Text(Role.User, text, attachments = files))
+        note(id, TranscriptEntry.Text(Role.User, text, attachments = files, atMs = nowMs()))
         compaction?.cancel(id)
         startTurn(id, runtime) { runtime.session.prompt(sent, images) }
         updateView(id) { it.copy(task = it.task.copy(handoffFrom = null, handoffSummary = null, revertNote = null)) }
@@ -322,7 +322,7 @@ class Orchestrator private constructor(
                 } catch (e: Exception) {
                     false
                 }
-        if (steered) note(id, TranscriptEntry.Text(Role.User, text, attachments = files))
+        if (steered) note(id, TranscriptEntry.Text(Role.User, text, attachments = files, atMs = nowMs()))
         return steered
     }
 

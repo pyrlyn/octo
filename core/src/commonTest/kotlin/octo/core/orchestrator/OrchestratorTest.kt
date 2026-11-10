@@ -242,7 +242,7 @@ class OrchestratorTest {
 
             assertEquals(
                 listOf(
-                    TranscriptEntry.Text(Role.User, "Go"),
+                    TranscriptEntry.Text(Role.User, "Go", atMs = 0),
                     TranscriptEntry.Request("p1", "Run ls", resolved = true),
                     TranscriptEntry.Text(Role.Assistant, "Done."),
                 ),
@@ -398,7 +398,7 @@ class OrchestratorTest {
             assertEquals(id, second.core.state.value.layout.selectedTask)
             assertEquals(TaskId("id1"), id)
             val transcript = second.core.transcript(id).first()
-            assertEquals(TranscriptEntry.Text(Role.User, "Go"), transcript.first())
+            assertEquals(TranscriptEntry.Text(Role.User, "Go", atMs = 0), transcript.first())
             assertTrue(transcript.none { it is TranscriptEntry.Text && it.partial })
 
             second.core.restart(id)
@@ -454,11 +454,13 @@ class OrchestratorTest {
             testScheduler.runCurrent()
             val session = s.adapter.sessions.single()
 
+            // The send time comes from the core's clock, the test scheduler's.
+            advanceTimeBy(1.minutes)
             s.core.sendPrompt(id, "Use tabs")
             assertEquals(listOf("Use tabs"), session.steered)
             assertEquals(emptyList(), queue(s, id))
             assertEquals(
-                TranscriptEntry.Text(Role.User, "Use tabs"),
+                TranscriptEntry.Text(Role.User, "Use tabs", atMs = 60_000),
                 s.core
                     .transcript(id)
                     .first()

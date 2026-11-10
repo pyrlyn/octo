@@ -35,6 +35,8 @@ object CoreFlags {
         FeatureFlag("notifications", "Show an OS notification when a task blocks, fails or finishes out of sight")
     val OPEN_IN =
         FeatureFlag("open-in", "Open the selected task's worktree in Finder, a terminal or an editor from the toolbar")
+    val HISTORY_RAIL =
+        FeatureFlag("history-rail", "Show a tick per user turn beside a task's transcript, with the turn on hover")
 
     /** Every core flag, in the order the settings screen lists them. */
     val all: List<FeatureFlag> =
@@ -48,6 +50,7 @@ object CoreFlags {
             SECTIONS,
             PALETTE,
             OPEN_IN,
+            HISTORY_RAIL,
             USAGE,
             PREVIEWS,
             NOTIFICATIONS,

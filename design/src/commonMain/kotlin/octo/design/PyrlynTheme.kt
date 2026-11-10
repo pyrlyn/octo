@@ -156,7 +156,7 @@ fun PyrlynTheme(
         val plain = if (dark) MacColors.Dark else MacColors.Light
         // Over the window's vibrancy the grounds turn see-through; the opaque material keeps them solid.
         val mac = if (opaque) plain else plain.vibrant()
-        // Octo's own face replaces the library's Inter and Roboto Mono: one monospace face everywhere.
+        // Octo's own face replaces the library's Inter and Roboto Mono: one monospaced face everywhere.
         val fonts = remember(scale) { MacFonts(MonoFont, MonoFont, HostCrisp.text(scale)) }
         val type = remember(fonts) { macPyrlynType(MacType(fonts)) }
         MacTheme(mac, fonts) {

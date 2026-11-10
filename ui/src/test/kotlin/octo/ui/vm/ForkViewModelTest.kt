@@ -65,4 +65,12 @@ class ForkViewModelTest {
             assertFalse(ViewModels(core, catalog, backgroundScope).canFork)
             assertTrue(ViewModels(core, catalog, backgroundScope, fork = true).canFork)
         }
+
+    @Test
+    fun theHistoryRailShowsOnlyWithItsFlag() =
+        runTest {
+            val catalog = FakeCatalog(core)
+            assertFalse(ViewModels(core, catalog, backgroundScope).showsHistoryRail)
+            assertTrue(ViewModels(core, catalog, backgroundScope, historyRail = true).showsHistoryRail)
+        }
 }

@@ -5,14 +5,17 @@ import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.ColumnScope
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.LazyListState
 import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -54,6 +57,7 @@ import octo.design.GlassMenu
 import octo.design.GlassMenuItem
 import octo.design.Hairline
 import octo.design.LargeGap
+import octo.design.MonoFont
 import octo.design.Notice
 import octo.design.PanePadding
 import octo.design.PrimaryButton
@@ -91,6 +95,8 @@ fun TaskScreen(
     places: TaskPlaces? = null,
     /** Null while the `guest-share` flag is off, which hides sharing. */
     share: ShareViewModel? = null,
+    /** False while the `history-rail` flag is off, which leaves the transcript without its rail. */
+    historyRail: Boolean = false,
 ) {
     val state by vm.state.collectAsState()
     val task = state.task ?: return
@@ -116,14 +122,13 @@ fun TaskScreen(
             Header(state, vm, actions)
             Hairline()
         }
-        Column(
-            Modifier.weight(1f).fillMaxWidth().then(if (mac) MacTranscriptInset else TranscriptInset),
-            verticalArrangement = Arrangement.spacedBy(if (mac) MacSpace.xxxl else Gap),
-        ) {
-            state.failure?.let { Notice(it, Tone.Error) }
-            state.limit?.let { LimitBanner(it, onResume = vm::resume) }
-            state.error?.let { Banner(it, error = true, onDismiss = vm::dismissError) }
-            Transcript(state, vm, Modifier.weight(1f).fillMaxWidth())
+        BoxWithConstraints(Modifier.weight(1f).fillMaxWidth()) {
+            // A narrow window keeps the whole width for the conversation; the plan is in the transcript too.
+            val plan = state.plan?.takeIf { maxWidth >= PlanMinWidth }
+            Row(Modifier.fillMaxSize()) {
+                Conversation(state, vm, historyRail, Modifier.weight(1f).fillMaxHeight())
+                plan?.let { PlanPanel(it, if (mac) MacPlanInset else PlanInset) }
+            }
         }
         Footer(state, vm, share, onSwitchAgent)
     }
@@ -153,7 +158,9 @@ private fun Footer(
             MacPromptBox(state, vm, onSwitchAgent)
         } else {
             PromptBox(state, vm)
-            state.tokens?.let { Text(it.line, color = Pyrlyn.colors.fgMuted, style = Pyrlyn.type.small) }
+            state.tokens?.let {
+                Text(it.line, color = Pyrlyn.colors.fgMuted, style = Pyrlyn.type.small.copy(fontFamily = MonoFont))
+            }
         }
     }
 }
@@ -252,10 +259,42 @@ private fun PermissionMenu(
     }
 }
 
+/** The banners and the transcript, with the history rail in the transcript's left gutter. */
+@Composable
+private fun Conversation(
+    state: TaskUiState,
+    vm: TaskViewModel,
+    historyRail: Boolean,
+    modifier: Modifier,
+) {
+    val mac = Pyrlyn.mac
+    val list = rememberLazyListState()
+    Box(modifier) {
+        Column(
+            Modifier.fillMaxSize().then(if (mac) MacTranscriptInset else TranscriptInset),
+            verticalArrangement = Arrangement.spacedBy(if (mac) MacSpace.xxxl else Gap),
+        ) {
+            state.failure?.let { Notice(it, Tone.Error) }
+            state.limit?.let { LimitBanner(it, onResume = vm::resume) }
+            state.error?.let { Banner(it, error = true, onDismiss = vm::dismissError) }
+            Transcript(state, vm, list, Modifier.weight(1f).fillMaxWidth())
+        }
+        // Centred on the whole pane, banners included, as in the design.
+        if (historyRail) {
+            HistoryRail(
+                state.transcript,
+                list,
+                Modifier.align(Alignment.CenterStart).padding(start = if (mac) MacSpace.md else SmallGap),
+            )
+        }
+    }
+}
+
 @Composable
 private fun Transcript(
     state: TaskUiState,
     vm: TaskViewModel,
+    list: LazyListState,
     modifier: Modifier,
 ) {
     val entries = state.transcript
@@ -265,7 +304,6 @@ private fun Transcript(
             ?.agent
             ?.value
             .orEmpty()
-    val list = rememberLazyListState()
     // Follow the live output like a terminal does; tool updates and streamed text change the last
     // entry in place, so its content is a key too.
     LaunchedEffect(entries.size, entries.lastOrNull()) {
@@ -621,6 +659,11 @@ private val TranscriptInset = Modifier.padding(start = PanePadding, end = PanePa
 private val FooterInset = Modifier.padding(horizontal = LargeGap, vertical = 12.dp)
 private val MacTranscriptInset = Modifier.padding(horizontal = MacSpace.xxxxl, vertical = MacSpace.xxxl)
 private val MacFooterInset = Modifier.padding(MacSpace.xxxl)
+private val PlanInset = Modifier.padding(top = 12.dp, end = PanePadding, bottom = 12.dp)
+private val MacPlanInset = Modifier.padding(top = MacSpace.xxxl, end = MacSpace.xxxl, bottom = MacSpace.xxxl)
+
+// Below this the transcript would be squeezed to a column too narrow to read.
+private val PlanMinWidth = 720.dp
 private const val USER_TINT = 0.55f
 
 private const val PARTIAL_ALPHA = 0.6f

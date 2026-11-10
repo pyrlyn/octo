@@ -53,4 +53,4 @@
 
 | Asset | Where | Source | Why here |
 | --- | --- | --- | --- |
-| JetBrains Mono 2.304 (Regular, Medium, Bold; OFL 1.1) | `design/src/jvmMain/resources/fonts` | https://github.com/JetBrains/JetBrainsMono | The one face of the whole UI, text and code |
+| IBM Plex Mono 6.4.0 (Regular, Medium, Bold; OFL 1.1) | `design/src/jvmMain/resources/fonts` | https://github.com/IBM/plex | The one face of the whole UI, text and code, on every design |

@@ -12,6 +12,7 @@ import octo.adapters.claude.ClaudeAdapter
 import octo.adapters.codex.CodexAdapter
 import octo.core.agent.AgentId
 import octo.core.agent.ContextParts
+import octo.core.agent.PlanEntry
 import octo.core.agent.Role
 import octo.core.agent.SessionStats
 import octo.core.agent.ToolStatus
@@ -65,8 +66,16 @@ class ShellShotsTest {
                 exists = { it.startsWith("/Applications/") },
                 start = { _, _ -> },
             )
+        // The history-rail flag on, so the task screen shows its rail.
         val models =
-            ViewModels(core, FakeCatalog(core, icons), scope, usage = UsageReport(log, emptyMap()), opener = opener)
+            ViewModels(
+                core,
+                FakeCatalog(core, icons),
+                scope,
+                usage = UsageReport(log, emptyMap()),
+                opener = opener,
+                historyRail = true,
+            )
         models.main.select(TaskId("b"))
         for (os in HostOs.entries) shoot(models, os, File(out, "shell-${os.name.lowercase()}.png"))
         // The panes and dialogs are drawn for macOS alone, the one OS with its own design for them.
@@ -130,26 +139,41 @@ class ShellShotsTest {
             )
             put(TaskView(FakeOctoCore.task(TaskId("c"), title = "Bump Compose").by("claude"), AgentStatus.Blocked))
             put(TaskView(FakeOctoCore.task(TaskId("d"), "/src/site", "Landing page copy"), AgentStatus.Stopped))
-            transcripts.value =
-                mapOf(
-                    TaskId("b") to
-                        listOf(
-                            TranscriptEntry.Text(
-                                Role.User,
-                                "Add OAuth login with GitHub and keep the session in a cookie.",
-                            ),
-                            TranscriptEntry.Thought("Looking at the auth module first."),
-                            TranscriptEntry.Tool(
-                                "t1",
-                                "./gradlew test",
-                                "execute",
-                                ToolStatus.Completed,
-                                "BUILD SUCCESSFUL",
-                            ),
-                            TranscriptEntry.Text(Role.Assistant, "The login route is in place; tests pass."),
-                        ),
-                )
+            transcripts.value = mapOf(TaskId("b") to sampleTranscript())
         }
+
+    private fun sampleTranscript() =
+        listOf(
+            TranscriptEntry.Text(
+                Role.User,
+                "Add OAuth login with GitHub and keep the session in a cookie.",
+                atMs = System.currentTimeMillis() - HOUR_MS,
+            ),
+            TranscriptEntry.Thought("Looking at the auth module first."),
+            TranscriptEntry.Plan(
+                listOf(
+                    PlanEntry("Read the auth module", done = true),
+                    PlanEntry("Add the login route", done = true),
+                    PlanEntry("Run the tests", done = false),
+                    PlanEntry("Write the session cookie", done = false),
+                ),
+            ),
+            TranscriptEntry.Tool(
+                "t1",
+                "./gradlew test",
+                "execute",
+                ToolStatus.Completed,
+                "BUILD SUCCESSFUL",
+            ),
+            TranscriptEntry.Text(Role.Assistant, "The login route is in place; tests pass."),
+            // A second turn, so the history rail shows.
+            TranscriptEntry.Text(
+                Role.User,
+                "Add a logout button to the header.",
+                atMs = System.currentTimeMillis() - MINUTE_MS,
+            ),
+            TranscriptEntry.Text(Role.Assistant, "The header has a Log out button now."),
+        )
 
     // Task "d" stays on the demo agent, which has no glyph here, so the renders show the monogram too.
     private fun Task.by(agent: String) = copy(agent = AgentId(agent))
@@ -161,6 +185,8 @@ class ShellShotsTest {
         const val SETTLE_FRAMES = 5
         const val SETTLE_MS = 100L
         const val FRAME_NANOS = 16_000_000L
+        const val MINUTE_MS = 60_000L
+        const val HOUR_MS = 60 * MINUTE_MS
 
         // Past every enter animation, so a dialog is drawn fully opaque.
         const val SETTLED_NANOS = 5_000_000_000L

@@ -23,6 +23,6 @@ Every key is optional.
 | --- | --- |
 | `demo-agent` | [using-octo.md](using-octo.md#demo-agent) |
 | `antigravity` | Runs Google Antigravity through its ACP server. |
-| `git-publish`, `agent-messaging`, `presets`, `handoff`, `fork`, `compare`, `sections`, `palette`, `usage`, `checkpoints`, `triggers`, `queue`, `compact-idle`, `previews`, `notifications`, `plugins` | [features.md](features.md) |
+| `git-publish`, `agent-messaging`, `presets`, `handoff`, `fork`, `compare`, `sections`, `palette`, `usage`, `checkpoints`, `triggers`, `queue`, `compact-idle`, `previews`, `notifications`, `history-rail`, `plugins` | [features.md](features.md) |
 | `remote-ssh`, `move-task` | [remote-machines.md](remote-machines.md) |
 | `remote-access`, `guest-share` | [remote-access.md](remote-access.md) |

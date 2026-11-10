@@ -61,6 +61,14 @@ and by the text of their messages, and runs actions: new task, diff, publish, sw
 stop, and the agents and devices screens. An action whose flag is off is not listed. Arrow keys
 move, Enter runs, Escape closes.
 
+## History rail
+
+`"history-rail": true` puts a short tick in a task's transcript gutter for each of your prompts.
+The tick of the turn in view is the longest and brightest, its neighbours a little less. Hovering a
+tick shows a card with how long ago you sent it, the start of your message and the start of the
+agent's reply; a click scrolls the transcript to that prompt. A transcript with one prompt has no
+rail.
+
 ## Usage and context
 
 `"usage": true` adds a Usage screen with token use per agent and model for today, 7 days, 30
