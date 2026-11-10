@@ -20,6 +20,8 @@ sealed interface TranscriptEntry {
         val partial: Boolean = false,
         /** Files the user sent with the message. */
         val attachments: List<Attachment> = emptyList(),
+        /** When the user sent it, in epoch milliseconds; null for replies and for history kept before it was recorded. */
+        val atMs: Long? = null,
     ) : TranscriptEntry
 
     @Serializable
