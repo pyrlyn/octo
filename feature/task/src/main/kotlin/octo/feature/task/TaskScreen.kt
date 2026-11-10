@@ -5,10 +5,12 @@ import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.ColumnScope
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
@@ -117,14 +119,21 @@ fun TaskScreen(
             Header(state, vm, actions)
             Hairline()
         }
-        Column(
-            Modifier.weight(1f).fillMaxWidth().then(if (mac) MacTranscriptInset else TranscriptInset),
-            verticalArrangement = Arrangement.spacedBy(if (mac) MacSpace.xxxl else Gap),
-        ) {
-            state.failure?.let { Notice(it, Tone.Error) }
-            state.limit?.let { LimitBanner(it, onResume = vm::resume) }
-            state.error?.let { Banner(it, error = true, onDismiss = vm::dismissError) }
-            Transcript(state, vm, Modifier.weight(1f).fillMaxWidth())
+        BoxWithConstraints(Modifier.weight(1f).fillMaxWidth()) {
+            // A narrow window keeps the whole width for the conversation; the plan is in the transcript too.
+            val plan = state.plan?.takeIf { maxWidth >= PlanMinWidth }
+            Row(Modifier.fillMaxSize()) {
+                Column(
+                    Modifier.weight(1f).fillMaxHeight().then(if (mac) MacTranscriptInset else TranscriptInset),
+                    verticalArrangement = Arrangement.spacedBy(if (mac) MacSpace.xxxl else Gap),
+                ) {
+                    state.failure?.let { Notice(it, Tone.Error) }
+                    state.limit?.let { LimitBanner(it, onResume = vm::resume) }
+                    state.error?.let { Banner(it, error = true, onDismiss = vm::dismissError) }
+                    Transcript(state, vm, Modifier.weight(1f).fillMaxWidth())
+                }
+                plan?.let { PlanPanel(it, if (mac) MacPlanInset else PlanInset) }
+            }
         }
         Footer(state, vm, share, onSwitchAgent)
     }
@@ -624,6 +633,11 @@ private val TranscriptInset = Modifier.padding(start = PanePadding, end = PanePa
 private val FooterInset = Modifier.padding(horizontal = LargeGap, vertical = 12.dp)
 private val MacTranscriptInset = Modifier.padding(horizontal = MacSpace.xxxxl, vertical = MacSpace.xxxl)
 private val MacFooterInset = Modifier.padding(MacSpace.xxxl)
+private val PlanInset = Modifier.padding(top = 12.dp, end = PanePadding, bottom = 12.dp)
+private val MacPlanInset = Modifier.padding(top = MacSpace.xxxl, end = MacSpace.xxxl, bottom = MacSpace.xxxl)
+
+// Below this the transcript would be squeezed to a column too narrow to read.
+private val PlanMinWidth = 720.dp
 private const val USER_TINT = 0.55f
 
 private const val PARTIAL_ALPHA = 0.6f
