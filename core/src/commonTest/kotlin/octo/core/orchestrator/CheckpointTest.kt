@@ -62,9 +62,9 @@ class CheckpointTest {
             assertEquals(
                 listOf(
                     TranscriptEntry.Checkpoint(0, refs[0]),
-                    TranscriptEntry.Text(Role.User, "Go"),
+                    TranscriptEntry.Text(Role.User, "Go", atMs = 0),
                     TranscriptEntry.Checkpoint(1, refs[1]),
-                    TranscriptEntry.Text(Role.User, "More"),
+                    TranscriptEntry.Text(Role.User, "More", atMs = 0),
                     TranscriptEntry.Checkpoint(2, refs[2]),
                 ),
                 s.core.transcript(id).first(),

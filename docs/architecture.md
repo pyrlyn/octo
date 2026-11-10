@@ -339,6 +339,7 @@ class FeatureFlags(config: Map<String, Boolean>) {
 | `guest-share` (a guest watches a task by link and proposes messages; needs `remote-access`) | T37 |
 | `notifications` (an OS notification when a task out of sight blocks, fails or finishes a turn) | T40 |
 | `open-in` (an "Open location" button opens the selected local task's worktree in a file manager, terminal or editor) | T64 |
+| `history-rail` (a tick per user turn in the transcript's gutter; hover shows the turn, a click scrolls to it) | T71 |
 | `pty-terminal` | Reserved |
 
 ## 7. Core API and orchestration

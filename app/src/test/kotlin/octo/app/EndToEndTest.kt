@@ -96,8 +96,10 @@ class EndToEndTest {
             assertEquals(AgentStatus.Blocked, task.state.value.status)
             task.choose(request.id, "allow")
             val done = task.state.until { s -> s.status == AgentStatus.Idle && s.transcript.any { it.isReply() } }
+            // The send time is the wall clock's, so only the rest of the prompt is compared.
+            val prompt = done.transcript.first() as? TranscriptEntry.Text
             assertTrue(
-                done.transcript.first() == TranscriptEntry.Text(Role.User, "Say hello"),
+                prompt?.atMs != null && prompt.copy(atMs = null) == TranscriptEntry.Text(Role.User, "Say hello"),
                 done.transcript.toString(),
             )
 

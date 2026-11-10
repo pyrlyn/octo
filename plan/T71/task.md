@@ -1,9 +1,9 @@
 ---
-status: todo
+status: in progress
 priority: P2
 complexity: 3
-readiness: 0%
-agent:
+readiness: 90%
+agent: Claude Code / claude-opus-5-5
 ---
 
 # T71. Message history rail in the transcript
@@ -33,3 +33,17 @@ Done means:
 
 Check: `./gradlew check` is green; the macOS app shows the rail and the card as in the Figma
 screen.
+
+## Execution plan
+
+1. `core`: `TranscriptEntry.Text.atMs`, the send time of a prompt, set from the orchestrator's clock
+   (null for replies and older history); `CoreFlags.HISTORY_RAIL` (`history-rail`).
+2. `app`/`ui`: `Octo.historyRail` → `ViewModels(historyRail = …)` → `showsHistoryRail` →
+   `TaskScreen(historyRail = …)`.
+3. `feature/task/HistoryRail.kt`: pure `historyTurns`, `currentTurn`, `tick`, `showsRail`,
+   `turnHeading`; the `HistoryRail` composable (ticks in the left gutter, `TooltipArea` with the
+   `History preview` card on `elevatedSurface`, a click scrolls the shared `LazyListState`).
+   `TaskScreen.Conversation` overlays it on the transcript pane, one layout for every OS.
+4. Tests: `HistoryRailTest`; the send time in `OrchestratorTest`; the flag in `ForkViewModelTest`.
+5. Docs: `features.md`, `configuration.md`, the flag table in `architecture.md`.
+6. `./gradlew check`; renders of the macOS shell with the rail and the card.

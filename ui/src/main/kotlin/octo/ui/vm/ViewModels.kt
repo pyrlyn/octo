@@ -81,6 +81,8 @@ class ViewModels(
     private val home: String = "",
     /** Null while the `open-in` flag is off, which hides the toolbar's "Open location" button. */
     private val opener: AppOpener? = null,
+    /** False while the `history-rail` flag is off, which leaves the transcript without its rail. */
+    private val historyRail: Boolean = false,
 ) {
     val main = MainViewModel(core, scope, startupWarnings, sections, limits = usage != null, icon = catalog::icon)
 
@@ -98,6 +100,8 @@ class ViewModels(
     val canFork: Boolean get() = fork
 
     val canMove: Boolean get() = moveTask
+
+    val showsHistoryRail: Boolean get() = historyRail
 
     val canOpenPalette: Boolean get() = palette
 
