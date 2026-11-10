@@ -156,7 +156,8 @@ fun PyrlynTheme(
         val plain = if (dark) MacColors.Dark else MacColors.Light
         // Over the window's vibrancy the grounds turn see-through; the opaque material keeps them solid.
         val mac = if (opaque) plain else plain.vibrant()
-        val fonts = remember(scale) { bundledFonts(HostCrisp.text(scale)) }
+        // The library bundles Roboto Mono; Octo keeps one monospaced face on every design.
+        val fonts = remember(scale) { bundledFonts(HostCrisp.text(scale)).copy(mono = MonoFont) }
         val type = remember(fonts) { macPyrlynType(MacType(fonts)) }
         MacTheme(mac, fonts) {
             ProvidePyrlyn(remember(mac) { macPyrlynColors(mac) }, platform, type, opaque, reducedMotion, content)

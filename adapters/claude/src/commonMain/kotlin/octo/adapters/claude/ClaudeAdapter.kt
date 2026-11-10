@@ -43,7 +43,7 @@ class ClaudeAdapter(
     override val displayName = "Claude"
     override val icon =
         AgentIcon(
-            """<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><rect width="24" height="24" rx="6" fill="#C96442"/><circle cx="12" cy="12" r="5" fill="none" stroke="#fff" stroke-width="2.5"/></svg>""",
+            """<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><rect width="24" height="24" rx="6" fill="#C96442"/><path d="M12.08 11.41L13.03 4.67M12.37 11.53L15.88 7.04M12.56 11.78L18.68 9.3M12.59 12.08L18.04 12.85M12.47 12.37L17.99 16.68M12.22 12.56L14.43 18.03M11.92 12.59L11 19.13M11.63 12.47L8.18 16.89M11.44 12.22L5.05 14.81M11.41 11.92L5.66 11.11M11.53 11.63L6.41 7.63M11.78 11.44L9.71 6.34" stroke="#F5E6DC" stroke-width="1.6" stroke-linecap="round"/></svg>""",
         )
     override val capabilities =
         setOf(

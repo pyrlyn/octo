@@ -54,5 +54,5 @@
 | Asset | Where | Source | Why here |
 | --- | --- | --- | --- |
 | IBM Plex Sans 6.4.0 (Regular, Medium, SemiBold, Bold; OFL 1.1) | `design/src/jvmMain/resources/fonts` | https://github.com/IBM/plex | UI face of the Pyrlyn Glass design |
-| JetBrains Mono 2.304 (Regular, Medium, Bold; OFL 1.1) | `design/src/jvmMain/resources/fonts` | https://github.com/JetBrains/JetBrainsMono | Code, paths and commands |
-| Inter and Roboto Mono (OFL 1.1) | via kotlin-macos | https://github.com/rsms/inter, https://github.com/googlefonts/RobotoMono | Text and code faces of the macOS design |
+| IBM Plex Mono 6.4.0 (Regular, Medium, Bold; OFL 1.1) | `design/src/jvmMain/resources/fonts` | https://github.com/IBM/plex | The one monospaced face: code, paths, commands and counters, on every design |
+| Inter and Roboto Mono (OFL 1.1) | via kotlin-macos | https://github.com/rsms/inter, https://github.com/googlefonts/RobotoMono | Inter is the text face of the macOS design; its Roboto Mono is replaced by IBM Plex Mono |
