@@ -22,7 +22,7 @@ from the adapter (`AgentAdapter.icon`), with no new icon source; the Figma row
 1. `core`: `AgentCatalog.icon(id)` reads the adapter's icon without probing the binary, so the
    sidebar does not run `--version` for every agent on each state change.
 2. `ui`: `TaskRow.icon`, filled by `MainViewModel` from the catalog. `MacSidebar` puts a `Glyph`
-   in `SidebarRow`'s `trailing` slot (kotlin-macos 0.0.4, no package change); the classic
+   in `SidebarRow`'s `trailing` slot (pyrlyn-macos 0.0.4, no package change); the classic
    `TaskRowItem` adds the same `Glyph` after the title column.
 3. Tests: the catalog's icon lookup, the row mapping, `FakeCatalog` icons; `ShellShotsTest`
    gives its sample tasks the Claude and Codex adapters' icons.

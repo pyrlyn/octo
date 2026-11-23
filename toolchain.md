@@ -9,8 +9,8 @@
 | git | system | Version control, worktrees per task | https://git-scm.com |
 | gh | brew | Repository and PRs | https://github.com/cli/cli |
 | shared-settings | `packages/shared-settings` above the build (or `SHARED_SETTINGS_DIR`), local included build | Shared ktlint, detekt and settings conventions | https://github.com/pyrlyn/packages/tree/main/shared-settings |
-| kotlin-wasm | `packages/kotlin-wasm` above the build (or `KOTLIN_WASM_DIR`), local included build | The `wasm` interface and its Chasm adapter, shared with rtok | https://github.com/pyrlyn/packages/tree/main/kotlin-wasm |
-| kotlin-macos | `packages/kotlin-macos` above the build (or `KOTLIN_MACOS_DIR`), local included build | The macOS design's tokens and components (MacOS-Pyrlyn-UI) | https://github.com/pyrlyn/packages/tree/main/kotlin-macos |
+| pyrlyn-wasm | `packages/pyrlyn-wasm` above the build (or `KOTLIN_WASM_DIR`), local included build | The `wasm` interface and its Chasm adapter, shared with rtok | https://github.com/pyrlyn/packages/tree/main/pyrlyn-wasm |
+| pyrlyn-macos | `packages/pyrlyn-macos` above the build (or `KOTLIN_MACOS_DIR`), local included build | The macOS design's tokens and components (MacOS-Pyrlyn-UI) | https://github.com/pyrlyn/packages/tree/main/pyrlyn-macos |
 | Rust (cargo, `wasm32-unknown-unknown` target) | rustup | Builds the demo plugin test fixtures (`core/src/commonTest/fixtures/plugins/build.sh`); not needed to build Octo | https://github.com/rust-lang/rust |
 | sqlite3 | system (optional) | Reads SQLite databases for the `previews` flag; without it they are not previewed | https://sqlite.org |
 | mermaid-cli (`mmdc`) | npm (optional) | Draws Mermaid diagrams for the `previews` flag; without it the source shows | https://github.com/mermaid-js/mermaid-cli |
@@ -32,8 +32,8 @@
 | Compose Hot Reload 1.2.0 (`org.jetbrains.compose.hot-reload`) | local (`app`) | https://github.com/JetBrains/compose-hot-reload | `hotRun`: reloads UI code into the running app (development only) |
 | org.jlleitschuh.gradle.ktlint 14.2.0 (ktlint 1.8.0) | via shared-settings | https://github.com/JLLeitschuh/ktlint-gradle | Formatting lint (`shared.settings.ktlint`) |
 | dev.detekt 2.0.0-alpha.6 | via shared-settings | https://github.com/detekt/detekt | Static analysis (`shared.settings.detekt`) |
-| pyrlyn.wasm:wasm | local (included build) | https://github.com/pyrlyn/packages/tree/main/kotlin-wasm | The engine-neutral WebAssembly interface the plugin loader uses |
-| pyrlyn.macos:macos | local (included build) | https://github.com/pyrlyn/packages/tree/main/kotlin-macos | The macOS look `:design` draws with on macOS |
+| pyrlyn.wasm:wasm | local (included build) | https://github.com/pyrlyn/packages/tree/main/pyrlyn-wasm | The engine-neutral WebAssembly interface the plugin loader uses |
+| pyrlyn.macos:macos | local (included build) | https://github.com/pyrlyn/packages/tree/main/pyrlyn-macos | The macOS look `:design` draws with on macOS |
 | pyrlyn.wasm:wasm-chasm (Chasm 2.3.0, `io.github.charlietap.chasm:chasm`) | local (included build) | https://github.com/CharlieTap/chasm | Runs plugins in a WebAssembly interpreter |
 | androidx.room:room-runtime 2.8.5 | local (`storage`) | https://developer.android.com/jetpack/androidx/releases/room | The ORM over `octo.db` |
 | androidx.room:room-compiler 2.8.5 | local (`storage`, KSP) | https://developer.android.com/jetpack/androidx/releases/room | Generates the database and DAO code for each target |

@@ -15,10 +15,10 @@ Check: Loader tests with a good and a broken plugin; the flag disables loading.
 ## Execution plan
 
 The creator's decisions: plugins are WebAssembly modules run by Chasm, through the `wasm`
-interface shared with rtok in [kotlin-wasm](https://github.com/pyrlyn/kotlin-wasm), which Octo
+interface shared with rtok in [pyrlyn-wasm](https://github.com/pyrlyn/packages/tree/main/pyrlyn-wasm), which Octo
 includes as a Gradle build.
 
-1. Build: include `../../packages/kotlin-wasm` (or `KOTLIN_WASM_DIR`); core depends on
+1. Build: include `../../packages/pyrlyn-wasm` (or `KOTLIN_WASM_DIR`); core depends on
    `pyrlyn.wasm:wasm`, the app and core tests on `pyrlyn.wasm:wasm-chasm`.
 2. Core, `octo.core.plugins`:
    - Octo's plugin ABI 1: the module exports `memory`, `octo_alloc(len) -> ptr`,

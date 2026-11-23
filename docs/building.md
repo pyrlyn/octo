@@ -1,8 +1,8 @@
 # Building and running
 
-Needs JDK 25 (JDK 21 too, for kotlin-wasm) and two shared builds in the workspace's `packages/`
+Needs JDK 25 (JDK 21 too, for pyrlyn-wasm) and two shared builds in the workspace's `packages/`
 (`../../packages/` from the main checkout): `shared-settings` supplies ktlint, detekt, repositories and the optional remote
-build cache; [kotlin-wasm](https://github.com/pyrlyn/packages/tree/main/kotlin-wasm) is the plugin host's
+build cache; [pyrlyn-wasm](https://github.com/pyrlyn/packages/tree/main/pyrlyn-wasm) is the plugin host's
 WebAssembly interface. Every directory above the build is searched for `packages/`, so a nested
 worktree finds them too; set `SHARED_SETTINGS_DIR` or `KOTLIN_WASM_DIR` when they live elsewhere.
 

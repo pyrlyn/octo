@@ -21,5 +21,5 @@ forward while the app is open, and survives a restart.
    is created or forked and whenever the orchestrator changes a task's status.
 2. `feature/common`: `compactAge(Duration)` — `now` under a minute, then `m`, `h`, `d`.
 3. `ui`: `TaskRow.activeAtMs`; both sidebars show the age in the row's trailing slot
-   (`SidebarRow.trailing` from kotlin-macos), recomputed every minute.
+   (`SidebarRow.trailing` from pyrlyn-macos), recomputed every minute.
 4. Tests: age formatting, the stamp on a status change, the row mapping. ktlint and detekt clean.
