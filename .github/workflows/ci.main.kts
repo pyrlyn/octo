@@ -37,7 +37,7 @@ val sharedBuilds =
 fun JobBuilder<*>.setUp() {
     uses(action = Checkout())
     // Pinned release tag; bump when octo needs newer shared builds.
-    uses(action = Checkout(repository = "pyrlyn/packages", ref = "0.0.5", path = "packages"))
+    uses(action = Checkout(repository = "pyrlyn/packages", ref = "cc286918bf40a71aa09dd5cfcf6497fc173d36de", path = "packages"))
     uses(action = SetupJava(distribution = SetupJava.Distribution.Temurin, javaVersion = "25"))
     uses(action = ActionsSetupGradle())
 }
