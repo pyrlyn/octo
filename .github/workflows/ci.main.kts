@@ -26,12 +26,12 @@ import io.github.typesafegithub.workflows.yaml.DEFAULT_CONSISTENCY_CHECK_JOB_CON
 import io.github.typesafegithub.workflows.yaml.Preamble
 
 // Shared builds from github.com/pyrlyn/packages, checked out by setUp; absolute, since the
-// included kotlin-wasm build reads the same variables relative to its own directory.
+// included pyrlyn-wasm build reads the same variables relative to its own directory.
 val sharedBuilds =
     mapOf(
         "SHARED_SETTINGS_DIR" to "\${{ github.workspace }}/packages/shared-settings",
-        "KOTLIN_WASM_DIR" to "\${{ github.workspace }}/packages/kotlin-wasm",
-        "KOTLIN_MACOS_DIR" to "\${{ github.workspace }}/packages/kotlin-macos",
+        "KOTLIN_WASM_DIR" to "\${{ github.workspace }}/packages/pyrlyn-wasm",
+        "KOTLIN_MACOS_DIR" to "\${{ github.workspace }}/packages/pyrlyn-macos",
     )
 
 fun JobBuilder<*>.setUp() {

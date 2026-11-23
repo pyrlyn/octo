@@ -19,8 +19,8 @@ pluginManagement {
     val sharedSettings = sharedBuild("shared-settings", "SHARED_SETTINGS_DIR")
     includeBuild(sharedSettings)
     includeBuild("$sharedSettings/settings-plugin")
-    extra["kotlinWasmDir"] = sharedBuild("kotlin-wasm", "KOTLIN_WASM_DIR")
-    extra["kotlinMacosDir"] = sharedBuild("kotlin-macos", "KOTLIN_MACOS_DIR")
+    extra["pyrlynWasmDir"] = sharedBuild("pyrlyn-wasm", "KOTLIN_WASM_DIR")
+    extra["pyrlynMacosDir"] = sharedBuild("pyrlyn-macos", "KOTLIN_MACOS_DIR")
 }
 
 // Repositories and the optional S3/R2 remote build cache, which stays off without its keys.
@@ -31,13 +31,13 @@ plugins {
 
 rootProject.name = "octo"
 
-// The WebAssembly interface and its Chasm adapter, shared with rtok: a checkout of kotlin-wasm
-// (github.com/pyrlyn/packages, kotlin-wasm/).
-includeBuild(extra["kotlinWasmDir"] as String)
+// The WebAssembly interface and its Chasm adapter, shared with rtok: a checkout of pyrlyn-wasm
+// (github.com/pyrlyn/packages, pyrlyn-wasm/).
+includeBuild(extra["pyrlynWasmDir"] as String)
 
-// The macOS components and tokens (MacOS-Pyrlyn-UI): a checkout of kotlin-macos
-// (github.com/pyrlyn/packages, kotlin-macos/).
-includeBuild(extra["kotlinMacosDir"] as String)
+// The macOS components and tokens (MacOS-Pyrlyn-UI): a checkout of pyrlyn-macos
+// (github.com/pyrlyn/packages, pyrlyn-macos/).
+includeBuild(extra["pyrlynMacosDir"] as String)
 
 include(
     ":core",

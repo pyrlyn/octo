@@ -21,11 +21,11 @@ Decisions the creator took:
 
 Done: with the `open-in` flag on and a local task selected, the button sits at the top right on macOS, Windows and
 Linux and opens the worktree in the chosen app; the last choice survives a restart; a remote task or no selection
-hides it; the design is in the Figma file; `./gradlew check` is green in Octo and kotlin-macos.
+hides it; the design is in the Figma file; `./gradlew check` is green in Octo and pyrlyn-macos.
 
 ## Plan
 
-1. **Package** (`kotlin-macos`): `SplitButton` (a main action and a chevron that opens a menu) and a `MenuItem`
+1. **Package** (`pyrlyn-macos`): `SplitButton` (a main action and a chevron that opens a menu) and a `MenuItem`
    with a leading image slot, with tests.
 2. **Logic** (`feature/common`, `OpenIn.kt`): an `OpenApp` catalogue per OS (macOS app bundles in the
    Applications folders; Windows and Linux commands on `PATH` and known install paths), `AppOpener` that finds the

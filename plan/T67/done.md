@@ -5,7 +5,7 @@ Linux). PR: https://github.com/pyrlyn/octo/pull/83.
 
 - `AgentCatalog.icon(id)` reads `AgentAdapter.icon` without a probe; `MainViewModel` sets
   `TaskRow.icon`; `MacSidebar` draws `Glyph` in `SidebarRow.trailing`, `TaskRowItem` after the
-  title. No new icon source and no kotlin-macos change.
+  title. No new icon source and no pyrlyn-macos change.
 - Figma `h9sViI6qnym6iDdXDZqxcq`: `Sidebar row` gained the `Agent` instance-swap property over
   six `Agent glyph/*` components drawn from the adapters' SVGs; all 144 rows are set.
 

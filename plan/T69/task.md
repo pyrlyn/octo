@@ -21,7 +21,7 @@ dot or a trailing glyph; the Figma Sidebar row and Agent logo components match.
 
 1. Adapters: replace the `AgentIcon` SVGs of claude, codex, antigravity, kimi and grok
    (24×24 tile, `rx=6`, one mark each, rendered with resvg to check).
-2. kotlin-macos (pyrlyn/packages, on the `macos-sidebar-meta` branch of #8): `SidebarRow` takes an
+2. pyrlyn-macos (pyrlyn/packages, on the `macos-sidebar-meta` branch of #8): `SidebarRow` takes an
    optional `icon`; when set, the status dot becomes a ringed badge on its bottom-right corner.
    Test: the badge sits at the icon's corner.
 3. `ui`: `MacSidebar` passes the `Glyph` as `icon` instead of `trailing`; the classic
@@ -29,4 +29,4 @@ dot or a trailing glyph; the Figma Sidebar row and Agent logo components match.
    glyph.
 4. Figma: the Agent logo set holds the new marks; the Sidebar row leads with an Agent logo
    instance and a dot badge, with an instance-swap property, set per row from its agent.
-5. Verify: `:ui:test`, ktlint, detekt, the kotlin-macos `check`.
+5. Verify: `:ui:test`, ktlint, detekt, the pyrlyn-macos `check`.

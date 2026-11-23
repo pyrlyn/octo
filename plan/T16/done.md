@@ -4,10 +4,10 @@ WebAssembly plugins behind the `plugins` flag. The engine is Chasm, through the 
 interface shared with rtok.
 
 - **Shared package.** `libs/wasm` and `libs/wasm-chasm` moved out of rtok-kotlin into a new
-  repo, [pyrlyn/kotlin-wasm](https://github.com/pyrlyn/kotlin-wasm) (package `wasm`). Octo
-  includes it as a Gradle build from `../../packages/kotlin-wasm`, or `KOTLIN_WASM_DIR`.
+  repo, [pyrlyn/pyrlyn-wasm](https://github.com/pyrlyn/packages/tree/main/pyrlyn-wasm) (package `wasm`). Octo
+  includes it as a Gradle build from `../../packages/pyrlyn-wasm`, or `KOTLIN_WASM_DIR`.
   - `readPacked` and `unpackI64` moved there as well, in
-    [pyrlyn/kotlin-wasm#1](https://github.com/pyrlyn/kotlin-wasm/pull/1).
+    [pyrlyn/pyrlyn-wasm#1](https://github.com/pyrlyn/packages/tree/main/pyrlyn-wasm/pull/1).
   - rtok's switch to the package is [pyrlyn/rtok#78](https://github.com/pyrlyn/rtok/pull/78),
     left open for the creator.
 - **Core** (`octo.core.plugins`):
@@ -30,7 +30,7 @@ interface shared with rtok.
 - **Docs.** `docs/plugins.md`, README, architecture and toolchain.
 
 The included build follows ci-diffuser's local-only decision. CI does not check out
-kotlin-wasm, just as it does not check out ci-diffuser.
+pyrlyn-wasm, just as it does not check out ci-diffuser.
 
 ## Check
 
@@ -46,7 +46,7 @@ The plugin tests run on the JVM and on macosArm64. They cover:
   already in use;
 - the view model: the actions listed, the prompt sent, the message shown, a removed task.
 
-kotlin-wasm `./gradlew check` is green (14 tests). rtok's
+pyrlyn-wasm `./gradlew check` is green (14 tests). rtok's
 `./gradlew check macosArm64Test cliTest e2eTest` is green on its PR branch.
 
 PR: https://github.com/pyrlyn/octo/pull/20

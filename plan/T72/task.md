@@ -12,7 +12,7 @@ The line under the composer (`↑ sent · ↓ received · tok/s`, shown while th
 on) was set in a proportional face, so its figures shifted width as they ticked up. The
 creator chose IBM Plex Mono for it, then asked for IBM Plex Mono as the default monospaced
 face everywhere. Octo had three: JetBrains Mono on the Pyrlyn design, Roboto Mono from
-kotlin-macos on the macOS design, and the system `Monospace` in the diff preview.
+pyrlyn-macos on the macOS design, and the system `Monospace` in the diff preview.
 
 Done means:
 

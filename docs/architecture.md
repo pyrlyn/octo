@@ -105,7 +105,7 @@ adapter, `design` depends on nothing of Octo's, and a feature depends on no othe
 - persistence;
 - the orchestrator and the internal API (`OctoCore`);
 - the plugin loader (`octo.core.plugins`), over the engine-neutral `wasm` interface from
-  kotlin-wasm; the app hands it the Chasm runtime.
+  pyrlyn-wasm; the app hands it the Chasm runtime.
 
 `commonMain` holds everything except platform implementations. `jvmMain` holds
 `JvmProcessLauncher` (`ProcessBuilder`), `JvmProcessMonitor` and the platform paths.
@@ -151,7 +151,7 @@ Linux recipes, the glass surface and the reusable components (buttons, field, sw
 control, dialog, menu, notice, table rows, meter, glyph, key cap). It knows no Octo type. Controls
 keep only their own UI state, such as an open menu; anything about tasks or agents comes in as
 parameters. Every screen draws from it, so a token or component change restyles the whole app.
-On macOS it draws with the MacOS-Pyrlyn-UI design from the shared `kotlin-macos` package instead
+On macOS it draws with the MacOS-Pyrlyn-UI design from the shared `pyrlyn-macos` package instead
 of the glass: `PyrlynTheme` fills Pyrlyn's colour and type slots from the macOS tokens, `glass`
 paints the design's flat grounds, and the kit's controls delegate to the package's components. Over
 the window's vibrancy the sidebar, toolbar and editor grounds are see-through; the opaque material
