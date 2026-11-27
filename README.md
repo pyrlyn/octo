@@ -1,4 +1,4 @@
-# Octo
+<h1><picture><source media="(prefers-color-scheme: dark)" srcset="brand/logo-dark.svg"><img src="brand/logo.svg" width="32" height="32" alt="" align="absmiddle"></picture> Octo</h1>
 
 An open, extensible desktop orchestrator for CLI coding agents. One window to run, watch and
 coordinate several agents in parallel, each in its own git worktree, using your own agent
